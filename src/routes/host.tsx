@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, useRouter } from '@tanstack/react-router';
+import { Link, createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
 import {
   getHostAuthState,
@@ -9,6 +9,8 @@ import {
   restartEnrollment,
   signOut,
 } from '../host-fns';
+import { copyProperty, createProperty, requestSetupSupport } from '../guide-fns';
+import { collectFieldErrors, propertyFields } from '../guide-validation';
 
 type PropertySummary = { id: string; displayName: string; published: boolean; createdAt: Date };
 
@@ -33,6 +35,7 @@ export const Route = createFileRoute('/host')({
 function HostPage() {
   const { state, properties } = Route.useLoaderData();
   const router = useRouter();
+  const navigate = useNavigate();
   const [factor, setFactor] = useState<{ factorId: string; secret: string | null } | null>(
     state.state === 'enroll' && state.factorId
       ? { factorId: state.factorId, secret: null }
@@ -43,6 +46,67 @@ function HostPage() {
   const [code, setCode] = useState('');
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
+  const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
+  const [createMessage, setCreateMessage] = useState('');
+  const [copyMessage, setCopyMessage] = useState('');
+  const [supportMessage, setSupportMessage] = useState('');
+
+  async function create(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const parsed = propertyFields.safeParse(Object.fromEntries(new FormData(event.currentTarget)));
+    if (!parsed.success) {
+      setCreateErrors(collectFieldErrors(parsed.error));
+      setCreateMessage('Check the highlighted fields.');
+      return;
+    }
+    setCreateErrors({});
+    setCreateMessage('');
+    setBusy(true);
+    try {
+      const result = await createProperty({ data: parsed.data });
+      if ('error' in result) {
+        setCreateMessage('Something went wrong. Try again.');
+        return;
+      }
+      await navigate({ to: '/host/properties/$propertyId', params: { propertyId: result.propertyId } });
+    } catch {
+      setCreateMessage('Something went wrong. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function duplicate(sourcePropertyId: string) {
+    setCopyMessage('');
+    setBusy(true);
+    try {
+      const result = await copyProperty({ data: { sourcePropertyId } });
+      if ('error' in result) {
+        setCopyMessage('Something went wrong. Try again.');
+        return;
+      }
+      await navigate({ to: '/host/properties/$propertyId', params: { propertyId: result.propertyId } });
+    } catch {
+      setCopyMessage('Something went wrong. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function requestSupport() {
+    setSupportMessage('');
+    setBusy(true);
+    try {
+      const result = await requestSetupSupport({ data: {} });
+      setSupportMessage(
+        'error' in result ? 'Something went wrong. Try again.' : 'Request recorded for the pilot team.',
+      );
+    } catch {
+      setSupportMessage('Something went wrong. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function startEnroll() {
     setBusy(true);
@@ -181,18 +245,93 @@ function HostPage() {
       <h1>Host workspace</h1>
       <p data-testid="host-state">workspace</p>
       <h2>Properties</h2>
+      <form onSubmit={create} noValidate data-testid="host-create-form">
+        <p>
+          <label>
+            Property name{' '}
+            <input
+              name="displayName"
+              maxLength={120}
+              required
+              aria-invalid={Boolean(createErrors.displayName)}
+              aria-describedby={createErrors.displayName ? 'create-name-error' : undefined}
+              data-testid="host-create-name"
+            />
+          </label>
+        </p>
+        {createErrors.displayName ? (
+          <p id="create-name-error" role="alert" data-testid="host-create-name-error">
+            {createErrors.displayName}
+          </p>
+        ) : null}
+        <p>
+          <label>
+            Guide language{' '}
+            <input
+              name="sourceLocale"
+              defaultValue="en"
+              maxLength={5}
+              required
+              title="Language tag like en or pt-BR"
+              aria-invalid={Boolean(createErrors.sourceLocale)}
+              aria-describedby={createErrors.sourceLocale ? 'create-locale-error' : undefined}
+              data-testid="host-create-locale"
+            />
+          </label>
+        </p>
+        {createErrors.sourceLocale ? (
+          <p id="create-locale-error" role="alert" data-testid="host-create-locale-error">
+            {createErrors.sourceLocale}
+          </p>
+        ) : null}
+        <p>
+          <button type="submit" disabled={busy} data-testid="host-create-submit">
+            Create property
+          </button>{' '}
+          <span role="status" data-testid="host-create-message">
+            {createMessage}
+          </span>
+        </p>
+      </form>
       {properties.length === 0 ? (
         <p data-testid="host-properties-empty">No properties yet.</p>
       ) : (
-        <ul data-testid="host-properties">
-          {properties.map((property: PropertySummary) => (
-            <li key={property.id} data-testid="host-property">
-              <span data-testid="host-property-name">{property.displayName}</span>{' '}
-              {property.published ? '(published)' : '(draft)'}
-            </li>
-          ))}
-        </ul>
+        <>
+          <ul data-testid="host-properties">
+            {properties.map((property: PropertySummary) => (
+              <li key={property.id} data-testid="host-property">
+                <Link
+                  to="/host/properties/$propertyId"
+                  params={{ propertyId: property.id }}
+                  data-testid="host-property-name"
+                >
+                  {property.displayName}
+                </Link>{' '}
+                <span data-testid="host-property-status">{property.published ? '(published)' : '(draft)'}</span>{' '}
+                <button
+                  type="button"
+                  onClick={() => duplicate(property.id)}
+                  disabled={busy}
+                  data-testid="host-property-copy"
+                >
+                  Make a copy
+                </button>
+              </li>
+            ))}
+          </ul>
+          <p role="status" data-testid="host-copy-message">
+            {copyMessage}
+          </p>
+        </>
       )}
+      <p>
+        <button type="button" onClick={requestSupport} disabled={busy} data-testid="host-support-request">
+          Request setup support
+        </button>{' '}
+        <span role="status" data-testid="host-support-message">
+          {supportMessage}
+        </span>
+      </p>
       <button
         type="button"
         onClick={() => removeMfa(state.totpFactorIds[0] ?? '')}

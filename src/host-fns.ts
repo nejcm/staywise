@@ -1,74 +1,18 @@
 import { createServerFn } from '@tanstack/react-start';
-import { getRequest, setResponseHeaders } from '@tanstack/react-start/server';
 import { z } from 'zod';
 import { appEnv, serverEnv } from './env.server';
 import {
   aal2Session,
-  createRequestAuth,
   getHostAuthState as readHostAuthState,
   restartTotpEnrollment,
   verifiedSession,
   type HostAuthState,
-  type RequestAuth,
 } from './auth.server';
-import { authCookieHeaders, clearSessionCookies } from './auth-cookies.server';
+import { applyAuthCookies, isGuardedMutation, requestAuth, runGuarded, type FnError } from './fn-guards.server';
 import { recordAudit } from './audit.server';
 import { sendSecurityNotice } from './mail.server';
 import { withOwnerContext } from './db.server';
 import { logEvent } from './log.server';
-
-type FnError = { error: 'auth_required' | 'invalid_input' | 'invalid_code' | 'unexpected' };
-
-// Every handler normalizes its own failures into generic results before Start's server-function
-// error handling can log or serialize them (mandatory Phase 2 error-sanitization gate).
-async function runGuarded<T>(work: () => Promise<T>): Promise<T | { error: 'unexpected' }> {
-  try {
-    return await work();
-  } catch {
-    const meta: Record<string, string | number> = { appEnv, status: 500, outcome: 'thrown' };
-    try {
-      const request = getRequest();
-      meta.method = request.method;
-      meta.path = new URL(request.url).pathname;
-    } catch {
-      // No request context (in-process call): log only the safe fields.
-    }
-    logEvent('server_error', meta);
-    return { error: 'unexpected' };
-  }
-}
-
-function isJsonRequest(): boolean {
-  try {
-    return getRequest().headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() === 'application/json';
-  } catch {
-    return false;
-  }
-}
-
-// Exact Origin check on top of the framework CSRF middleware for every app-data mutation.
-function isSameOriginRequest(): boolean {
-  try {
-    return getRequest().headers.get('origin') === serverEnv.appOrigin;
-  } catch {
-    return false;
-  }
-}
-
-function isGuardedMutation(): boolean {
-  return isJsonRequest() && isSameOriginRequest();
-}
-
-function requestAuth() {
-  return createRequestAuth(getRequest().headers.get('cookie'));
-}
-
-// clearSession deletes the request's session cookies on the response, so a signed-out or revoked
-// session cannot be replayed after the handler denies it.
-function applyAuthCookies(auth: RequestAuth, clearSession = false) {
-  const extra = clearSession ? clearSessionCookies(auth.cookieHeader) : [];
-  setResponseHeaders(authCookieHeaders([...auth.cookies, ...extra], auth.headers));
-}
 
 const emailInput = z.object({ email: z.email() });
 const mfaVerifyInput = z.object({ factorId: z.uuid(), code: z.string().regex(/^\d{6}$/) });

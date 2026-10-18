@@ -3,6 +3,7 @@ import type { SupabaseClient } from '@supabase/supabase-js';
 import { serverEnv } from './env.server';
 import { authCookieHeaders, clearCodeVerifierCookies, type AuthCookie } from './auth-cookies.server';
 import { recordAudit } from './audit.server';
+import { recordSetupEvent } from './setup-events.server';
 
 export type RequestAuth = {
   client: SupabaseClient;
@@ -114,5 +115,6 @@ export async function completeAuthCallback(request: Request): Promise<Response> 
   const headers = authCookieHeaders([...auth.cookies, ...clearCodeVerifierCookies(cookieHeader)], auth.headers);
   headers.set('Location', userId ? '/host' : '/auth/sign-in?status=restart');
   await recordAudit(userId, userId ? 'sign_in' : 'callback_failure');
+  if (userId) await recordSetupEvent(userId, 'sign_in');
   return new Response(null, { status: 303, headers });
 }

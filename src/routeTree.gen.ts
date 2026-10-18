@@ -13,6 +13,8 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as HostRouteImport } from './routes/host'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AuthSignInRouteImport } from './routes/auth.sign-in'
+import { Route as HostPreviewPropertyIdRouteImport } from './routes/host_.preview.$propertyId'
+import { Route as HostPropertiesPropertyIdRouteImport } from './routes/host_.properties.$propertyId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -34,18 +36,33 @@ const AuthSignInRoute = AuthSignInRouteImport.update({
   path: '/auth/sign-in',
   getParentRoute: () => rootRouteImport,
 } as any)
+const HostPreviewPropertyIdRoute = HostPreviewPropertyIdRouteImport.update({
+  id: '/host_/preview/$propertyId',
+  path: '/host/preview/$propertyId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HostPropertiesPropertyIdRoute =
+  HostPropertiesPropertyIdRouteImport.update({
+    id: '/host_/properties/$propertyId',
+    path: '/host/properties/$propertyId',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/host': typeof HostRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
+  '/host/preview/$propertyId': typeof HostPreviewPropertyIdRoute
+  '/host/properties/$propertyId': typeof HostPropertiesPropertyIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/host': typeof HostRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
+  '/host/preview/$propertyId': typeof HostPreviewPropertyIdRoute
+  '/host/properties/$propertyId': typeof HostPropertiesPropertyIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -53,13 +70,34 @@ export interface FileRoutesById {
   '/host': typeof HostRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
+  '/host_/preview/$propertyId': typeof HostPreviewPropertyIdRoute
+  '/host_/properties/$propertyId': typeof HostPropertiesPropertyIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/host' | '/auth/callback' | '/auth/sign-in'
+  fullPaths:
+    | '/'
+    | '/host'
+    | '/auth/callback'
+    | '/auth/sign-in'
+    | '/host/preview/$propertyId'
+    | '/host/properties/$propertyId'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/host' | '/auth/callback' | '/auth/sign-in'
-  id: '__root__' | '/' | '/host' | '/auth/callback' | '/auth/sign-in'
+  to:
+    | '/'
+    | '/host'
+    | '/auth/callback'
+    | '/auth/sign-in'
+    | '/host/preview/$propertyId'
+    | '/host/properties/$propertyId'
+  id:
+    | '__root__'
+    | '/'
+    | '/host'
+    | '/auth/callback'
+    | '/auth/sign-in'
+    | '/host_/preview/$propertyId'
+    | '/host_/properties/$propertyId'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -67,6 +105,8 @@ export interface RootRouteChildren {
   HostRoute: typeof HostRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthSignInRoute: typeof AuthSignInRoute
+  HostPreviewPropertyIdRoute: typeof HostPreviewPropertyIdRoute
+  HostPropertiesPropertyIdRoute: typeof HostPropertiesPropertyIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -99,6 +139,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSignInRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/host_/preview/$propertyId': {
+      id: '/host_/preview/$propertyId'
+      path: '/host/preview/$propertyId'
+      fullPath: '/host/preview/$propertyId'
+      preLoaderRoute: typeof HostPreviewPropertyIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/host_/properties/$propertyId': {
+      id: '/host_/properties/$propertyId'
+      path: '/host/properties/$propertyId'
+      fullPath: '/host/properties/$propertyId'
+      preLoaderRoute: typeof HostPropertiesPropertyIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -107,6 +161,8 @@ const rootRouteChildren: RootRouteChildren = {
   HostRoute: HostRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthSignInRoute: AuthSignInRoute,
+  HostPreviewPropertyIdRoute: HostPreviewPropertyIdRoute,
+  HostPropertiesPropertyIdRoute: HostPropertiesPropertyIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
