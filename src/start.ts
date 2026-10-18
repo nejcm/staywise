@@ -5,16 +5,21 @@ import { securityHeaders } from './security-headers.server';
 
 const csrfMiddleware = createCsrfMiddleware({ filter: (ctx) => ctx.handlerType === 'serverFn' });
 
-function applyBaselineHeaders(response: Response, requestId: string) {
+function applyBaselineHeaders(response: Response, requestId: string, noStore: boolean) {
   for (const [name, value] of Object.entries(securityHeaders)) {
     response.headers.set(name, value);
   }
   response.headers.set('X-Request-Id', requestId);
+  if (noStore) {
+    response.headers.set('Cache-Control', 'private, no-store');
+  }
 }
 
 const baselineMiddleware = createMiddleware().server(async ({ next, request }) => {
   const requestId = request.headers.get('x-nf-request-id') ?? crypto.randomUUID();
   const path = new URL(request.url).pathname;
+  // Signed-in host pages and auth endpoints must never be cached by shared caches.
+  const noStore = path === '/host' || path.startsWith('/host/') || path.startsWith('/auth/');
   let result: Awaited<ReturnType<typeof next>>;
   try {
     result = await next();
@@ -24,12 +29,12 @@ const baselineMiddleware = createMiddleware().server(async ({ next, request }) =
       throw error;
     }
     const response = new Response(null, { status: 500 });
-    applyBaselineHeaders(response, requestId);
+    applyBaselineHeaders(response, requestId, noStore);
     logEvent('server_error', { requestId, appEnv, method: request.method, path, status: 500, outcome: 'thrown' });
     return response;
   }
 
-  applyBaselineHeaders(result.response, requestId);
+  applyBaselineHeaders(result.response, requestId, noStore);
   if (result.response.status >= 500) {
     logEvent('server_error', {
       requestId,

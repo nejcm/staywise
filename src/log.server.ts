@@ -1,4 +1,4 @@
-const eventNames = ['server_error'] as const;
+const eventNames = ['server_error', 'audit_write_failed', 'mail_send_failed', 'otp_send_failed'] as const;
 const fieldNames = ['requestId', 'appEnv', 'method', 'path', 'status', 'outcome'] as const;
 
 export type LogEvent = (typeof eventNames)[number];

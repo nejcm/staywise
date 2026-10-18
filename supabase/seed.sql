@@ -1,0 +1,1 @@
+-- No seed data: host accounts are created by invitation through Supabase Auth, never seeded.
