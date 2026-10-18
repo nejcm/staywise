@@ -1,0 +1,11 @@
+{
+  "$schema": "./node_modules/oxfmt/configuration_schema.json",
+  "semi": true,
+  "singleQuote": true,
+  "tabWidth": 2,
+  "endOfLine": "lf",
+  "printWidth": 120,
+  "trailingComma": "all",
+  "arrowParens": "always",
+  "ignorePatterns": ["dist/**", ".netlify/**", "src/routeTree.gen.ts", "**/*.md"]
+}
