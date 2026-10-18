@@ -15,6 +15,7 @@ const localEnv: ServerEnv = {
   smtpUrl: 'smtp://127.0.0.1:54325',
   smtpFrom: 'staywise@example.test',
   appOrigin: 'http://localhost:3000',
+  shareHmacKey: 'synthetic-share-hmac-key-not-for-use',
 };
 
 describe('dbClientOptions', () => {

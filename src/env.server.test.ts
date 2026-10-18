@@ -28,6 +28,7 @@ function remoteEnv(appDbUrl: string): Record<string, string> {
     SMTP_URL: 'smtp://mail.example.test:587',
     SMTP_FROM: 'hosts@example.test',
     APP_ORIGIN: 'https://app.example.test',
+    SHARE_HMAC_KEY: 'synthetic-remote-share-hmac-key-0123456789',
   };
 }
 
@@ -72,5 +73,16 @@ describe('parseServerEnv', () => {
     ]) {
       expect(() => parseServerEnv(remoteEnv(appDbUrl))).toThrow(/sslrootcert/);
     }
+  });
+
+  it('requires a long explicit SHARE_HMAC_KEY outside APP_ENV=local', () => {
+    const appDbUrl =
+      'postgresql://user:pass@db.example.test:5432/postgres?sslmode=verify-full&sslrootcert=/etc/staywise/db-root-ca.pem';
+    const explicit = { ...remoteEnv(appDbUrl), SHARE_HMAC_KEY: 'short' };
+    expect(() => parseServerEnv(explicit)).toThrow(/SHARE_HMAC_KEY/);
+    const missing = { ...remoteEnv(appDbUrl) };
+    delete (missing as Record<string, string | undefined>).SHARE_HMAC_KEY;
+    expect(() => parseServerEnv(missing)).toThrow(/SHARE_HMAC_KEY/);
+    expect(parseServerEnv(remoteEnv(appDbUrl)).shareHmacKey).toBe('synthetic-remote-share-hmac-key-0123456789');
   });
 });

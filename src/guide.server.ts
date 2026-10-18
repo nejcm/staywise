@@ -1,5 +1,5 @@
 import type postgres from 'postgres';
-import { z } from 'zod';
+import { canonicalInput } from './canonical-input.server';
 import {
   copyPropertyInput,
   createSectionInput,
@@ -141,14 +141,6 @@ export async function readGuestGuide(
     order by display_order, created_at, id
   `;
   return { guest: toGuestGuideDto(property, rows), guidePublished: property.published };
-}
-
-// Canonical writes validate with the shared schemas; HTTP handlers parse first only to surface
-// field-level errors, so direct callers cannot store input the HTTP boundary would reject.
-function canonicalInput<T>(schema: z.ZodType<T>, value: unknown): T {
-  const parsed = schema.safeParse(value);
-  if (!parsed.success) throw new Error('invalid_input');
-  return parsed.data;
 }
 
 export async function insertProperty(

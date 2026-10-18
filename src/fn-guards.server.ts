@@ -1,6 +1,6 @@
 import { getRequest, setResponseHeaders } from '@tanstack/react-start/server';
 import { appEnv, serverEnv } from './env.server';
-import { createRequestAuth, type RequestAuth } from './auth.server';
+import { aal2Session, createRequestAuth, type RequestAuth, type VerifiedSession } from './auth.server';
 import { authCookieHeaders, clearSessionCookies } from './auth-cookies.server';
 import { logEvent } from './log.server';
 
@@ -55,4 +55,14 @@ export function requestAuth() {
 export function applyAuthCookies(auth: RequestAuth, clearSession = false) {
   const extra = clearSession ? clearSessionCookies(auth.cookieHeader) : [];
   setResponseHeaders(authCookieHeaders([...auth.cookies, ...extra], auth.headers));
+}
+
+// One gate for every host handler: live session plus AAL2; only a revoked session is cleared, so
+// a valid AAL1 session can still finish the step-up.
+export async function aal2Host(): Promise<VerifiedSession | FnError> {
+  const auth = requestAuth();
+  const gate = await aal2Session(auth.client);
+  applyAuthCookies(auth, gate.outcome === 'invalid');
+  if (gate.outcome !== 'ok') return { error: 'auth_required' };
+  return gate.session;
 }

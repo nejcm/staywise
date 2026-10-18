@@ -1,5 +1,6 @@
 import { Link, createFileRoute, redirect, useRouter } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
+import { encode } from 'uqr';
 import { getHostAuthState } from '../host-fns';
 import {
   createSection,
@@ -9,6 +10,8 @@ import {
   saveSection,
   setGuidePublished,
 } from '../guide-fns';
+import { createGuestLink, disableGuestLink, getGuestLink, rotateGuestLink } from '../share-fns';
+import type { ShareLinkState } from '../share.server';
 import {
   collectFieldErrors,
   createSectionInput,
@@ -34,7 +37,8 @@ export const Route = createFileRoute('/host_/properties/$propertyId')({
     if ('error' in result) {
       throw redirect({ to: '/host' });
     }
-    return { editor: result.editor };
+    const share = await getGuestLink({ data: { propertyId: params.propertyId } });
+    return { editor: result.editor, share: 'error' in share ? null : share.share };
   },
   component: PropertyEditorPage,
 });
@@ -43,7 +47,7 @@ type EditorProperty = GuideEditorData['property'];
 type EditorSection = GuideEditorData['sections'][number];
 
 function PropertyEditorPage() {
-  const { editor } = Route.useLoaderData();
+  const { editor, share } = Route.useLoaderData();
   return (
     <main key={editor.property.id}>
       <p>
@@ -53,6 +57,7 @@ function PropertyEditorPage() {
       </p>
       <h1 data-testid="editor-property-name">{editor.property.displayName}</h1>
       <GuidePublish propertyId={editor.property.id} published={editor.property.published} />
+      <GuestLinkPanel propertyId={editor.property.id} share={share} />
       <PropertyForm property={editor.property} />
       <p>
         <Link
@@ -117,6 +122,140 @@ function GuidePublish({ propertyId, published }: { propertyId: string; published
         {message}
       </span>
     </p>
+  );
+}
+
+function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: ShareLinkState | null }) {
+  const router = useRouter();
+  const [issued, setIssued] = useState<{ shareId: string; secret: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+
+  // The raw secret exists in this component state and the one issuance response only; a reload
+  // cannot show it again, so the database never holds a replayable capability.
+  const url = issued ? `${window.location.origin}/g/${issued.shareId}#${issued.secret}` : null;
+
+  async function run(action: 'create' | 'rotate' | 'disable') {
+    setBusy(true);
+    setMessage('');
+    try {
+      const result =
+        action === 'create'
+          ? await createGuestLink({ data: { propertyId } })
+          : action === 'rotate'
+            ? await rotateGuestLink({ data: { propertyId } })
+            : await disableGuestLink({ data: { propertyId } });
+      if ('error' in result) {
+        setMessage('Something went wrong. Try again.');
+        return;
+      }
+      if ('secret' in result) {
+        setIssued({ shareId: result.shareId, secret: result.secret });
+        setMessage('New guest link ready. Share it now — for security it is never shown again.');
+      } else {
+        setIssued(null);
+        setMessage('Guest link disabled. Guests can no longer open the guide.');
+      }
+      await router.invalidate();
+    } catch {
+      setMessage('Something went wrong. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copy(value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setMessage('Link copied.');
+    } catch {
+      setMessage('Copy failed. Select the link text and copy it manually.');
+    }
+  }
+
+  return (
+    <section data-testid="guest-link-panel">
+      <h2>Guest link</h2>
+      <p data-testid="guest-link-status">
+        {share?.link
+          ? `Active link issued ${new Date(share.link.createdAt).toLocaleDateString()}.`
+          : 'No active guest link.'}
+      </p>
+      {share && !share.guidePublished ? (
+        <p data-testid="guest-link-unpublished">
+          Guests can open the link, but they only see the guide once you publish it.
+        </p>
+      ) : null}
+      <p>
+        {share?.link ? (
+          <>
+            <button type="button" onClick={() => void run('rotate')} disabled={busy} data-testid="guest-link-rotate">
+              Rotate link
+            </button>{' '}
+            <button type="button" onClick={() => void run('disable')} disabled={busy} data-testid="guest-link-disable">
+              Disable link
+            </button>
+          </>
+        ) : (
+          <button type="button" onClick={() => void run('create')} disabled={busy} data-testid="guest-link-create">
+            Create guest link
+          </button>
+        )}
+      </p>
+      {url ? (
+        <div data-testid="guest-link-issued">
+          <p>
+            Rotating creates a new link and immediately stops the old one, including any guest who already opened it.
+          </p>
+          <p>
+            <input readOnly value={url} aria-label="Guest link" data-testid="guest-link-url" />
+          </p>
+          <p>
+            <button type="button" onClick={() => void copy(url)} data-testid="guest-link-copy">
+              Copy link
+            </button>
+          </p>
+          <QrSvg value={url} />
+        </div>
+      ) : null}
+      <p role="status" data-testid="guest-link-message">
+        {message}
+      </p>
+    </section>
+  );
+}
+
+// QR SVG is generated in the browser from the one-time secret, so the server-rendered HTML never
+// carries the capability; runs of dark modules keep the path compact.
+function QrSvg({ value }: { value: string }) {
+  const { data } = encode(value, { ecc: 'M', border: 4 });
+  const size = data.length;
+  const runs: string[] = [];
+  data.forEach((row, y) => {
+    let x = 0;
+    while (x < size) {
+      if (!row[x]) {
+        x += 1;
+        continue;
+      }
+      let length = 1;
+      while (x + length < size && row[x + length]) length += 1;
+      runs.push(`M${x} ${y}h${length}v1h-${length}z`);
+      x += length;
+    }
+  });
+  return (
+    <svg
+      className="guest-qr"
+      viewBox={`0 0 ${size} ${size}`}
+      role="img"
+      aria-label="QR code for the guest link"
+      shapeRendering="crispEdges"
+      data-testid="guest-qr"
+    >
+      <rect width={size} height={size} fill="#ffffff" />
+      <path d={runs.join('')} fill="#000000" />
+    </svg>
   );
 }
 

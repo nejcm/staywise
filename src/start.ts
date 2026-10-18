@@ -18,8 +18,13 @@ function applyBaselineHeaders(response: Response, requestId: string, noStore: bo
 const baselineMiddleware = createMiddleware().server(async ({ next, request }) => {
   const requestId = request.headers.get('x-nf-request-id') ?? crypto.randomUUID();
   const path = new URL(request.url).pathname;
-  // Signed-in host pages and auth endpoints must never be cached by shared caches.
-  const noStore = path === '/host' || path.startsWith('/host/') || path.startsWith('/auth/');
+  // Signed-in host pages, auth endpoints, and guest pages must never be cached by shared caches.
+  const noStore =
+    path === '/host' ||
+    path.startsWith('/host/') ||
+    path.startsWith('/auth/') ||
+    path === '/g' ||
+    path.startsWith('/g/');
   let result: Awaited<ReturnType<typeof next>>;
   try {
     result = await next();

@@ -4,6 +4,7 @@ import { execFileSync } from 'node:child_process';
 import crypto from 'node:crypto';
 import { readdirSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
+import { createServerClient } from '@supabase/ssr';
 import postgres from 'postgres';
 import { fromCrossJSON, toJSON } from 'seroval';
 
@@ -189,3 +190,28 @@ export const migrationFiles = readdirSync(fileURLToPath(new URL('../supabase/mig
   .filter((name) => name.endsWith('.sql'))
   .sort()
   .map((name) => fileURLToPath(new URL(`../supabase/migrations/${name}`, import.meta.url)));
+
+// A signed-in, AAL2-verified host: real Admin API invite, real password sign-in, real TOTP step-up.
+export type VerifiedHost = { userId: string; email: string; jar: Jar };
+
+export async function verifiedHost(local: LocalStack, label: string): Promise<VerifiedHost> {
+  const email = `synthetic-${label}-${Date.now()}@example.test`;
+  const userId = await adminClient(local).createUser(email, SYNTHETIC_PASSWORD);
+  const jar = memoryJar();
+  const client = createServerClient(local.apiUrl, local.anonKey, {
+    cookies: { getAll: jar.getAll, setAll: jar.setAll },
+  });
+  const signIn = await client.auth.signInWithPassword({ email, password: SYNTHETIC_PASSWORD });
+  if (signIn.error) throw new Error('synthetic sign-in failed');
+  const enrolled = decode<{ factorId: string; secret: string }>(
+    await fnCall(HOST_FNS, 'mfaEnroll', { jar, data: {} }),
+  )?.result;
+  const verified = decode<{ ok?: boolean }>(
+    await fnCall(HOST_FNS, 'mfaVerify', {
+      jar,
+      data: { factorId: enrolled?.factorId, code: totp(enrolled?.secret ?? '') },
+    }),
+  )?.result;
+  if (!verified?.ok) throw new Error('synthetic step-up failed');
+  return { userId, email, jar };
+}

@@ -22,6 +22,7 @@ const localDefaults: Record<string, string> = {
   SMTP_URL: 'smtp://127.0.0.1:54325',
   APP_ORIGIN: 'http://localhost:3000',
   SMTP_FROM: 'staywise@example.test',
+  SHARE_HMAC_KEY: 'staywise-local-synthetic-share-hmac-key',
 };
 
 export type ServerEnv = {
@@ -33,6 +34,7 @@ export type ServerEnv = {
   smtpUrl: string;
   smtpFrom: string;
   appOrigin: string;
+  shareHmacKey: string;
 };
 
 // Outside APP_ENV=local the connection must declare verify-full TLS against the project root CA;
@@ -81,6 +83,8 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     smtpUrl: parseValue(env, 'SMTP_URL', appEnv, z.url()),
     smtpFrom: parseValue(env, 'SMTP_FROM', appEnv, z.email()),
     appOrigin: parseValue(env, 'APP_ORIGIN', appEnv, z.url()),
+    // Key for share-secret and guest-session HMACs; never leaves the server.
+    shareHmacKey: parseValue(env, 'SHARE_HMAC_KEY', appEnv, z.string().min(32)),
   };
 }
 

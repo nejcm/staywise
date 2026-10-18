@@ -41,3 +41,16 @@ export async function withOwnerContext<T>(
   });
   return result as T;
 }
+
+// Transaction-local guest link context: RLS then exposes only the link's own row and its
+// validation-scoped property, never the host's owner-scoped view.
+export async function withLinkContext<T>(
+  linkId: string,
+  work: (tx: postgres.TransactionSql) => Promise<T>,
+): Promise<T> {
+  const result = await sql.begin(async (tx) => {
+    await tx`select set_config('app.link_id', ${linkId}, true)`;
+    return work(tx);
+  });
+  return result as T;
+}

@@ -27,11 +27,10 @@ import {
   detectLocalStack,
   fnCall,
   localAdmin,
-  memoryJar,
   quoteLiteral,
-  totp,
-  type Jar,
+  verifiedHost,
   type LocalStack,
+  type VerifiedHost,
 } from './integration-helpers';
 
 const localStack = detectLocalStack();
@@ -63,25 +62,6 @@ afterAll(async () => {
 
 const guideFn = (name: string, options?: Parameters<typeof fnCall>[2]) => fnCall(GUIDE_FNS, name, options);
 const hostFn = (name: string, options?: Parameters<typeof fnCall>[2]) => fnCall(HOST_FNS, name, options);
-
-type VerifiedHost = { userId: string; email: string; jar: Jar };
-
-async function verifiedHost(local: LocalStack, label: string): Promise<VerifiedHost> {
-  const email = `guide-${label}-${Date.now()}@example.test`;
-  const userId = await adminClient(local).createUser(email, SYNTHETIC_PASSWORD);
-  const jar = memoryJar();
-  const client = createServerClient(local.apiUrl, local.anonKey, {
-    cookies: { getAll: jar.getAll, setAll: jar.setAll },
-  });
-  const signIn = await client.auth.signInWithPassword({ email, password: SYNTHETIC_PASSWORD });
-  if (signIn.error) throw new Error('synthetic sign-in failed');
-  const enrolled = decode<{ factorId: string; secret: string }>(await hostFn('mfaEnroll', { jar, data: {} }))?.result;
-  const verified = decode<{ ok?: boolean }>(
-    await hostFn('mfaVerify', { jar, data: { factorId: enrolled?.factorId, code: totp(enrolled?.secret ?? '') } }),
-  )?.result;
-  if (!verified?.ok) throw new Error('synthetic step-up failed');
-  return { userId, email, jar };
-}
 
 async function createProperty(host: VerifiedHost): Promise<string> {
   const created = decode<{ propertyId: string }>(

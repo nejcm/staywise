@@ -1,0 +1,103 @@
+:root {
+  color-scheme: light;
+}
+
+body {
+  margin: 0;
+  font-family: system-ui, -apple-system, 'Segoe UI', sans-serif;
+  line-height: 1.5;
+  color: #14181c;
+  background: #f6f7f9;
+}
+
+.guest {
+  max-width: 40rem;
+  margin: 0 auto;
+  padding: 1rem 1rem 2.5rem;
+}
+
+.guest-label {
+  margin: 0;
+  font-size: 0.75rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4b5563;
+}
+
+.guest h1 {
+  font-size: 1.4rem;
+  margin: 0.15rem 0 0;
+  overflow-wrap: break-word;
+}
+
+.guest nav {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.guest nav a {
+  flex: 1;
+  padding: 0.6rem 0.25rem;
+  text-align: center;
+  text-decoration: none;
+  color: #14181c;
+  background: #fff;
+  border: 1px solid #ccd2d9;
+  border-radius: 0.6rem;
+}
+
+.guest nav a[aria-current='page'] {
+  color: #fff;
+  background: #14181c;
+  border-color: #14181c;
+}
+
+.guest-card {
+  margin: 1rem 0;
+  padding: 1rem;
+  background: #fff;
+  border: 1px solid #dde1e6;
+  border-radius: 0.75rem;
+}
+
+.guest-card h3 {
+  margin: 0 0 0.35rem;
+  font-size: 1.05rem;
+}
+
+.guest-category {
+  margin: 0;
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: #4b5563;
+}
+
+.guest-body {
+  margin: 0;
+  white-space: pre-line;
+  overflow-wrap: break-word;
+}
+
+.guest a,
+.guest button {
+  color: #1d4ed8;
+}
+
+.guest a:focus-visible,
+.guest button:focus-visible {
+  outline: 3px solid #1d4ed8;
+  outline-offset: 2px;
+}
+
+.guest-qr {
+  display: block;
+  width: 100%;
+  max-width: 15rem;
+  height: auto;
+  padding: 0.5rem;
+  background: #fff;
+  border: 1px solid #dde1e6;
+  border-radius: 0.5rem;
+}

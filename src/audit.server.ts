@@ -4,7 +4,17 @@ import { withOwnerContext } from './db.server';
 import { appEnv } from './env.server';
 import { logEvent } from './log.server';
 
-const auditActions = ['sign_in', 'callback_failure', 'mfa_enrolled', 'mfa_unenrolled', 'publish', 'unpublish'] as const;
+const auditActions = [
+  'sign_in',
+  'callback_failure',
+  'mfa_enrolled',
+  'mfa_unenrolled',
+  'publish',
+  'unpublish',
+  'link_created',
+  'link_rotated',
+  'link_disabled',
+] as const;
 export type AuditAction = (typeof auditActions)[number];
 
 // Same-transaction audit append for security-critical writes: a failure must abort the caller so

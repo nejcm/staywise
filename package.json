@@ -13,7 +13,7 @@
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "test": "vitest run",
-    "test:local": "vitest run src/security.integration.test.ts src/guide.integration.test.ts",
+    "test:local": "vitest run src/security.integration.test.ts src/guide.integration.test.ts src/guest.integration.test.ts",
     "knip": "knip",
     "audit": "bun audit --audit-level=moderate",
     "verify": "bun run typecheck && bun run lint && bun run format:check && bun run test && bun run knip",
@@ -31,6 +31,7 @@
     "postgres": "3.4.9",
     "react": "19.3.1",
     "react-dom": "19.3.1",
+    "uqr": "0.1.3",
     "zod": "4.6.7"
   },
   "devDependencies": {

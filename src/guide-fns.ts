@@ -1,6 +1,5 @@
 import { createServerFn } from '@tanstack/react-start';
-import { aal2Session, type VerifiedSession } from './auth.server';
-import { applyAuthCookies, isGuardedMutation, requestAuth, runGuarded, type FnError } from './fn-guards.server';
+import { aal2Host, isGuardedMutation, runGuarded, type FnError } from './fn-guards.server';
 import { insertAudit } from './audit.server';
 import { withOwnerContext } from './db.server';
 import { recordSetupEvent } from './setup-events.server';
@@ -26,16 +25,6 @@ import {
   updateProperty,
   updateSection,
 } from './guide.server';
-
-// One gate for every host guide handler: live session plus AAL2; only a revoked session is cleared
-// so a valid AAL1 session can still finish the step-up.
-async function aal2Host(): Promise<VerifiedSession | FnError> {
-  const auth = requestAuth();
-  const gate = await aal2Session(auth.client);
-  applyAuthCookies(auth, gate.outcome === 'invalid');
-  if (gate.outcome !== 'ok') return { error: 'auth_required' };
-  return gate.session;
-}
 
 export const createProperty = createServerFn({ method: 'POST' })
   .validator((value: unknown) => value as { displayName: string; sourceLocale: string })
