@@ -101,3 +101,33 @@ body {
   border: 1px solid #dde1e6;
   border-radius: 0.5rem;
 }
+
+.guest-locales {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.15rem 0.35rem;
+  margin: 0.5rem 0 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.85rem;
+}
+
+.guest-locales a {
+  display: inline-block;
+  padding: 0.35rem 0.5rem;
+}
+
+.guest-locales a[aria-current='true'] {
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.guest-fallback {
+  margin: 0.5rem 0 0;
+  font-size: 0.8rem;
+  color: #4b5563;
+}
+
+[data-testid='section-translations'] fieldset {
+  margin-top: 0.75rem;
+}

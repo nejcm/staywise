@@ -26,16 +26,25 @@ export const sectionCategoryLabels: Record<SectionCategory, string> = {
   local_tips: 'Local tips',
 };
 
+// Approved guest UI languages for the pilot; the guest dictionaries and the database checks are
+// generated from this list, so a locale cannot be enabled without resources behind it.
+export const guestLocales = ['en', 'de', 'sl'] as const;
+export type GuestLocale = (typeof guestLocales)[number];
+export const guestLocaleSchema = z.enum(guestLocales, 'Choose an approved guest language');
+
+const enabledLocalesSchema = z
+  .array(guestLocaleSchema)
+  .max(3, 'Enable at most three guest languages')
+  .transform((values) => [...new Set(values)].sort());
+
 export const propertyFields = z.object({
   displayName: z
     .string()
     .trim()
     .min(1, 'Enter a property name')
     .max(120, 'Property name must be 120 characters or fewer'),
-  sourceLocale: z
-    .string()
-    .trim()
-    .regex(/^[a-z]{2}(-[A-Z]{2})?$/, 'Use a language tag like en or pt-BR'),
+  sourceLocale: guestLocaleSchema,
+  enabledLocales: enabledLocalesSchema.default([]),
 });
 
 const sectionFieldsShape = {
@@ -72,6 +81,38 @@ export const moveSectionInput = z.object({
   direction: z.enum(['up', 'down']),
 });
 export const propertyIdInput = z.object({ propertyId: z.uuid() });
+export const previewGuideInput = z.object({ propertyId: z.uuid(), locale: z.string().max(16).optional() });
+
+// C0 controls other than tab, newline, and carriage return are never legitimate in prose or
+// provider output and would corrupt rendering, logs, and comparisons.
+export function hasControlCharacters(value: string): boolean {
+  for (const char of value) {
+    const code = char.codePointAt(0) ?? 0;
+    if (code === 0x7f || (code < 0x20 && code !== 0x09 && code !== 0x0a && code !== 0x0d)) return true;
+  }
+  return false;
+}
+
+const translatedText = (max: number, message: string) =>
+  z
+    .string()
+    .trim()
+    .min(1, 'Enter the translated text')
+    .max(max, message)
+    .refine((value) => !hasControlCharacters(value), 'Remove control characters');
+
+export const translationInput = z.object({ propertyId: z.uuid(), translationId: z.uuid() });
+export const translatedTitleSchema = z
+  .string()
+  .trim()
+  .min(1, 'Enter the translated title')
+  .max(400, 'Translated title must be 400 characters or fewer')
+  .refine((value) => !hasControlCharacters(value), 'Remove control characters');
+export const translatedBodySchema = translatedText(16000, 'Translated text must be 16000 characters or fewer');
+export const approveTranslationInput = translationInput.extend({
+  title: translatedTitleSchema,
+  body: translatedBodySchema,
+});
 
 // Field-level error map for native form rendering; the first message per field wins.
 export function collectFieldErrors(error: z.ZodError): Record<string, string> {

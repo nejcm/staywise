@@ -16,8 +16,25 @@ import {
 // API and PMS workers later): call it inside withOwnerContext; RLS enforces ownership and the
 // transaction-local owner is the only identity used for inserts.
 
+export type GuideTranslation = {
+  id: string;
+  locale: string;
+  title: string;
+  body: string;
+  state: 'draft' | 'approved';
+  sourceRevision: number;
+  stale: boolean;
+  reviewedAt: string | null;
+};
+
 export type GuideEditorData = {
-  property: { id: string; displayName: string; sourceLocale: string; published: boolean };
+  property: {
+    id: string;
+    displayName: string;
+    sourceLocale: string;
+    enabledLocales: string[];
+    published: boolean;
+  };
   sections: {
     id: string;
     category: SectionCategory;
@@ -28,22 +45,28 @@ export type GuideEditorData = {
     displayOrder: number;
     sourceRevision: number;
     published: boolean;
+    translations: GuideTranslation[];
   }[];
 };
 
 export type GuestGuideDto = {
   displayName: string;
   sourceLocale: string;
-  sections: { category: SectionCategory; title: string; body: string }[];
+  locale: string;
+  locales: string[];
+  sections: { category: SectionCategory; title: string; body: string; fallback: boolean }[];
 };
 
 export type GuestGuideRow = {
+  id: string;
   category: string;
   title: string;
   body: string;
   visibility: string;
   published: boolean;
   display_order: number;
+  translated_title?: string | null;
+  translated_body?: string | null;
 };
 
 export type SectionWrite = {
@@ -59,17 +82,41 @@ export type SectionWrite = {
 
 // Explicit allowlist for everything guests receive: published guest prose in display order; host
 // notes, drafts, and secret values are dropped even if a caller passes rows that carry them.
+// A translated title/body is used only for a non-source locale; otherwise the row falls back to
+// the source text and is flagged so the page can label the fallback. The locale is normalized
+// against the property's available locales here, so a caller cannot request an unapproved one.
 export function toGuestGuideDto(
-  property: { display_name: string; source_locale: string },
+  property: { display_name: string; source_locale: string; enabled_locales: string[] },
   rows: GuestGuideRow[],
+  locale: string,
 ): GuestGuideDto {
+  const sourceLocale = property.source_locale;
+  const locales = [...new Set([sourceLocale, ...property.enabled_locales])].sort();
+  const served = locales.includes(locale) ? locale : sourceLocale;
   return {
     displayName: property.display_name,
-    sourceLocale: property.source_locale,
+    sourceLocale,
+    locale: served,
+    locales,
     sections: rows
       .filter((row) => row.published && row.visibility === 'guest')
       .sort((a, b) => a.display_order - b.display_order)
-      .map((row) => ({ category: row.category as SectionCategory, title: row.title, body: row.body })),
+      .map((row) => {
+        const translated = served !== sourceLocale && row.translated_title != null && row.translated_body != null;
+        return translated
+          ? {
+              category: row.category as SectionCategory,
+              title: row.translated_title!,
+              body: row.translated_body!,
+              fallback: false,
+            }
+          : {
+              category: row.category as SectionCategory,
+              title: row.title,
+              body: row.body,
+              fallback: served !== sourceLocale,
+            };
+      }),
   };
 }
 
@@ -82,8 +129,10 @@ export async function readGuideEditor(
   tx: postgres.TransactionSql,
   propertyId: string,
 ): Promise<GuideEditorData | null> {
-  const [property] = await tx<{ id: string; display_name: string; source_locale: string; published: boolean }[]>`
-    select id, display_name, source_locale, published from app.properties where id = ${propertyId}
+  const [property] = await tx<
+    { id: string; display_name: string; source_locale: string; enabled_locales: string[]; published: boolean }[]
+  >`
+    select id, display_name, source_locale, enabled_locales, published from app.properties where id = ${propertyId}
   `;
   if (!property) return null;
   const sections = await tx<
@@ -104,11 +153,49 @@ export async function readGuideEditor(
     where property_id = ${propertyId}
     order by display_order, created_at, id
   `;
+  const translations = await tx<
+    {
+      id: string;
+      section_id: string;
+      locale: string;
+      title: string;
+      body: string;
+      state: string;
+      source_revision: number;
+      stale: boolean;
+      reviewed_at: Date | null;
+    }[]
+  >`
+    select t.id, t.section_id, t.locale, t.title, t.body, t.state, t.source_revision,
+      (t.source_revision is distinct from s.source_revision or t.source_locale is distinct from p.source_locale) as stale,
+      t.reviewed_at
+    from app.guide_translations t
+    join app.guide_sections s on s.id = t.section_id
+    join app.properties p on p.id = s.property_id
+    where s.property_id = ${propertyId}
+    order by t.locale, t.created_at
+  `;
+  const bySection = new Map<string, GuideTranslation[]>();
+  for (const row of translations) {
+    const list = bySection.get(row.section_id) ?? [];
+    list.push({
+      id: row.id,
+      locale: row.locale,
+      title: row.title,
+      body: row.body,
+      state: row.state as 'draft' | 'approved',
+      sourceRevision: row.source_revision,
+      stale: row.stale,
+      reviewedAt: row.reviewed_at ? row.reviewed_at.toISOString() : null,
+    });
+    bySection.set(row.section_id, list);
+  }
   return {
     property: {
       id: property.id,
       displayName: property.display_name,
       sourceLocale: property.source_locale,
+      enabledLocales: property.enabled_locales,
       published: property.published,
     },
     sections: sections.map((section) => ({
@@ -121,6 +208,7 @@ export async function readGuideEditor(
       displayOrder: section.display_order,
       sourceRevision: section.source_revision,
       published: section.published,
+      translations: bySection.get(section.id) ?? [],
     })),
   };
 }
@@ -128,29 +216,44 @@ export async function readGuideEditor(
 export async function readGuestGuide(
   tx: postgres.TransactionSql,
   propertyId: string,
+  locale: string | null,
 ): Promise<{ guest: GuestGuideDto; guidePublished: boolean } | null> {
-  const [property] = await tx<{ display_name: string; source_locale: string; published: boolean }[]>`
-    select display_name, source_locale, published from app.properties where id = ${propertyId}
+  const [property] = await tx<
+    { display_name: string; source_locale: string; enabled_locales: string[]; published: boolean }[]
+  >`
+    select display_name, source_locale, enabled_locales, published from app.properties where id = ${propertyId}
   `;
   if (!property) return null;
-  // The query already restricts to guest-published rows; toGuestGuideDto allowlists again.
+  // Approved translations bound to the live revision and source language join in; anything else
+  // stays null and the section is served in the source language with a fallback flag. The query
+  // repeats the guest RLS conditions so the host preview shows exactly what guests would see.
   const rows = await tx<GuestGuideRow[]>`
-    select category, title, body, visibility, published, display_order
-    from app.guide_sections
-    where property_id = ${propertyId} and published and visibility = 'guest'
-    order by display_order, created_at, id
+    select s.id, s.category, s.title, s.body, s.visibility, s.published, s.display_order,
+      t.title as translated_title, t.body as translated_body
+    from app.guide_sections s
+    left join app.guide_translations t
+      on t.section_id = s.id
+      and t.locale = ${locale}
+      and t.state = 'approved'
+      and t.source_revision = s.source_revision
+      and t.source_locale = ${property.source_locale}
+    where s.property_id = ${propertyId} and s.published and s.visibility = 'guest'
+    order by s.display_order, s.created_at, s.id
   `;
-  return { guest: toGuestGuideDto(property, rows), guidePublished: property.published };
+  return {
+    guest: toGuestGuideDto(property, rows, locale ?? property.source_locale),
+    guidePublished: property.published,
+  };
 }
 
 export async function insertProperty(
   tx: postgres.TransactionSql,
-  input: { displayName: string; sourceLocale: string },
+  input: { displayName: string; sourceLocale: string; enabledLocales: string[] },
 ): Promise<string> {
   const parsed = canonicalInput(propertyFields, input);
   const [row] = await tx<{ id: string }[]>`
-    insert into app.properties (owner_id, display_name, source_locale)
-    values (app.current_owner_id(), ${parsed.displayName}, ${parsed.sourceLocale})
+    insert into app.properties (owner_id, display_name, source_locale, enabled_locales)
+    values (app.current_owner_id(), ${parsed.displayName}, ${parsed.sourceLocale}, ${parsed.enabledLocales})
     returning id
   `;
   return row.id;
@@ -158,12 +261,13 @@ export async function insertProperty(
 
 export async function updateProperty(
   tx: postgres.TransactionSql,
-  input: { propertyId: string; displayName: string; sourceLocale: string },
+  input: { propertyId: string; displayName: string; sourceLocale: string; enabledLocales: string[] },
 ): Promise<boolean> {
   const parsed = canonicalInput(savePropertyInput, input);
   const rows = await tx`
     update app.properties
-    set display_name = ${parsed.displayName}, source_locale = ${parsed.sourceLocale}, updated_at = now()
+    set display_name = ${parsed.displayName}, source_locale = ${parsed.sourceLocale},
+      enabled_locales = ${parsed.enabledLocales}, updated_at = now()
     where id = ${parsed.propertyId}
     returning id
   `;
@@ -192,8 +296,9 @@ export async function insertCopy(tx: postgres.TransactionSql, sourcePropertyId: 
   if (!source) return null;
   const name = `${source.display_name} (copy)`.slice(0, 120);
   const [created] = await tx<{ id: string }[]>`
-    insert into app.properties (owner_id, display_name, source_locale, timezone)
-    select owner_id, ${name}, source_locale, timezone from app.properties where id = ${parsed.sourcePropertyId}
+    insert into app.properties (owner_id, display_name, source_locale, timezone, enabled_locales)
+    select owner_id, ${name}, source_locale, timezone, enabled_locales
+    from app.properties where id = ${parsed.sourcePropertyId}
     returning id
   `;
   if (!created) return null;
@@ -235,7 +340,8 @@ export async function updateSection(tx: postgres.TransactionSql, input: SectionW
       secret_value = case when ${parsed.visibility} = 'host' then ${parsed.secretValue === '' ? null : parsed.secretValue} else null end,
       published = case when ${parsed.visibility} = 'host' then published else ${parsed.published} end,
       source_revision = source_revision
-        + case when visibility = 'guest' and (title is distinct from ${parsed.title} or body is distinct from ${parsed.body}) then 1 else 0 end,
+        + case when (title, body, category, visibility)
+            is distinct from (${parsed.title}, ${parsed.body}, ${parsed.category}, ${parsed.visibility}) then 1 else 0 end,
       updated_at = now()
     where id = ${parsed.sectionId} and property_id = ${parsed.propertyId}
     returning id

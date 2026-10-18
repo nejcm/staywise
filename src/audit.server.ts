@@ -14,6 +14,9 @@ const auditActions = [
   'link_created',
   'link_rotated',
   'link_disabled',
+  'translation_generated',
+  'translation_approved',
+  'translation_rejected',
 ] as const;
 export type AuditAction = (typeof auditActions)[number];
 

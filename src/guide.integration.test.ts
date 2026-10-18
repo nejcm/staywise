@@ -117,7 +117,13 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
 
       const beforePublish = await guideFn('getGuestPreview', { jar: host.jar, data: { propertyId } });
       expect(decode(beforePublish)?.result).toEqual({
-        guest: { displayName: 'Synthetic renamed villa', sourceLocale: 'en', sections: [] },
+        guest: {
+          displayName: 'Synthetic renamed villa',
+          sourceLocale: 'en',
+          locale: 'en',
+          locales: ['en'],
+          sections: [],
+        },
         guidePublished: false,
       });
 
@@ -142,7 +148,9 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
         guest: {
           displayName: 'Synthetic renamed villa',
           sourceLocale: 'en',
-          sections: [{ category: 'wifi', title: 'Synthetic Wi-Fi', body: 'SYNTHETIC-DRAFT-BODY' }],
+          locale: 'en',
+          locales: ['en'],
+          sections: [{ category: 'wifi', title: 'Synthetic Wi-Fi', body: 'SYNTHETIC-DRAFT-BODY', fallback: false }],
         },
         guidePublished: false,
       });
@@ -516,10 +524,12 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
       const sectionId = await createSection(host, propertyId, 'wifi');
       const invalidCalls = [
         () =>
-          withOwnerContext(host.userId, (tx) => insertProperty(tx, { displayName: '', sourceLocale: 'not a locale' })),
+          withOwnerContext(host.userId, (tx) =>
+            insertProperty(tx, { displayName: '', sourceLocale: 'not a locale', enabledLocales: [] }),
+          ),
         () =>
           withOwnerContext(host.userId, (tx) =>
-            updateProperty(tx, { propertyId, displayName: '', sourceLocale: 'en' }),
+            updateProperty(tx, { propertyId, displayName: '', sourceLocale: 'en', enabledLocales: [] }),
           ),
         () =>
           withOwnerContext(host.userId, (tx) =>

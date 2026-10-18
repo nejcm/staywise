@@ -11,10 +11,13 @@ import {
   setGuidePublished,
 } from '../guide-fns';
 import { createGuestLink, disableGuestLink, getGuestLink, rotateGuestLink } from '../share-fns';
+import { approveGuideTranslation, generateGuideTranslations, rejectGuideTranslation } from '../translation-fns';
 import type { ShareLinkState } from '../share.server';
 import {
+  approveTranslationInput,
   collectFieldErrors,
   createSectionInput,
+  guestLocales,
   propertyFields,
   sectionCategories,
   sectionCategoryLabels,
@@ -22,7 +25,8 @@ import {
   type SectionCategory,
   type SectionVisibility,
 } from '../guide-validation';
-import type { GuideEditorData } from '../guide.server';
+import { languageNames } from '../guest-ui';
+import type { GuideEditorData, GuideTranslation } from '../guide.server';
 
 export const Route = createFileRoute('/host_/properties/$propertyId')({
   loader: async ({ params }) => {
@@ -45,6 +49,12 @@ export const Route = createFileRoute('/host_/properties/$propertyId')({
 
 type EditorProperty = GuideEditorData['property'];
 type EditorSection = GuideEditorData['sections'][number];
+type EditorTranslation = GuideTranslation;
+type GuestLocaleOption = (typeof guestLocales)[number];
+
+function localeName(code: string): string {
+  return languageNames[code as GuestLocaleOption] ?? code;
+}
 
 function PropertyEditorPage() {
   const { editor, share } = Route.useLoaderData();
@@ -58,6 +68,7 @@ function PropertyEditorPage() {
       <h1 data-testid="editor-property-name">{editor.property.displayName}</h1>
       <GuidePublish propertyId={editor.property.id} published={editor.property.published} />
       <GuestLinkPanel propertyId={editor.property.id} share={share} />
+      <TranslationPanel property={editor.property} sections={editor.sections} />
       <PropertyForm property={editor.property} />
       <p>
         <Link
@@ -261,13 +272,19 @@ function QrSvg({ value }: { value: string }) {
 
 function PropertyForm({ property }: { property: EditorProperty }) {
   const router = useRouter();
+  const [sourceLocale, setSourceLocale] = useState(property.sourceLocale);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const parsed = propertyFields.safeParse(Object.fromEntries(new FormData(event.currentTarget)));
+    const formData = new FormData(event.currentTarget);
+    const parsed = propertyFields.safeParse({
+      displayName: formData.get('displayName'),
+      sourceLocale: formData.get('sourceLocale'),
+      enabledLocales: formData.getAll('enabledLocales').map(String),
+    });
     if (!parsed.success) {
       setErrors(collectFieldErrors(parsed.error));
       setMessage('Check the highlighted fields.');
@@ -315,16 +332,20 @@ function PropertyForm({ property }: { property: EditorProperty }) {
       <p>
         <label>
           Guide language{' '}
-          <input
+          <select
             name="sourceLocale"
-            defaultValue={property.sourceLocale}
-            maxLength={5}
-            required
-            title="Language tag like en or pt-BR"
+            value={sourceLocale}
+            onChange={(event) => setSourceLocale(event.target.value)}
             aria-invalid={Boolean(errors.sourceLocale)}
             aria-describedby={errors.sourceLocale ? 'property-locale-error' : undefined}
             data-testid="property-locale"
-          />
+          >
+            {guestLocales.map((code) => (
+              <option key={code} value={code}>
+                {languageNames[code]}
+              </option>
+            ))}
+          </select>
         </label>
       </p>
       {errors.sourceLocale ? (
@@ -332,6 +353,30 @@ function PropertyForm({ property }: { property: EditorProperty }) {
           {errors.sourceLocale}
         </p>
       ) : null}
+      <fieldset key={sourceLocale} data-testid="property-locales">
+        <legend>Guest languages</legend>
+        <p>
+          Guests always read the guide in {languageNames[sourceLocale as GuestLocaleOption]} (the source language). Tick
+          any other languages you want stored translations for; nothing is sent to a translation provider until you
+          press Generate translations.
+        </p>
+        {guestLocales
+          .filter((code) => code !== sourceLocale)
+          .map((code) => (
+            <p key={code}>
+              <label>
+                <input
+                  type="checkbox"
+                  name="enabledLocales"
+                  value={code}
+                  defaultChecked={property.enabledLocales.includes(code)}
+                  data-testid={`property-enabled-${code}`}
+                />{' '}
+                {languageNames[code]}
+              </label>
+            </p>
+          ))}
+      </fieldset>
       <p>
         <button type="submit" disabled={busy} data-testid="property-save">
           Save property
@@ -522,6 +567,232 @@ function SectionForm({
           {message}
         </p>
       </form>
+      <TranslationBlocks propertyId={propertyId} translations={section.translations} />
+    </section>
+  );
+}
+
+// Stored translations for one source section: drafts are edited and approved here, approved rows
+// are shown as guests would read them, and a revision mismatch is labelled stale and cannot be
+// approved (the canonical write re-checks the same condition).
+function TranslationBlocks({ propertyId, translations }: { propertyId: string; translations: EditorTranslation[] }) {
+  if (translations.length === 0) return null;
+  return (
+    <div data-testid="section-translations">
+      {translations.map((translation) => (
+        <TranslationBlock key={translation.id} propertyId={propertyId} translation={translation} />
+      ))}
+    </div>
+  );
+}
+
+function TranslationBlock({ propertyId, translation }: { propertyId: string; translation: EditorTranslation }) {
+  const router = useRouter();
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const [message, setMessage] = useState('');
+  const [busy, setBusy] = useState(false);
+  const locale = translation.locale;
+
+  async function approve(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const values = Object.fromEntries(new FormData(event.currentTarget));
+    const parsed = approveTranslationInput.safeParse({
+      propertyId,
+      translationId: translation.id,
+      title: values.title,
+      body: values.body,
+    });
+    if (!parsed.success) {
+      setErrors(collectFieldErrors(parsed.error));
+      setMessage('Check the highlighted fields.');
+      return;
+    }
+    setErrors({});
+    setBusy(true);
+    setMessage('');
+    try {
+      const result = await approveGuideTranslation({ data: parsed.data });
+      if ('error' in result) {
+        setMessage('Could not approve; if the source text changed meanwhile, generate the translation again.');
+        return;
+      }
+      setMessage('Translation approved.');
+      await router.invalidate();
+    } catch {
+      setMessage('Something went wrong. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function reject() {
+    setBusy(true);
+    setMessage('');
+    try {
+      const result = await rejectGuideTranslation({ data: { propertyId, translationId: translation.id } });
+      if ('error' in result) {
+        setMessage('Could not remove the draft. Try again.');
+        return;
+      }
+      setMessage('Draft removed.');
+      await router.invalidate();
+    } catch {
+      setMessage('Something went wrong. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <fieldset data-testid={`translation-${locale}`}>
+      <legend>
+        {localeName(locale)} — {translation.state === 'approved' ? 'approved' : 'draft'}
+        {translation.stale ? ' · source changed' : ''}
+      </legend>
+      {translation.stale ? (
+        <p role="alert" data-testid={`translation-stale-${locale}`}>
+          The source text changed after this translation. Generate translations again before guests can see it.
+        </p>
+      ) : null}
+      {translation.state === 'draft' ? (
+        <form onSubmit={approve} noValidate>
+          <p>
+            <label>
+              Title{' '}
+              <input
+                name="title"
+                defaultValue={translation.title}
+                maxLength={400}
+                required
+                aria-invalid={Boolean(errors.title)}
+                aria-describedby={errors.title ? `translation-title-error-${translation.id}` : undefined}
+                data-testid={`translation-title-${locale}`}
+              />
+            </label>
+          </p>
+          {errors.title ? (
+            <p id={`translation-title-error-${translation.id}`} role="alert" data-testid="translation-title-error">
+              {errors.title}
+            </p>
+          ) : null}
+          <p>
+            <label>
+              Text{' '}
+              <textarea
+                name="body"
+                defaultValue={translation.body}
+                maxLength={16000}
+                rows={5}
+                aria-invalid={Boolean(errors.body)}
+                aria-describedby={errors.body ? `translation-body-error-${translation.id}` : undefined}
+                data-testid={`translation-body-${locale}`}
+              />
+            </label>
+          </p>
+          {errors.body ? (
+            <p id={`translation-body-error-${translation.id}`} role="alert" data-testid="translation-body-error">
+              {errors.body}
+            </p>
+          ) : null}
+          <p>
+            <button type="submit" disabled={busy || translation.stale} data-testid={`translation-approve-${locale}`}>
+              Approve translation
+            </button>{' '}
+            <button type="button" onClick={reject} disabled={busy} data-testid={`translation-reject-${locale}`}>
+              Reject draft
+            </button>
+          </p>
+        </form>
+      ) : (
+        <div>
+          <h4 data-testid={`translation-approved-title-${locale}`}>{translation.title}</h4>
+          <p data-testid={`translation-approved-body-${locale}`}>{translation.body}</p>
+        </div>
+      )}
+      <p role="status" data-testid={`translation-status-${locale}`}>
+        {message}
+      </p>
+    </fieldset>
+  );
+}
+
+// One explicit host action asks the provider for drafts of every changed eligible section; the
+// guest pages never call a provider and only ever read approved current rows.
+function TranslationPanel({ property, sections }: { property: EditorProperty; sections: EditorSection[] }) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const targets = property.enabledLocales.filter((code) => code !== property.sourceLocale);
+
+  async function generate() {
+    setBusy(true);
+    setMessage('');
+    try {
+      const result = await generateGuideTranslations({ data: { propertyId: property.id } });
+      if ('error' in result) {
+        setMessage('Something went wrong. Try again.');
+        return;
+      }
+      if (result.state === 'blocked') {
+        const labels = result.sectionIds
+          .map((id) => sections.find((section) => section.id === id))
+          .filter((section) => section !== undefined)
+          .map((section) => sectionCategoryLabels[section.category]);
+        setMessage(
+          `Nothing was sent: these sections look like they contain secrets or contact details — ${labels.join(
+            ', ',
+          )}. Edit them, then generate again.`,
+        );
+        return;
+      }
+      if (result.state === 'provider_unavailable') {
+        setMessage('Translation is not available right now, and nothing was sent.');
+        return;
+      }
+      if (result.state === 'generated') {
+        setMessage(
+          result.generated === 0
+            ? 'Every enabled language is already translated for the current source text.'
+            : `Generated ${result.generated} draft translation${result.generated === 1 ? '' : 's'}. Review each one under its section.`,
+        );
+        await router.invalidate();
+        return;
+      }
+      setMessage('Enable a guest language first, then generate.');
+    } catch {
+      setMessage('Something went wrong. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section data-testid="translation-panel">
+      <h2>Translations</h2>
+      <p data-testid="translation-status">
+        {targets.length === 0
+          ? 'No guest languages enabled yet: guests read the source language only.'
+          : `Enabled guest languages: ${targets.map((code) => localeName(code)).join(', ')}. Source language: ${localeName(
+              property.sourceLocale,
+            )}.`}
+      </p>
+      <p>
+        Drafts are generated by Google Cloud Translation (EU) and stay invisible to guests until you approve them under
+        each section.
+      </p>
+      <p>
+        <button
+          type="button"
+          onClick={generate}
+          disabled={busy || targets.length === 0}
+          data-testid="translation-generate"
+        >
+          Generate translations
+        </button>
+      </p>
+      <p role="status" data-testid="translation-message">
+        {message}
+      </p>
     </section>
   );
 }

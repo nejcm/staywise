@@ -25,6 +25,8 @@ const localDefaults: Record<string, string> = {
   SHARE_HMAC_KEY: 'staywise-local-synthetic-share-hmac-key',
 };
 
+export type GoogleTranslateCredentials = { clientEmail: string; privateKey: string; projectId: string };
+
 export type ServerEnv = {
   appEnv: AppEnv;
   supabaseUrl: string;
@@ -35,6 +37,8 @@ export type ServerEnv = {
   smtpFrom: string;
   appOrigin: string;
   shareHmacKey: string;
+  // Absent means translation egress is not configured; a malformed value fails closed at boot.
+  googleTranslateServiceAccount: GoogleTranslateCredentials | null;
 };
 
 // Outside APP_ENV=local the connection must declare verify-full TLS against the project root CA;
@@ -85,6 +89,30 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     appOrigin: parseValue(env, 'APP_ORIGIN', appEnv, z.url()),
     // Key for share-secret and guest-session HMACs; never leaves the server.
     shareHmacKey: parseValue(env, 'SHARE_HMAC_KEY', appEnv, z.string().min(32)),
+    googleTranslateServiceAccount: parseGoogleTranslateServiceAccount(env.GOOGLE_TRANSLATE_SERVICE_ACCOUNT),
+  };
+}
+
+// Translation egress stays off until the documented provider gate is passed and the service
+// account is injected; anything malformed throws instead of silently disabling the feature.
+function parseGoogleTranslateServiceAccount(raw: string | undefined): GoogleTranslateCredentials | null {
+  if (raw === undefined || raw.trim() === '') return null;
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    throw new Error('GOOGLE_TRANSLATE_SERVICE_ACCOUNT must be service account JSON');
+  }
+  const account = z
+    .object({ client_email: z.email(), private_key: z.string().min(1), project_id: z.string().min(1) })
+    .safeParse(parsed);
+  if (!account.success) {
+    throw new Error('GOOGLE_TRANSLATE_SERVICE_ACCOUNT is missing client_email, private_key, or project_id');
+  }
+  return {
+    clientEmail: account.data.client_email,
+    privateKey: account.data.private_key,
+    projectId: account.data.project_id,
   };
 }
 

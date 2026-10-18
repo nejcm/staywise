@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  approveTranslationInput,
   collectFieldErrors,
   createSectionInput,
   propertyFields,
@@ -17,16 +18,49 @@ const validSection = {
 };
 
 describe('propertyFields', () => {
-  it('trims names and accepts a language tag', () => {
-    const parsed = propertyFields.safeParse({ displayName: '  Synthetic villa  ', sourceLocale: 'pt-BR' });
-    expect(parsed.success && parsed.data).toEqual({ displayName: 'Synthetic villa', sourceLocale: 'pt-BR' });
+  it('trims names, accepts an approved language, and defaults to no enabled targets', () => {
+    const parsed = propertyFields.safeParse({ displayName: '  Synthetic villa  ', sourceLocale: 'de' });
+    expect(parsed.success && parsed.data).toEqual({
+      displayName: 'Synthetic villa',
+      sourceLocale: 'de',
+      enabledLocales: [],
+    });
   });
 
-  it('rejects empty names, oversized names, and non-tag locales', () => {
+  it('rejects empty names, oversized names, and locales without guest resources', () => {
     expect(propertyFields.safeParse({ displayName: '   ', sourceLocale: 'en' }).success).toBe(false);
     expect(propertyFields.safeParse({ displayName: 'x'.repeat(121), sourceLocale: 'en' }).success).toBe(false);
     expect(propertyFields.safeParse({ displayName: 'Villa', sourceLocale: 'english' }).success).toBe(false);
+    expect(propertyFields.safeParse({ displayName: 'Villa', sourceLocale: 'pt-BR' }).success).toBe(false);
     expect(propertyFields.safeParse({ displayName: 'Villa', sourceLocale: 'EN' }).success).toBe(false);
+  });
+
+  it('normalizes enabled locales to a sorted unique subset of the approved languages', () => {
+    const parsed = propertyFields.safeParse({
+      displayName: 'Villa',
+      sourceLocale: 'en',
+      enabledLocales: ['sl', 'de', 'sl'],
+    });
+    expect(parsed.success && parsed.data.enabledLocales).toEqual(['de', 'sl']);
+    expect(
+      propertyFields.safeParse({ displayName: 'Villa', sourceLocale: 'en', enabledLocales: ['de', 'fr'] }).success,
+    ).toBe(false);
+    expect(
+      propertyFields.safeParse({ displayName: 'Villa', sourceLocale: 'en', enabledLocales: ['de', 'sl', 'de', 'sl'] })
+        .success,
+    ).toBe(false);
+  });
+});
+
+describe('approveTranslationInput', () => {
+  const approval = { propertyId: crypto.randomUUID(), translationId: crypto.randomUUID(), title: 'WLAN', body: 'Text' };
+
+  it('accepts translated prose and rejects empty, oversized, or control-laden text', () => {
+    expect(approveTranslationInput.safeParse(approval).success).toBe(true);
+    expect(approveTranslationInput.safeParse({ ...approval, title: '  ' }).success).toBe(false);
+    expect(approveTranslationInput.safeParse({ ...approval, body: 'x'.repeat(16001) }).success).toBe(false);
+    expect(approveTranslationInput.safeParse({ ...approval, body: 'ok\u0000bad' }).success).toBe(false);
+    expect(approveTranslationInput.safeParse({ ...approval, translationId: 'not-a-uuid' }).success).toBe(false);
   });
 });
 

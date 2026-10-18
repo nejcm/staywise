@@ -20,7 +20,7 @@ const secretSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
 const digestSchema = z.instanceof(Buffer).refine((value) => value.length === 32, { message: 'sha256 digest expected' });
 const shareLinkInput = z.object({ propertyId: z.uuid(), id: shareIdSchema, hmac: digestSchema });
 export const exchangeGuestLinkInput = z.object({ shareId: shareIdSchema, secret: secretSchema });
-export const guestPageInput = z.object({ shareId: shareIdSchema });
+export const guestPageInput = z.object({ shareId: shareIdSchema, locale: z.string().max(16).optional() });
 
 export type ShareLinkState = {
   link: { id: string; createdAt: string } | null;
@@ -160,8 +160,12 @@ export async function exchangeGuestLink(input: { shareId: string; secret: string
 
 // Every guest read revalidates the session against the still-enabled link in one transaction; a
 // disabled or rotated link denies uniformly, even for a session captured while it was live.
-export async function readGuestPage(input: { shareId: string; sessionToken: string | null }): Promise<GuestPage> {
-  const parsed = canonicalInput(guestPageInput, { shareId: input.shareId });
+export async function readGuestPage(input: {
+  shareId: string;
+  sessionToken: string | null;
+  locale?: string;
+}): Promise<GuestPage> {
+  const parsed = canonicalInput(guestPageInput, { shareId: input.shareId, locale: input.locale });
   const token = input.sessionToken ? secretSchema.safeParse(input.sessionToken) : null;
   if (!token?.success) return denied;
   return withLinkContext(parsed.shareId, async (tx) => {
@@ -176,7 +180,7 @@ export async function readGuestPage(input: { shareId: string; sessionToken: stri
     if (session.length !== 1) return denied;
     // Capability and session are both live; scope the rest of the read to the link's property.
     await tx`select set_config('app.link_property_id', ${link.property_id}, true)`;
-    const guide = await readGuestGuide(tx, link.property_id);
+    const guide = await readGuestGuide(tx, link.property_id, parsed.locale ?? null);
     if (!guide?.guidePublished) return denied;
     return { state: 'guide', guest: guide.guest } as const;
   });

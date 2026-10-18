@@ -7,6 +7,7 @@ import {
   copyPropertyInput,
   createSectionInput,
   moveSectionInput,
+  previewGuideInput,
   propertyFields,
   propertyIdInput,
   savePropertyInput,
@@ -27,7 +28,7 @@ import {
 } from './guide.server';
 
 export const createProperty = createServerFn({ method: 'POST' })
-  .validator((value: unknown) => value as { displayName: string; sourceLocale: string })
+  .validator((value: unknown) => value as { displayName: string; sourceLocale: string; enabledLocales?: string[] })
   .handler(async ({ data }) =>
     runGuarded(async () => {
       if (!isGuardedMutation()) return { error: 'invalid_input' } satisfies FnError;
@@ -58,7 +59,10 @@ export const copyProperty = createServerFn({ method: 'POST' })
   );
 
 export const saveProperty = createServerFn({ method: 'POST' })
-  .validator((value: unknown) => value as { propertyId: string; displayName: string; sourceLocale: string })
+  .validator(
+    (value: unknown) =>
+      value as { propertyId: string; displayName: string; sourceLocale: string; enabledLocales?: string[] },
+  )
   .handler(async ({ data }) =>
     runGuarded(async () => {
       if (!isGuardedMutation()) return { error: 'invalid_input' } satisfies FnError;
@@ -174,15 +178,18 @@ export const getPropertyEditor = createServerFn({ method: 'POST' })
   );
 
 export const getGuestPreview = createServerFn({ method: 'POST' })
-  .validator((value: unknown) => value as { propertyId: string })
+  .validator((value: unknown) => value as { propertyId: string; locale?: string })
   .handler(async ({ data }) =>
     runGuarded(async () => {
-      // Same SSR-loader reasoning as getPropertyEditor: reads skip the mutation guard.
-      const input = propertyIdInput.safeParse(data);
+      // Same SSR-loader reasoning as getPropertyEditor: reads skip the mutation guard. The
+      // canonical read normalizes the requested locale against the property's enabled set.
+      const input = previewGuideInput.safeParse(data);
       if (!input.success) return { error: 'invalid_input' } satisfies FnError;
       const host = await aal2Host();
       if ('error' in host) return host;
-      const preview = await withOwnerContext(host.userId, (tx) => readGuestGuide(tx, input.data.propertyId));
+      const preview = await withOwnerContext(host.userId, (tx) =>
+        readGuestGuide(tx, input.data.propertyId, input.data.locale ?? null),
+      );
       if (!preview) return { error: 'invalid_input' } satisfies FnError;
       return preview;
     }),
