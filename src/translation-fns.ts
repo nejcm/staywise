@@ -24,7 +24,10 @@ export const generateGuideTranslations = createServerFn({ method: 'POST' })
   );
 
 export const approveGuideTranslation = createServerFn({ method: 'POST' })
-  .validator((value: unknown) => value as { propertyId: string; translationId: string; title: string; body: string })
+  .validator(
+    (value: unknown) =>
+      value as { propertyId: string; translationId: string; sourceRevision: number; title: string; body: string },
+  )
   .handler(async ({ data }) =>
     runGuarded(async () => {
       if (!isGuardedMutation()) return { error: 'invalid_input' } satisfies FnError;

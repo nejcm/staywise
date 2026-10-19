@@ -26,6 +26,7 @@ import {
 } from './integration-helpers';
 import { duplicateWindowMinutes } from './message-validation';
 import { duplicateFingerprint, messageRateFingerprints, type InboxMessage } from './messages.server';
+import { GUEST_EXCHANGES_PER_HOUR } from './share.server';
 
 const localStack = detectLocalStack();
 const localDbUp = await detectLocalDb();
@@ -542,11 +543,17 @@ describeLocal('guest message intake and host inbox against the local stack', () 
         where key_hash = ${fingerprints.session} and window_start = ${utcWindow(3600)}
       `;
       expect(sessionWindow?.count).toBe(6);
+      // The session denial stops there, so one flooding session cannot spend the wider quotas.
+      const [linkWindow] = await admin<{ count: number }[]>`
+        select count from app.rate_limits
+        where key_hash = ${fingerprints.link} and window_start = ${utcWindow(3600)}
+      `;
+      expect(linkWindow?.count).toBe(5);
       const [propertyWindow] = await admin<{ count: number }[]>`
         select count from app.rate_limits
         where key_hash = ${fingerprints.property} and window_start = ${utcWindow(86_400)}
       `;
-      expect(propertyWindow?.count).toBe(6);
+      expect(propertyWindow?.count).toBe(5);
     } finally {
       await admin.end({ timeout: 0 });
       await adminClient(local).deleteUser(host.userId);
@@ -830,6 +837,28 @@ describeLocal('guest message intake and host inbox against the local stack', () 
       await adminClient(local).deleteUser(host.userId);
     }
   }, 180_000);
+
+  it('caps session exchanges per link hour, counting only matching secrets', async () => {
+    const local = localStack as LocalStack;
+    const { host, propertyId } = await publishedProperty();
+    try {
+      const link = await createLink(host, propertyId);
+      const wrongSecret = 'A'.repeat(43);
+      for (let attempt = 0; attempt < 3; attempt += 1) {
+        expect((await exchange(link.shareId, wrongSecret)).status).toBe(403);
+      }
+      for (let attempt = 0; attempt < GUEST_EXCHANGES_PER_HOUR; attempt += 1) {
+        expect((await exchange(link.shareId, link.secret)).status).toBe(200);
+      }
+      const capped = await exchange(link.shareId, link.secret);
+      expect(capped.status).toBe(403);
+      expect(capped.setCookies.some((value) => value.startsWith('sw_guest='))).toBe(false);
+      // Rotation is the host's way out: the new link has its own window.
+      await sessionFor(await rotateLink(host, propertyId));
+    } finally {
+      await adminClient(local).deleteUser(host.userId);
+    }
+  }, 120_000);
 
   it('closes the property day window at its cap and drops stale rate windows', async () => {
     const local = localStack as LocalStack;

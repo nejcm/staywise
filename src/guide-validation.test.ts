@@ -53,7 +53,13 @@ describe('propertyFields', () => {
 });
 
 describe('approveTranslationInput', () => {
-  const approval = { propertyId: crypto.randomUUID(), translationId: crypto.randomUUID(), title: 'WLAN', body: 'Text' };
+  const approval = {
+    propertyId: crypto.randomUUID(),
+    translationId: crypto.randomUUID(),
+    sourceRevision: 1,
+    title: 'WLAN',
+    body: 'Text',
+  };
 
   it('accepts translated prose and rejects empty, oversized, or control-laden text', () => {
     expect(approveTranslationInput.safeParse(approval).success).toBe(true);
@@ -61,6 +67,7 @@ describe('approveTranslationInput', () => {
     expect(approveTranslationInput.safeParse({ ...approval, body: 'x'.repeat(16001) }).success).toBe(false);
     expect(approveTranslationInput.safeParse({ ...approval, body: 'ok\u0000bad' }).success).toBe(false);
     expect(approveTranslationInput.safeParse({ ...approval, translationId: 'not-a-uuid' }).success).toBe(false);
+    expect(approveTranslationInput.safeParse({ ...approval, sourceRevision: undefined }).success).toBe(false);
   });
 });
 

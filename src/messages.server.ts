@@ -2,7 +2,7 @@ import { createHash, createHmac } from 'node:crypto';
 import type postgres from 'postgres';
 import { canonicalInput } from './canonical-input.server';
 import { serverEnv } from './env.server';
-import { utcWindow } from './guest-counters.server';
+import { bumpRate, utcWindow } from './guest-counters.server';
 import type { SectionCategory } from './guide-validation';
 import {
   asSectionCategory,
@@ -82,22 +82,6 @@ export function duplicateFingerprint(input: {
   );
 }
 
-// Atomic fixed-window counter: concurrent submissions cannot both read the same pre-increment value.
-async function bumpRate(
-  tx: postgres.TransactionSql,
-  propertyId: string,
-  keyHash: Buffer,
-  windowStart: Date,
-): Promise<number> {
-  const [row] = await tx<{ count: number }[]>`
-    insert into app.rate_limits (property_id, key_hash, window_start, count)
-    values (${propertyId}, ${keyHash}, ${windowStart}, 1)
-    on conflict (key_hash, window_start) do update set count = app.rate_limits.count + 1
-    returning count
-  `;
-  return row?.count ?? Number.MAX_SAFE_INTEGER;
-}
-
 export async function submitGuestMessage(input: GuestMessageInput): Promise<SubmitGuestMessageResult> {
   const message = canonicalInput(guestMessageFields, input.message);
   const outcome = await withActiveGuestLink(
@@ -109,15 +93,16 @@ export async function submitGuestMessage(input: GuestMessageInput): Promise<Subm
         sessionToken: link.sessionToken,
       });
       const hour = utcWindow(3600);
-      const sessionCount = await bumpRate(tx, link.propertyId, fingerprints.session, hour);
-      const linkCount = await bumpRate(tx, link.propertyId, fingerprints.link, hour);
-      const propertyCount = await bumpRate(tx, link.propertyId, fingerprints.property, utcWindow(86_400));
-      // Denials commit their increments, so a flood keeps the window closed instead of resetting it.
-      if (
-        sessionCount > messageLimits.sessionPerHour ||
-        linkCount > messageLimits.linkPerHour ||
-        propertyCount > messageLimits.propertyPerDay
-      ) {
+      // Narrowest scope first, and a denial stops there: one flooding session must not use up the
+      // link's or property's quota. Denials still commit, so a flood keeps its own window closed.
+      if ((await bumpRate(tx, link.propertyId, fingerprints.session, hour)) > messageLimits.sessionPerHour) {
+        return { state: 'rate_limited' } as const;
+      }
+      if ((await bumpRate(tx, link.propertyId, fingerprints.link, hour)) > messageLimits.linkPerHour) {
+        return { state: 'rate_limited' } as const;
+      }
+      const day = utcWindow(86_400);
+      if ((await bumpRate(tx, link.propertyId, fingerprints.property, day)) > messageLimits.propertyPerDay) {
         return { state: 'rate_limited' } as const;
       }
       const followUpEmail = message.replyEmail === '' ? null : message.replyEmail;

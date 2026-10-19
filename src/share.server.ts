@@ -5,7 +5,7 @@ import { z } from 'zod';
 import { canonicalInput } from './canonical-input.server';
 import { withLinkContext } from './db.server';
 import { serverEnv } from './env.server';
-import { bumpGuestCounter } from './guest-counters.server';
+import { bumpGuestCounter, bumpRate, utcWindow } from './guest-counters.server';
 import { readGuestGuide, type GuestGuideDto } from './guide.server';
 import { propertyIdInput } from './guide-validation';
 
@@ -15,6 +15,7 @@ import { propertyIdInput } from './guide-validation';
 
 const GUEST_COOKIE_NAME = 'sw_guest';
 export const GUEST_SESSION_SECONDS = 12 * 60 * 60;
+export const GUEST_EXCHANGES_PER_HOUR = 30;
 
 const shareIdSchema = z.string().regex(/^[A-Za-z0-9_-]{16,64}$/);
 const secretSchema = z.string().regex(/^[A-Za-z0-9_-]{43}$/);
@@ -149,6 +150,11 @@ export async function exchangeGuestLink(input: { shareId: string; secret: string
       select secret_hmac, property_id from app.share_links where id = ${parsed.shareId}
     `;
     if (!link || !shareSecretMatches(parsed.secret, link.secret_hmac)) return null;
+    // Counted only after the secret matches, so knowing the share id alone cannot lock guests out.
+    const exchangeKey = createHmac('sha256', serverEnv.shareHmacKey)
+      .update(`guest-exchange:${parsed.shareId}`)
+      .digest();
+    if ((await bumpRate(tx, link.property_id, exchangeKey, utcWindow(3600))) > GUEST_EXCHANGES_PER_HOUR) return null;
     // POST-side housekeeping keeps the table to this link's live sessions.
     await tx`delete from app.guest_sessions where share_link_id = ${parsed.shareId} and expires_at <= now()`;
     const stored = await tx`

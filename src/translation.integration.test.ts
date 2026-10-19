@@ -372,14 +372,15 @@ describeLocal('stored guide localization (synthetic provider double)', () => {
       generated: 2,
       skipped: 0,
     });
-    const [draft] = await admin<{ id: string }[]>`select id from app.guide_translations
-      where section_id = ${wifi} and locale = 'de'`;
+    const [draft] = await admin<{ id: string; source_revision: number }[]>`select id, source_revision
+      from app.guide_translations where section_id = ${wifi} and locale = 'de'`;
     const approved = decode<{ ok?: boolean }>(
       await translationFn('approveGuideTranslation', {
         jar: host.jar,
         data: {
           propertyId,
           translationId: draft!.id,
+          sourceRevision: draft!.source_revision,
           title: 'Gast-WLAN',
           body: 'Synthetischer Gasttext',
         },
@@ -427,7 +428,13 @@ describeLocal('stored guide localization (synthetic provider double)', () => {
     const foreignApprove = decode<{ error?: string }>(
       await translationFn('approveGuideTranslation', {
         jar: other.jar,
-        data: { propertyId, translationId: draft!.id, title: 'Hijack', body: 'Hijack' },
+        data: {
+          propertyId,
+          translationId: draft!.id,
+          sourceRevision: draft!.source_revision,
+          title: 'Hijack',
+          body: 'Hijack',
+        },
       }),
     )?.result;
     expect(foreignApprove?.error).toBe('invalid_input');
@@ -461,12 +468,19 @@ describeLocal('stored guide localization (synthetic provider double)', () => {
       generated: 1,
       skipped: 0,
     });
-    const [row] = await admin<{ id: string }[]>`select id from app.guide_translations where section_id = ${wifi}`;
+    const [row] = await admin<{ id: string; source_revision: number }[]>`select id, source_revision
+      from app.guide_translations where section_id = ${wifi}`;
     expect(
       decode<{ ok?: boolean }>(
         await translationFn('approveGuideTranslation', {
           jar: host.jar,
-          data: { propertyId, translationId: row!.id, title: 'Gast-WLAN', body: 'Synthetischer Gasttext' },
+          data: {
+            propertyId,
+            translationId: row!.id,
+            sourceRevision: row!.source_revision,
+            title: 'Gast-WLAN',
+            body: 'Synthetischer Gasttext',
+          },
         }),
       )?.result?.ok,
     ).toBe(true);
@@ -493,6 +507,24 @@ describeLocal('stored guide localization (synthetic provider double)', () => {
       select id, state, source_revision from app.guide_translations where section_id = ${wifi}`;
     expect(regenerated).toMatchObject({ state: 'draft' });
     expect(regenerated?.source_revision).toBe(edited?.source_revision);
+    expect(regenerated?.id).toBe(row!.id);
+    const staleApprove = decode<{ error?: string }>(
+      await translationFn('approveGuideTranslation', {
+        jar: host.jar,
+        data: {
+          propertyId,
+          translationId: regenerated!.id,
+          sourceRevision: baseline!.source_revision,
+          title: 'Veraltet',
+          body: 'Veralteter Text',
+        },
+      }),
+    )?.result;
+    expect(staleApprove?.error).toBeDefined();
+    const [stillDraft] = await admin<{ state: string; title: string }[]>`select state, title
+      from app.guide_translations where id = ${regenerated!.id}`;
+    expect(stillDraft).toMatchObject({ state: 'draft' });
+    expect(stillDraft?.title).not.toBe('Veraltet');
     expect(await generateTranslations({ propertyId, actorId: host.userId })).toEqual({
       state: 'generated',
       generated: 0,

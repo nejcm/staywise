@@ -114,6 +114,7 @@ export const translatedTitleSchema = z
   .refine((value) => !hasControlCharacters(value), 'Remove control characters');
 export const translatedBodySchema = translatedText(16000, 'Translated text must be 16000 characters or fewer');
 export const approveTranslationInput = translationInput.extend({
+  sourceRevision: z.number().int().positive(),
   title: translatedTitleSchema,
   body: translatedBodySchema,
 });

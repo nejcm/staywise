@@ -676,7 +676,11 @@ function TranslationBlocks({ propertyId, translations }: { propertyId: string; t
   return (
     <div data-testid="section-translations">
       {translations.map((translation) => (
-        <TranslationBlock key={translation.id} propertyId={propertyId} translation={translation} />
+        <TranslationBlock
+          key={`${translation.id}:${translation.sourceRevision}`}
+          propertyId={propertyId}
+          translation={translation}
+        />
       ))}
     </div>
   );
@@ -695,6 +699,7 @@ function TranslationBlock({ propertyId, translation }: { propertyId: string; tra
     const parsed = approveTranslationInput.safeParse({
       propertyId,
       translationId: translation.id,
+      sourceRevision: translation.sourceRevision,
       title: values.title,
       body: values.body,
     });

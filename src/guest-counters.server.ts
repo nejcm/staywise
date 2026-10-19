@@ -14,6 +14,22 @@ export function utcWindow(seconds: number, now = Date.now()): Date {
   return new Date(Math.floor(now / 1000 / seconds) * seconds * 1000);
 }
 
+// Atomic fixed-window counter: concurrent requests cannot both read the same pre-increment value.
+export async function bumpRate(
+  tx: postgres.TransactionSql,
+  propertyId: string,
+  keyHash: Buffer,
+  windowStart: Date,
+): Promise<number> {
+  const [row] = await tx<{ count: number }[]>`
+    insert into app.rate_limits (property_id, key_hash, window_start, count)
+    values (${propertyId}, ${keyHash}, ${windowStart}, 1)
+    on conflict (key_hash, window_start) do update set count = app.rate_limits.count + 1
+    returning count
+  `;
+  return row?.count ?? Number.MAX_SAFE_INTEGER;
+}
+
 export function utcDay(start: Date = utcWindow(86_400)): string {
   return start.toISOString().slice(0, 10);
 }

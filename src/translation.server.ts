@@ -373,10 +373,10 @@ export async function generateTranslations(input: { propertyId: string; actorId:
 }
 
 // Approval is only possible while the draft still matches the live source revision and source
-// language, so an approved row is never stale at the moment it is reviewed.
+// language, and the revision the host reviewed, since regeneration reuses the row id.
 export async function approveTranslation(
   tx: postgres.TransactionSql,
-  input: { propertyId: string; translationId: string; title: string; body: string },
+  input: { propertyId: string; translationId: string; sourceRevision: number; title: string; body: string },
 ): Promise<boolean> {
   const parsed = canonicalInput(approveTranslationInput, input);
   const rows = await tx`
@@ -384,7 +384,7 @@ export async function approveTranslation(
     set title = ${parsed.title}, body = ${parsed.body}, state = 'approved', reviewed_at = now()
     from app.guide_sections s, app.properties p
     where t.id = ${parsed.translationId} and t.section_id = s.id and s.property_id = ${parsed.propertyId}
-      and p.id = s.property_id and t.state = 'draft'
+      and p.id = s.property_id and t.state = 'draft' and t.source_revision = ${parsed.sourceRevision}
       and t.source_revision = s.source_revision and t.source_locale = p.source_locale
     returning t.id
   `;
