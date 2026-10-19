@@ -20,6 +20,16 @@ bun run db:reset               # apply supabase/migrations to a clean local data
 
 Environment: copy `.env.example` to `.env.local`; never commit real values. `APP_ENV` defaults to `local` and must be set explicitly (`preview`/`production`) when `NODE_ENV=production`.
 
+### Retention cleanup
+
+`supabase/migrations/20261019150000_phase7a_retention.sql` adds `app.retention_cleanup()` and, when the migration runs in the database named by `cron.database_name` and `pg_cron` is available and preloaded, schedules the job `staywise-retention-cleanup` at 03:17 UTC. Other databases (migration or restore scratch databases) skip the schedule. Run it by hand with an owner-privileged connection — `app_runtime` deliberately cannot execute it:
+
+```sh
+psql "postgresql://<owner role>:<password>@<host>:5432/postgres" -c "select app.retention_cleanup();"
+```
+
+Production must either enable `pg_cron` in the Supabase project (the guarded migration block then creates the job) or run that statement nightly as the database owner. Provider backup/PITR retention is separate from these windows and must be confirmed in the provider console before real data; after any restore, run the overdue cleanup before reopening guest traffic. Details and rehearsal evidence: `plans/implementation_plan.md`, Phase 7a progress.
+
 ## Documentation
 
 | Document | What it covers |
