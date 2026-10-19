@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { serverEnv } from '../env.server';
-import { exchangeGuestLink, exchangeGuestLinkInput, serializeGuestCookie } from '../share.server';
+import { serverEnv } from '../lib/env.server';
+import { exchangeGuestLink, exchangeGuestLinkInput, serializeGuestCookie } from '../features/share/share.server';
 
 // Pre-session exchange: no cookie yet, so the valid bearer secret plus an exact same-origin JSON
 // POST is the whole authorization. Every failure is the same denial.

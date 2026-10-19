@@ -1,15 +1,15 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { serverEnv } from '../env.server';
-import { bumpGuestCounter } from '../guest-counters.server';
-import { sendGuestMessageAlert } from '../mail.server';
+import { serverEnv } from '../lib/env.server';
+import { bumpGuestCounter } from '../features/guest/guest-counters.server';
+import { sendGuestMessageAlert } from '../lib/mail.server';
 import {
   MESSAGE_REQUEST_MAX,
   collectMessageFieldErrors,
   guestMessageFields,
   readBoundedText,
-} from '../message-validation';
-import { submitGuestMessage } from '../messages.server';
-import { guestSessionToken } from '../share.server';
+} from '../features/messages/message-validation';
+import { submitGuestMessage } from '../features/messages/messages.server';
+import { guestSessionToken } from '../features/share/share.server';
 
 // Guest message intake: the same boundary shape as the link exchange — exact same-origin JSON POST
 // with the Path=/g session cookie — and one JSON state per outcome, never guest content echoes.

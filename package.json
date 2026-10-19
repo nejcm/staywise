@@ -13,7 +13,7 @@
     "format": "oxfmt .",
     "format:check": "oxfmt --check .",
     "test": "vitest run",
-    "test:local": "vitest run src/security.integration.test.ts src/guide.integration.test.ts src/guest.integration.test.ts src/translation.integration.test.ts src/translation-migration.integration.test.ts src/messages.integration.test.ts src/restore.integration.test.ts",
+    "test:local": "vitest run src/tests/security.integration.test.ts src/tests/guide.integration.test.ts src/tests/guest.integration.test.ts src/tests/translation.integration.test.ts src/tests/translation-migration.integration.test.ts src/tests/messages.integration.test.ts src/tests/restore.integration.test.ts",
     "knip": "knip",
     "audit": "bun audit --audit-level=moderate",
     "verify": "bun run typecheck && bun run lint && bun run format:check && bun run test && bun run knip",

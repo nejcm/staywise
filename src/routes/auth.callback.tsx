@@ -5,7 +5,7 @@ export const Route = createFileRoute('/auth/callback')({
   server: {
     handlers: {
       GET: async ({ request }) => {
-        const { completeAuthCallback } = await import('../auth.server');
+        const { completeAuthCallback } = await import('../features/auth/auth.server');
         return completeAuthCallback(request);
       },
     },

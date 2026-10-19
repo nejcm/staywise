@@ -1,11 +1,11 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 import { z } from 'zod';
-import { HostBar } from '../app-shell';
-import { getHostAuthState } from '../host-fns';
-import { getGuestPreview, recordPreviewOpened } from '../guide-fns';
-import { guestCategoryLabel, guestLocaleName, guestUiText, languageNames } from '../guest-ui';
-import type { GuestLocale } from '../guide-validation';
+import { HostBar } from '../components/app-shell';
+import { getHostAuthState } from '../features/host/host-fns';
+import { getGuestPreview, recordPreviewOpened } from '../features/guide/guide-fns';
+import { guestCategoryLabel, guestLocaleName, guestUiText, languageNames } from '../features/guest/guest-ui';
+import type { GuestLocale } from '../features/guide/guide-validation';
 
 const previewSearchSchema = z.object({ lang: z.string().max(16).optional() }).catch({});
 

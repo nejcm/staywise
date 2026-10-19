@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { guestCategoryLabel, guestLocaleName, guestUiText } from '../guest-ui';
+import { guestCategoryLabel, guestLocaleName, guestUiText } from '../features/guest/guest-ui';
 
 export const Route = createFileRoute('/g/$shareId/guide')({
   component: GuestGuide,

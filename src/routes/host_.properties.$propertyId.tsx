@@ -1,7 +1,7 @@
 import { Link, createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
 import { encode } from 'uqr';
-import { getHostAuthState } from '../host-fns';
+import { getHostAuthState } from '../features/host/host-fns';
 import {
   createSection,
   deleteProperty,
@@ -11,13 +11,17 @@ import {
   saveProperty,
   saveSection,
   setGuidePublished,
-} from '../guide-fns';
-import { createGuestLink, disableGuestLink, getGuestLink, rotateGuestLink } from '../share-fns';
-import { getInbox } from '../messages-fns';
-import { InboxPanel } from '../host-inbox';
-import { HostBar } from '../app-shell';
-import { approveGuideTranslation, generateGuideTranslations, rejectGuideTranslation } from '../translation-fns';
-import type { ShareLinkState } from '../share.server';
+} from '../features/guide/guide-fns';
+import { createGuestLink, disableGuestLink, getGuestLink, rotateGuestLink } from '../features/share/share-fns';
+import { getInbox } from '../features/messages/messages-fns';
+import { InboxPanel } from '../features/host/host-inbox';
+import { HostBar } from '../components/app-shell';
+import {
+  approveGuideTranslation,
+  generateGuideTranslations,
+  rejectGuideTranslation,
+} from '../features/translation/translation-fns';
+import type { ShareLinkState } from '../features/share/share.server';
 import {
   approveTranslationInput,
   collectFieldErrors,
@@ -29,9 +33,9 @@ import {
   sectionFields,
   type SectionCategory,
   type SectionVisibility,
-} from '../guide-validation';
-import { languageNames } from '../guest-ui';
-import type { GuideEditorData, GuideTranslation } from '../guide.server';
+} from '../features/guide/guide-validation';
+import { languageNames } from '../features/guest/guest-ui';
+import type { GuideEditorData, GuideTranslation } from '../features/guide/guide.server';
 
 export const Route = createFileRoute('/host_/properties/$propertyId')({
   loader: async ({ params }) => {

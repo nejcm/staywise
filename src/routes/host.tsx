@@ -1,10 +1,17 @@
 import { Link, createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
-import { getHostAuthState, listOwnProperties, mfaEnroll, mfaUnenroll, mfaVerify, restartEnrollment } from '../host-fns';
-import { HostBar, SignOutButton } from '../app-shell';
-import { Mark } from '../mark';
-import { copyProperty, createProperty, requestSetupSupport } from '../guide-fns';
-import { collectFieldErrors, propertyFields } from '../guide-validation';
+import {
+  getHostAuthState,
+  listOwnProperties,
+  mfaEnroll,
+  mfaUnenroll,
+  mfaVerify,
+  restartEnrollment,
+} from '../features/host/host-fns';
+import { HostBar, SignOutButton } from '../components/app-shell';
+import { Mark } from '../components/mark';
+import { copyProperty, createProperty, requestSetupSupport } from '../features/guide/guide-fns';
+import { collectFieldErrors, propertyFields } from '../features/guide/guide-validation';
 
 type PropertySummary = { id: string; displayName: string; published: boolean; createdAt: Date };
 

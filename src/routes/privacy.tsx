@@ -1,5 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router';
-import { Mark } from '../mark';
+import { Mark } from '../components/mark';
 
 export const Route = createFileRoute('/privacy')({
   head: () => ({ meta: [{ title: 'Privacy and data handling — Staywise' }] }),

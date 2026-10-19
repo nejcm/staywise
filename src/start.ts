@@ -1,8 +1,8 @@
 import { randomBytes } from 'node:crypto';
 import { createCsrfMiddleware, createMiddleware, createStart } from '@tanstack/react-start';
-import { appEnv } from './env.server';
-import { logEvent } from './log.server';
-import { buildSecurityHeaders } from './security-headers.server';
+import { appEnv } from './lib/env.server';
+import { logEvent } from './lib/log.server';
+import { buildSecurityHeaders } from './lib/security-headers.server';
 
 const csrfMiddleware = createCsrfMiddleware({ filter: (ctx) => ctx.handlerType === 'serverFn' });
 const dev = process.env.NODE_ENV !== 'production';

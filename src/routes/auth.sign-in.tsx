@@ -1,7 +1,7 @@
 import { Link, createFileRoute } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
-import { Mark } from '../mark';
-import { getHostAuthState, requestMagicLink } from '../host-fns';
+import { Mark } from '../components/mark';
+import { getHostAuthState, requestMagicLink } from '../features/host/host-fns';
 
 export const Route = createFileRoute('/auth/sign-in')({
   validateSearch: (search: Record<string, unknown>): { status?: string } => ({

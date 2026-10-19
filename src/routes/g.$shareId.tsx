@@ -1,10 +1,10 @@
 import { Outlet, createFileRoute, useRouterState } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
-import { bearerSecretFromFragment } from '../guest-fragment';
-import { getGuestPage } from '../guest-fns';
-import { guestLink, guestLocaleName, guestUiText, languageNames } from '../guest-ui';
-import type { GuestPage } from '../share.server';
+import { bearerSecretFromFragment } from '../features/guest/guest-fragment';
+import { getGuestPage } from '../features/guest/guest-fns';
+import { guestLink, guestLocaleName, guestUiText, languageNames } from '../features/guest/guest-ui';
+import type { GuestPage } from '../features/share/share.server';
 
 const guestSearchSchema = z.object({ lang: z.string().max(16).optional() }).catch({});
 

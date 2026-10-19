@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { GuestMessageForm } from '../guest-message-form';
-import { guestLocaleName, guestUiText } from '../guest-ui';
+import { GuestMessageForm } from '../features/guest/guest-message-form';
+import { guestLocaleName, guestUiText } from '../features/guest/guest-ui';
 
 export const Route = createFileRoute('/g/$shareId/help')({
   component: GuestHelp,
