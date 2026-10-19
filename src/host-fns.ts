@@ -1,4 +1,5 @@
 import { createServerFn } from '@tanstack/react-start';
+import { getRequest } from '@tanstack/react-start/server';
 import { z } from 'zod';
 import { appEnv, serverEnv } from './env.server';
 import {
@@ -10,6 +11,7 @@ import {
 } from './auth.server';
 import { applyAuthCookies, isGuardedMutation, requestAuth, runGuarded, type FnError } from './fn-guards.server';
 import { recordAudit } from './audit.server';
+import { otpSendAllowed } from './auth-limits.server';
 import { sendSecurityNotice } from './mail.server';
 import { withOwnerContext } from './db.server';
 import { logEvent } from './log.server';
@@ -26,6 +28,12 @@ export const requestMagicLink = createServerFn({ method: 'POST' })
       if (!isGuardedMutation()) return { error: 'invalid_input' } satisfies FnError;
       const input = emailInput.safeParse(data);
       if (!input.success) return { error: 'invalid_input' } satisfies FnError;
+      // Netlify sets this header at its edge; a client cannot supply it.
+      const clientIp = getRequest().headers.get('x-nf-client-connection-ip');
+      if (!(await otpSendAllowed({ email: input.data.email, clientIp }))) {
+        logEvent('otp_rate_limited', { appEnv, status: 429, outcome: 'suppressed' });
+        return { ok: true as const };
+      }
       const auth = requestAuth();
       const { error } = await auth.client.auth.signInWithOtp({
         email: input.data.email,

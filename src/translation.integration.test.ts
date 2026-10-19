@@ -445,6 +445,21 @@ describeLocal('stored guide localization (synthetic provider double)', () => {
     const untouched = await admin<{ title: string }[]>`select title from app.guide_translations
       where id = ${draft!.id}`;
     expect(untouched[0]?.title).toBe('Gast-WLAN');
+
+    const foreignWithdraw = decode<{ error?: string }>(
+      await translationFn('rejectGuideTranslation', { jar: other.jar, data: { propertyId, translationId: draft!.id } }),
+    )?.result;
+    expect(foreignWithdraw?.error).toBe('invalid_input');
+    const withdrawn = decode<{ ok?: boolean }>(
+      await translationFn('rejectGuideTranslation', { jar: host.jar, data: { propertyId, translationId: draft!.id } }),
+    )?.result;
+    expect(withdrawn?.ok).toBe(true);
+    expect((await guestRead(shareId, propertyId, 'de'))?.guest.sections).toEqual([
+      { category: 'wifi', title: 'Guest Wi-Fi', body: PUBLISHED_BODY, fallback: true },
+    ]);
+    expect(
+      await admin`select id from app.audit_events where actor_id = ${host.userId} and action = 'translation_rejected'`,
+    ).toHaveLength(1);
   }, 60_000);
 
   it('marks translations stale on source edits, category changes, and locale switches, and regenerates drafts', async () => {

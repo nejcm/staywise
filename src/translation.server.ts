@@ -398,6 +398,7 @@ export async function approveTranslation(
   return rows.length === 1;
 }
 
+// Removes a draft or withdraws an approved translation; guests fall back to the source text.
 export async function rejectTranslation(
   tx: postgres.TransactionSql,
   input: { propertyId: string; translationId: string },
@@ -406,7 +407,7 @@ export async function rejectTranslation(
   const rows = await tx`
     delete from app.guide_translations t
     using app.guide_sections s
-    where t.id = ${parsed.translationId} and t.state = 'draft'
+    where t.id = ${parsed.translationId}
       and t.section_id = s.id and s.property_id = ${parsed.propertyId}
     returning t.id
   `;

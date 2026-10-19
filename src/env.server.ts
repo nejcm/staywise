@@ -57,6 +57,24 @@ function parseDbCaPath(appDbUrl: string, appEnv: AppEnv): string | null {
   return caPath;
 }
 
+// Outside APP_ENV=local mail must never fall back to plaintext: implicit TLS (smtps://) or
+// mandatory STARTTLS (requireTLS=true), with no URL option that weakens either.
+const weakeningSmtpOptions = ['ignoreTLS', 'opportunisticTLS', 'secure', 'tls.rejectUnauthorized'];
+
+function parseSmtpUrl(smtpUrl: string, appEnv: AppEnv): string {
+  if (appEnv === 'local') return smtpUrl;
+  const url = new URL(smtpUrl);
+  const params = url.searchParams;
+  const weakened = weakeningSmtpOptions.some((key) => params.has(key));
+  const requiresTls =
+    url.protocol === 'smtps:' ||
+    (url.protocol === 'smtp:' && params.getAll('requireTLS').length === 1 && params.get('requireTLS') === 'true');
+  if (weakened || !requiresTls) {
+    throw new Error('SMTP_URL must use smtps:// or smtp://...?requireTLS=true when APP_ENV is not local');
+  }
+  return smtpUrl;
+}
+
 function parseValue(
   env: Record<string, string | undefined>,
   name: string,
@@ -85,7 +103,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     supabasePublishableKey,
     appDbUrl,
     appDbCaPath: parseDbCaPath(appDbUrl, appEnv),
-    smtpUrl: parseValue(env, 'SMTP_URL', appEnv, z.url()),
+    smtpUrl: parseSmtpUrl(parseValue(env, 'SMTP_URL', appEnv, z.url()), appEnv),
     smtpFrom: parseValue(env, 'SMTP_FROM', appEnv, z.email()),
     appOrigin: parseValue(env, 'APP_ORIGIN', appEnv, z.url()),
     // Key for share-secret digests and guest rate-limit fingerprints; never leaves the server.

@@ -732,15 +732,19 @@ function TranslationBlock({ propertyId, translation }: { propertyId: string; tra
   }
 
   async function reject() {
+    const approved = translation.state === 'approved';
+    if (approved && !window.confirm('Withdraw this approved translation? Guests will see the original text.')) return;
     setBusy(true);
     setMessage('');
     try {
       const result = await rejectGuideTranslation({ data: { propertyId, translationId: translation.id } });
       if ('error' in result) {
-        setMessage('Could not remove the draft. Try again.');
+        setMessage(
+          approved ? 'Could not withdraw the translation. Try again.' : 'Could not remove the draft. Try again.',
+        );
         return;
       }
-      setMessage('Draft removed.');
+      setMessage(approved ? 'Translation withdrawn.' : 'Draft removed.');
       await router.invalidate();
     } catch {
       setMessage('Something went wrong. Try again.');
@@ -813,6 +817,11 @@ function TranslationBlock({ propertyId, translation }: { propertyId: string; tra
         <div>
           <h4 data-testid={`translation-approved-title-${locale}`}>{translation.title}</h4>
           <p data-testid={`translation-approved-body-${locale}`}>{translation.body}</p>
+          <p>
+            <button type="button" onClick={reject} disabled={busy} data-testid={`translation-withdraw-${locale}`}>
+              Withdraw translation
+            </button>
+          </p>
         </div>
       )}
       <p role="status" data-testid={`translation-status-${locale}`}>

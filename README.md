@@ -110,6 +110,8 @@ psql "postgresql://<owner role>:<password>@<host>:5432/postgres" -c "select app.
 
 Production must either enable `pg_cron` in the Supabase project (the guarded migration block then creates the job) or run that statement nightly as the database owner. Provider backup/PITR retention is separate from these windows and must be confirmed in the provider console before real data; after any restore, run the overdue cleanup before reopening guest traffic. `app.guest_counters` has no age-based window: it remains while the property exists and cascades on property deletion. API-token tables are schema-only in this tree; property-bound rows cascade with the property, owner-level rows remain until account deletion, and there is no token-management UI. Details and rehearsal evidence: `plans/implementation_plan.md`, Phase 7a progress.
 
+`supabase/migrations/20261019170000_phase7d_auth_limits.sql` adds `app.auth_rate_limits` (HMAC-keyed magic-link windows: 5 per client IP and 3 per address per 15 minutes, IP read from Netlify's `x-nf-client-connection-ip`), purges it in the same cleanup, and raises a migration warning when the retention job is not scheduled in that database.
+
 ## Documentation
 
 | Document | What it covers |

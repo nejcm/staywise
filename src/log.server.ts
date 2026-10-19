@@ -3,6 +3,7 @@ const eventNames = [
   'audit_write_failed',
   'mail_send_failed',
   'otp_send_failed',
+  'otp_rate_limited',
   'setup_event_write_failed',
   'translation_provider_failed',
   'counter_write_failed',

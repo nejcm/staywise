@@ -25,7 +25,7 @@ function remoteEnv(appDbUrl: string): Record<string, string> {
     SUPABASE_URL: 'https://project.supabase.co',
     SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_x',
     APP_DB_URL: appDbUrl,
-    SMTP_URL: 'smtp://mail.example.test:587',
+    SMTP_URL: 'smtp://mail.example.test:587?requireTLS=true',
     SMTP_FROM: 'hosts@example.test',
     APP_ORIGIN: 'https://app.example.test',
     SHARE_HMAC_KEY: 'synthetic-remote-share-hmac-key-0123456789',
@@ -84,6 +84,25 @@ describe('parseServerEnv', () => {
     delete (missing as Record<string, string | undefined>).SHARE_HMAC_KEY;
     expect(() => parseServerEnv(missing)).toThrow(/SHARE_HMAC_KEY/);
     expect(parseServerEnv(remoteEnv(appDbUrl)).shareHmacKey).toBe('synthetic-remote-share-hmac-key-0123456789');
+  });
+
+  it('requires mandatory SMTP TLS outside APP_ENV=local', () => {
+    const appDbUrl =
+      'postgresql://user:pass@db.example.test:5432/postgres?sslmode=verify-full&sslrootcert=/etc/staywise/db-root-ca.pem';
+    for (const smtpUrl of ['smtps://user:pass@mail.example.test:465', 'smtp://mail.example.test:587?requireTLS=true']) {
+      expect(parseServerEnv({ ...remoteEnv(appDbUrl), SMTP_URL: smtpUrl }).smtpUrl).toBe(smtpUrl);
+    }
+    for (const smtpUrl of [
+      'smtp://mail.example.test:587',
+      'smtp://mail.example.test:587?requireTLS=false',
+      'smtp://mail.example.test:587?requireTLS=true&requireTLS=false',
+      'smtp://mail.example.test:587?requireTLS=true&ignoreTLS=true',
+      'smtps://mail.example.test:465?secure=false',
+      'smtps://mail.example.test:465?tls.rejectUnauthorized=false',
+    ]) {
+      expect(() => parseServerEnv({ ...remoteEnv(appDbUrl), SMTP_URL: smtpUrl })).toThrow(/SMTP_URL/);
+    }
+    expect(parseServerEnv({ APP_ENV: 'local' }).smtpUrl).toBe('smtp://127.0.0.1:54325');
   });
 
   it('parses the guest kill switch strictly and defaults it off', () => {

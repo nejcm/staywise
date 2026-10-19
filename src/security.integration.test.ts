@@ -4,6 +4,7 @@
 import { readFileSync } from 'node:fs';
 import { createServerClient } from '@supabase/ssr';
 import { describe, expect, it } from 'vitest';
+import { otpLimits, otpSendAllowed } from './auth-limits.server';
 import { withOwnerContext } from './db.server';
 import { parseServerEnv } from './env.server';
 import {
@@ -54,6 +55,28 @@ describeLocal('host auth trust boundaries against the local stack', () => {
     } finally {
       await admin.deleteUser(knownUserId);
       await fetch(`${local.mailpitUrl}/api/v1/search?query=to:${encodeURIComponent(knownEmail)}`, { method: 'DELETE' });
+    }
+  }, 30_000);
+
+  it('limits OTP sends per client IP and per address without changing the acknowledgement', async () => {
+    const stamp = Date.now();
+    const email = `security-otp-${stamp}@example.test`;
+    for (let attempt = 0; attempt < otpLimits.perEmail; attempt += 1) {
+      expect(await otpSendAllowed({ email, clientIp: null })).toBe(true);
+    }
+    expect(await otpSendAllowed({ email: email.toUpperCase(), clientIp: null })).toBe(false);
+    const limited = await hostFn('requestMagicLink', { data: { email } });
+    expect(decode<{ ok: true }>(limited)).toEqual({ result: { ok: true } });
+
+    const clientIp = `198.51.100.${stamp % 250}-${stamp}`;
+    for (let attempt = 0; attempt < otpLimits.perIp; attempt += 1) {
+      expect(await otpSendAllowed({ email: `security-otp-ip-${stamp}-${attempt}@example.test`, clientIp })).toBe(true);
+    }
+    const fresh = `security-otp-fresh-${stamp}@example.test`;
+    expect(await otpSendAllowed({ email: fresh, clientIp })).toBe(false);
+    // The IP denial stopped before the address window, so that address still has its full budget.
+    for (let attempt = 0; attempt < otpLimits.perEmail; attempt += 1) {
+      expect(await otpSendAllowed({ email: fresh, clientIp: null })).toBe(true);
     }
   }, 30_000);
 

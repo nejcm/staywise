@@ -10,7 +10,7 @@ import type { InboxMessage } from './messages.server';
 // else; the reply address stays visibly unverified and the alert mail never carries either.
 export function InboxPanel({ propertyId, messages }: { propertyId: string; messages: InboxMessage[] | null }) {
   const router = useRouter();
-  const [busyId, setBusyId] = useState('');
+  const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set());
   const [notice, setNotice] = useState('');
 
   function stamp(iso: string): string {
@@ -18,7 +18,7 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
   }
 
   async function run(messageId: string, work: () => Promise<{ error: string } | { ok: boolean }>): Promise<void> {
-    setBusyId(messageId);
+    setBusyIds((current) => new Set(current).add(messageId));
     setNotice('');
     try {
       const result = await work();
@@ -28,7 +28,11 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
     } catch {
       setNotice('Something went wrong. Try again.');
     } finally {
-      setBusyId('');
+      setBusyIds((current) => {
+        const next = new Set(current);
+        next.delete(messageId);
+        return next;
+      });
     }
   }
 
@@ -72,7 +76,7 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
                   <select
                     id={`inbox-answer-${entry.id}`}
                     value={entry.answerInGuide === null ? '' : entry.answerInGuide ? 'yes' : 'no'}
-                    disabled={busyId === entry.id}
+                    disabled={busyIds.has(entry.id)}
                     onChange={(event) =>
                       void run(entry.id, () =>
                         tagInboxAnswer({
@@ -97,7 +101,7 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
               <p>
                 <button
                   type="button"
-                  disabled={busyId === entry.id || entry.state === 'handled'}
+                  disabled={busyIds.has(entry.id) || entry.state === 'handled'}
                   onClick={() =>
                     void run(entry.id, () => markInboxHandled({ data: { propertyId, messageId: entry.id } }))
                   }
@@ -107,10 +111,11 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
                 </button>{' '}
                 <button
                   type="button"
-                  disabled={busyId === entry.id}
-                  onClick={() =>
-                    void run(entry.id, () => deleteInboxMessage({ data: { propertyId, messageId: entry.id } }))
-                  }
+                  disabled={busyIds.has(entry.id)}
+                  onClick={() => {
+                    if (!window.confirm('Delete this guest message permanently?')) return;
+                    void run(entry.id, () => deleteInboxMessage({ data: { propertyId, messageId: entry.id } }));
+                  }}
                   data-testid={`inbox-delete-${entry.id}`}
                 >
                   Delete
