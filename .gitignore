@@ -8,3 +8,10 @@ coverage/
 supabase/.temp/
 *.log
 .DS_Store
+
+# agents
+.agents
+.claude
+.codex
+.cursor
+.opencode
