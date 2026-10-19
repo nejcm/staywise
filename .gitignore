@@ -9,6 +9,8 @@ supabase/.temp/
 *.log
 .DS_Store
 
+plans/
+
 # agents
 .agents
 .claude
