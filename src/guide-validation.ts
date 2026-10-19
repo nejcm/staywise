@@ -47,6 +47,10 @@ export const propertyFields = z.object({
   enabledLocales: enabledLocalesSchema.default([]),
 });
 
+// The host's sign-in address for the minimal new-message alert; stored server-side and never shown
+// to guests.
+export const alertEmailSchema = z.string().trim().max(254).pipe(z.email());
+
 const sectionFieldsShape = {
   category: z.enum(sectionCategories, 'Choose a section category'),
   title: z.string().trim().min(1, 'Enter a section title').max(200, 'Section title must be 200 characters or fewer'),

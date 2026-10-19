@@ -5,6 +5,7 @@ const eventNames = [
   'otp_send_failed',
   'setup_event_write_failed',
   'translation_provider_failed',
+  'counter_write_failed',
 ] as const;
 const fieldNames = ['requestId', 'appEnv', 'method', 'path', 'status', 'outcome'] as const;
 

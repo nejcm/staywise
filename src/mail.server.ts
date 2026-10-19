@@ -14,6 +14,21 @@ const noticeText: Record<SecurityNotice, string> = {
     'Multi-factor authentication was removed from your Staywise host account. If this was not you, contact support immediately.',
 };
 
+// Minimal alert for a new guest message: fixed text, no guest content, no reply address. A failed
+// send is logged only — the stored inbox item remains the source of truth.
+export async function sendGuestMessageAlert(to: string): Promise<void> {
+  try {
+    await transport.sendMail({
+      from: serverEnv.smtpFrom,
+      to,
+      subject: 'You have a new guest message',
+      text: 'You have a new guest message in your Staywise inbox. Sign in to read it.',
+    });
+  } catch {
+    logEvent('mail_send_failed', { appEnv, status: 500 });
+  }
+}
+
 // Best-effort notice with no credentials or guest content; enrollment state is the source of truth.
 export async function sendSecurityNotice(to: string, notice: SecurityNotice): Promise<void> {
   try {

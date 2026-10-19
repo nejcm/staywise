@@ -5,6 +5,7 @@ import { z } from 'zod';
 import { canonicalInput } from './canonical-input.server';
 import { withLinkContext } from './db.server';
 import { serverEnv } from './env.server';
+import { bumpGuestCounter } from './guest-counters.server';
 import { readGuestGuide, type GuestGuideDto } from './guide.server';
 import { propertyIdInput } from './guide-validation';
 
@@ -142,11 +143,11 @@ export async function exchangeGuestLink(input: { shareId: string; secret: string
   const parsed = canonicalInput(exchangeGuestLinkInput, input);
   const token = randomBytes(32).toString('base64url');
   const expiresAt = new Date(Date.now() + GUEST_SESSION_SECONDS * 1000);
-  return withLinkContext(parsed.shareId, async (tx) => {
-    const [link] = await tx<{ secret_hmac: Buffer | null }[]>`
-      select secret_hmac from app.share_links where id = ${parsed.shareId}
+  const exchanged = await withLinkContext(parsed.shareId, async (tx) => {
+    const [link] = await tx<{ secret_hmac: Buffer | null; property_id: string }[]>`
+      select secret_hmac, property_id from app.share_links where id = ${parsed.shareId}
     `;
-    if (!shareSecretMatches(parsed.secret, link?.secret_hmac ?? null)) return null;
+    if (!link || !shareSecretMatches(parsed.secret, link.secret_hmac)) return null;
     // POST-side housekeeping keeps the table to this link's live sessions.
     await tx`delete from app.guest_sessions where share_link_id = ${parsed.shareId} and expires_at <= now()`;
     const stored = await tx`
@@ -154,7 +155,44 @@ export async function exchangeGuestLink(input: { shareId: string; secret: string
       values (${sessionHash(token)}, ${parsed.shareId}, ${expiresAt})
       returning id
     `;
-    return stored.length === 1 ? token : null;
+    return stored.length === 1 ? { token, propertyId: link.property_id } : null;
+  });
+  if (!exchanged) return null;
+  // A successful exchange counts once; the bump is best-effort and cannot change the session.
+  await bumpGuestCounter({ shareId: parsed.shareId, propertyId: exchanged.propertyId, kind: 'link_exchanges' });
+  return exchanged.token;
+}
+
+export type ActiveGuestLink = { propertyId: string; sessionToken: string };
+
+// Shared guest validation for reads and message intake: the presented session must match a live
+// session of the still-enabled link, and the link's property must still be published. Every
+// failure is one uniform null so callers cannot tell the cases apart.
+export async function withActiveGuestLink<T>(
+  input: { shareId: string; sessionToken: string | null },
+  work: (tx: postgres.TransactionSql, link: ActiveGuestLink) => Promise<T>,
+): Promise<T | null> {
+  const parsed = guestPageInput.pick({ shareId: true }).safeParse({ shareId: input.shareId });
+  if (!parsed.success) return null;
+  const token = input.sessionToken ? secretSchema.safeParse(input.sessionToken) : null;
+  if (!token?.success) return null;
+  return withLinkContext(parsed.data.shareId, async (tx) => {
+    const [link] = await tx<{ property_id: string }[]>`
+      select property_id from app.share_links where id = ${parsed.data.shareId}
+    `;
+    if (!link) return null;
+    const session = await tx`
+      select 1 from app.guest_sessions
+      where share_link_id = ${parsed.data.shareId} and session_hash = ${sessionHash(token.data)} and expires_at > now()
+    `;
+    if (session.length !== 1) return null;
+    // Capability and session are both live; scope the rest of the request to the link's property.
+    await tx`select set_config('app.link_property_id', ${link.property_id}, true)`;
+    const [property] = await tx<{ published: boolean }[]>`
+      select published from app.properties where id = ${link.property_id}
+    `;
+    if (!property?.published) return null;
+    return work(tx, { propertyId: link.property_id, sessionToken: token.data });
   });
 }
 
@@ -166,22 +204,15 @@ export async function readGuestPage(input: {
   locale?: string;
 }): Promise<GuestPage> {
   const parsed = canonicalInput(guestPageInput, { shareId: input.shareId, locale: input.locale });
-  const token = input.sessionToken ? secretSchema.safeParse(input.sessionToken) : null;
-  if (!token?.success) return denied;
-  return withLinkContext(parsed.shareId, async (tx) => {
-    const [link] = await tx<{ property_id: string }[]>`
-      select property_id from app.share_links where id = ${parsed.shareId}
-    `;
-    if (!link) return denied;
-    const session = await tx`
-      select 1 from app.guest_sessions
-      where share_link_id = ${parsed.shareId} and session_hash = ${sessionHash(token.data)} and expires_at > now()
-    `;
-    if (session.length !== 1) return denied;
-    // Capability and session are both live; scope the rest of the read to the link's property.
-    await tx`select set_config('app.link_property_id', ${link.property_id}, true)`;
-    const guide = await readGuestGuide(tx, link.property_id, parsed.locale ?? null);
-    if (!guide?.guidePublished) return denied;
-    return { state: 'guide', guest: guide.guest } as const;
-  });
+  const read = await withActiveGuestLink(
+    { shareId: parsed.shareId, sessionToken: input.sessionToken },
+    async (tx, link) => {
+      const guide = await readGuestGuide(tx, link.propertyId, parsed.locale ?? null);
+      return guide ? { propertyId: link.propertyId, guest: guide.guest } : null;
+    },
+  );
+  if (!read) return denied;
+  // A successful read counts once; the bump is best-effort and cannot change the response.
+  await bumpGuestCounter({ shareId: parsed.shareId, propertyId: read.propertyId, kind: 'guide_opens' });
+  return { state: 'guide', guest: read.guest } as const;
 }

@@ -36,7 +36,7 @@ export const createProperty = createServerFn({ method: 'POST' })
       if (!input.success) return { error: 'invalid_input' } satisfies FnError;
       const host = await aal2Host();
       if ('error' in host) return host;
-      const propertyId = await withOwnerContext(host.userId, (tx) => insertProperty(tx, input.data));
+      const propertyId = await withOwnerContext(host.userId, (tx) => insertProperty(tx, input.data, host.email));
       await recordSetupEvent(host.userId, 'property_created', { propertyId, step: 'blank' });
       return { propertyId };
     }),

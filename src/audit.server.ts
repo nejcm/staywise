@@ -17,6 +17,9 @@ const auditActions = [
   'translation_generated',
   'translation_approved',
   'translation_rejected',
+  'message_handled',
+  'message_tagged',
+  'message_deleted',
 ] as const;
 export type AuditAction = (typeof auditActions)[number];
 

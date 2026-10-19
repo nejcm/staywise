@@ -1,6 +1,7 @@
 import type postgres from 'postgres';
 import { canonicalInput } from './canonical-input.server';
 import {
+  alertEmailSchema,
   copyPropertyInput,
   createSectionInput,
   moveSectionInput,
@@ -246,14 +247,19 @@ export async function readGuestGuide(
   };
 }
 
+// alertEmail carries the host's sign-in address for the minimal new-message alert; a value that is
+// not a valid address is dropped rather than failing property creation.
 export async function insertProperty(
   tx: postgres.TransactionSql,
   input: { displayName: string; sourceLocale: string; enabledLocales: string[] },
+  alertEmail: string | null = null,
 ): Promise<string> {
   const parsed = canonicalInput(propertyFields, input);
+  const parsedEmail = alertEmail ? alertEmailSchema.safeParse(alertEmail) : null;
+  const email = parsedEmail?.success ? parsedEmail.data : null;
   const [row] = await tx<{ id: string }[]>`
-    insert into app.properties (owner_id, display_name, source_locale, enabled_locales)
-    values (app.current_owner_id(), ${parsed.displayName}, ${parsed.sourceLocale}, ${parsed.enabledLocales})
+    insert into app.properties (owner_id, display_name, source_locale, enabled_locales, alert_email)
+    values (app.current_owner_id(), ${parsed.displayName}, ${parsed.sourceLocale}, ${parsed.enabledLocales}, ${email})
     returning id
   `;
   return row.id;
@@ -296,8 +302,8 @@ export async function insertCopy(tx: postgres.TransactionSql, sourcePropertyId: 
   if (!source) return null;
   const name = `${source.display_name} (copy)`.slice(0, 120);
   const [created] = await tx<{ id: string }[]>`
-    insert into app.properties (owner_id, display_name, source_locale, timezone, enabled_locales)
-    select owner_id, ${name}, source_locale, timezone, enabled_locales
+    insert into app.properties (owner_id, display_name, source_locale, timezone, enabled_locales, alert_email)
+    select owner_id, ${name}, source_locale, timezone, enabled_locales, alert_email
     from app.properties where id = ${parsed.sourcePropertyId}
     returning id
   `;

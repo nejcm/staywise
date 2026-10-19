@@ -11,6 +11,8 @@ import {
   setGuidePublished,
 } from '../guide-fns';
 import { createGuestLink, disableGuestLink, getGuestLink, rotateGuestLink } from '../share-fns';
+import { getInbox } from '../messages-fns';
+import { InboxPanel } from '../host-inbox';
 import { approveGuideTranslation, generateGuideTranslations, rejectGuideTranslation } from '../translation-fns';
 import type { ShareLinkState } from '../share.server';
 import {
@@ -42,7 +44,12 @@ export const Route = createFileRoute('/host_/properties/$propertyId')({
       throw redirect({ to: '/host' });
     }
     const share = await getGuestLink({ data: { propertyId: params.propertyId } });
-    return { editor: result.editor, share: 'error' in share ? null : share.share };
+    const inbox = await getInbox({ data: { propertyId: params.propertyId } });
+    return {
+      editor: result.editor,
+      share: 'error' in share ? null : share.share,
+      inbox: 'error' in inbox ? null : inbox.messages,
+    };
   },
   component: PropertyEditorPage,
 });
@@ -57,7 +64,7 @@ function localeName(code: string): string {
 }
 
 function PropertyEditorPage() {
-  const { editor, share } = Route.useLoaderData();
+  const { editor, share, inbox } = Route.useLoaderData();
   return (
     <main key={editor.property.id}>
       <p>
@@ -68,6 +75,7 @@ function PropertyEditorPage() {
       <h1 data-testid="editor-property-name">{editor.property.displayName}</h1>
       <GuidePublish propertyId={editor.property.id} published={editor.property.published} />
       <GuestLinkPanel propertyId={editor.property.id} share={share} />
+      <InboxPanel propertyId={editor.property.id} messages={inbox} />
       <TranslationPanel property={editor.property} sections={editor.sections} />
       <PropertyForm property={editor.property} />
       <p>

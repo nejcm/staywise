@@ -131,3 +131,54 @@ body {
 [data-testid='section-translations'] fieldset {
   margin-top: 0.75rem;
 }
+
+.guest-field {
+  margin: 0 0 0.85rem;
+}
+
+.guest-form fieldset {
+  margin: 0 0 0.85rem;
+  padding: 0;
+  border: 0;
+}
+
+.guest-form legend {
+  padding: 0;
+  font-weight: 600;
+}
+
+.guest-form label {
+  display: inline-block;
+  margin-right: 0.75rem;
+}
+
+.guest-form select,
+.guest-form textarea,
+.guest-form input[type='email'] {
+  display: block;
+  width: 100%;
+  max-width: 100%;
+  box-sizing: border-box;
+  margin-top: 0.25rem;
+  padding: 0.5rem;
+  font: inherit;
+  background: #fff;
+  border: 1px solid #ccd2d9;
+  border-radius: 0.5rem;
+}
+
+.guest-form button[type='submit'] {
+  padding: 0.6rem 1rem;
+  font: inherit;
+  color: #fff;
+  background: #14181c;
+  border: 0;
+  border-radius: 0.6rem;
+}
+
+.guest-field-error {
+  display: block;
+  margin-top: 0.25rem;
+  font-size: 0.85rem;
+  color: #b3261e;
+}

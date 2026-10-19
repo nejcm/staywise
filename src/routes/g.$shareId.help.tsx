@@ -1,4 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { GuestMessageForm } from '../guest-message-form';
 import { guestLocaleName, guestUiText } from '../guest-ui';
 
 export const Route = createFileRoute('/g/$shareId/help')({
@@ -6,7 +7,7 @@ export const Route = createFileRoute('/g/$shareId/help')({
 });
 
 function GuestHelp() {
-  const { guest } = Route.useRouteContext();
+  const { guest, shareId } = Route.useRouteContext();
   if (guest.state !== 'guide') return null;
   const { locale, sourceLocale } = guest.guest;
   const emergency = guest.guest.sections.find((section) => section.category === 'emergency');
@@ -30,6 +31,7 @@ function GuestHelp() {
         <h3>{guestUiText(locale, 'help.contact.title')}</h3>
         <p>{guestUiText(locale, 'help.contact.body')}</p>
       </section>
+      <GuestMessageForm shareId={shareId} locale={locale} />
     </>
   );
 }
