@@ -38,6 +38,7 @@ export type ServerEnv = {
   appOrigin: string;
   shareHmacKey: string;
   guestAccessDisabled: boolean;
+  mfaRequired: boolean;
   // Absent means translation egress is not configured; a malformed value fails closed at boot.
   googleTranslateServiceAccount: GoogleTranslateCredentials | null;
 };
@@ -109,6 +110,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     // Key for share-secret digests and guest rate-limit fingerprints; never leaves the server.
     shareHmacKey: parseValue(env, 'SHARE_HMAC_KEY', appEnv, z.string().min(32)),
     guestAccessDisabled: parseGuestAccessDisabled(env.GUEST_ACCESS_DISABLED),
+    mfaRequired: parseMfaRequired(env.MFA_REQUIRED, appEnv),
     googleTranslateServiceAccount: parseGoogleTranslateServiceAccount(env.GOOGLE_TRANSLATE_SERVICE_ACCOUNT),
   };
 }
@@ -120,6 +122,13 @@ function parseGuestAccessDisabled(raw: string | undefined): boolean {
   if (raw === 'true') return true;
   if (raw === 'false') return false;
   throw new Error('GUEST_ACCESS_DISABLED must be true or false');
+}
+
+function parseMfaRequired(raw: string | undefined, appEnv: AppEnv): boolean {
+  if (raw === undefined || raw === '' || raw === 'true') return true;
+  if (raw !== 'false') throw new Error('MFA_REQUIRED must be true or false');
+  if (appEnv !== 'local') throw new Error('MFA_REQUIRED=false is only allowed when APP_ENV=local');
+  return false;
 }
 
 // Translation egress stays off until the documented provider gate is passed and the service

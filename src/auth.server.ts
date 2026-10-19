@@ -42,6 +42,7 @@ export type HostAuthState =
 export async function getHostAuthState(client: SupabaseClient): Promise<HostAuthState> {
   const session = await verifiedSession(client);
   if (!session) return { state: 'signed_out' };
+  if (!serverEnv.mfaRequired) return { state: 'workspace', totpFactorIds: [] };
   const { data: factors, error: factorsError } = await client.auth.mfa.listFactors();
   if (factorsError || !factors) return { state: 'signed_out' };
   const totp = factors.all.filter((factor) => factor.factor_type === 'totp');
@@ -73,6 +74,7 @@ export type Aal2Session = { outcome: 'ok'; session: VerifiedSession } | { outcom
 export async function aal2Session(client: SupabaseClient): Promise<Aal2Session> {
   const session = await verifiedSession(client);
   if (!session) return { outcome: 'invalid' };
+  if (!serverEnv.mfaRequired) return { outcome: 'ok', session };
   const { data: aal } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
   return aal?.currentLevel === 'aal2' ? { outcome: 'ok', session } : { outcome: 'aal1' };
 }

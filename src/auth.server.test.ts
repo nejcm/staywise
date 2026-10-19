@@ -1,6 +1,20 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
-import { describe, expect, it } from 'vitest';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 import { aal2Session, getHostAuthState, restartTotpEnrollment, verifiedSession } from './auth.server';
+
+const mfa = vi.hoisted(() => ({ required: true }));
+vi.mock('./env.server', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./env.server')>();
+  return {
+    ...actual,
+    serverEnv: {
+      ...actual.serverEnv,
+      get mfaRequired() {
+        return mfa.required;
+      },
+    },
+  };
+});
 
 type StubFactor = { id: string; factor_type: 'totp'; status: 'verified' | 'unverified' };
 
@@ -105,6 +119,19 @@ describe('aal2Session', () => {
       outcome: 'ok',
       session: { userId: user.id, email: user.email },
     });
+  });
+});
+
+describe('MFA disabled', () => {
+  afterEach(() => {
+    mfa.required = true;
+  });
+
+  it('opens the workspace for a verified session without a factor', async () => {
+    mfa.required = false;
+    const { client } = stubClient({ user, factors: [unverifiedFactor], currentLevel: 'aal1' });
+    expect(await getHostAuthState(client)).toEqual({ state: 'workspace', totpFactorIds: [] });
+    expect(await aal2Session(client)).toEqual({ outcome: 'ok', session: { userId: user.id, email: user.email } });
   });
 });
 
