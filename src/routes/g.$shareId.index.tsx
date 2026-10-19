@@ -36,7 +36,7 @@ function GuestHome() {
           </section>
         ))
       )}
-      <section className="guest-card" data-testid="guest-home-help">
+      <section className="guest-card guest-callout" data-testid="guest-home-help">
         <h3>{guestUiText(locale, 'home.help.title')}</h3>
         <p>{guestUiText(locale, 'home.help.body')}</p>
         <p>

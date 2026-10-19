@@ -1,14 +1,8 @@
 import { Link, createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
-import {
-  getHostAuthState,
-  listOwnProperties,
-  mfaEnroll,
-  mfaUnenroll,
-  mfaVerify,
-  restartEnrollment,
-  signOut,
-} from '../host-fns';
+import { getHostAuthState, listOwnProperties, mfaEnroll, mfaUnenroll, mfaVerify, restartEnrollment } from '../host-fns';
+import { HostBar, SignOutButton } from '../app-shell';
+import { Mark } from '../mark';
 import { copyProperty, createProperty, requestSetupSupport } from '../guide-fns';
 import { collectFieldErrors, propertyFields } from '../guide-validation';
 
@@ -175,177 +169,212 @@ function HostPage() {
     }
   }
 
-  async function logout() {
-    setBusy(true);
-    try {
-      await signOut({ data: {} });
-      await router.invalidate();
-    } finally {
-      setBusy(false);
-    }
-  }
-
   if (state.state !== 'workspace') {
     return (
-      <main>
-        <h1>Host workspace</h1>
-        <p data-testid="host-state">{state.state === 'verify' ? 'verify' : 'enroll'}</p>
-        <p>
+      <main className="narrow">
+        <span className="mark">
+          <Mark />
+        </span>
+        <p hidden data-testid="host-state">
+          {state.state === 'verify' ? 'verify' : 'enroll'}
+        </p>
+        <h1>{state.state === 'verify' ? 'Enter your sign-in code' : 'Set up two-step sign-in'}</h1>
+        <p className="lede">
           {state.state === 'verify'
             ? 'Enter the six-digit code from your authenticator app to continue.'
             : 'Set up an authenticator app. The host workspace stays locked until two-factor authentication is active.'}
         </p>
-        {factor ? (
-          <form onSubmit={verify} data-testid="host-verify-form">
-            {factor.secret ? (
-              <p>
-                Add this secret to your authenticator app: <code data-testid="host-secret">{factor.secret}</code>
-              </p>
-            ) : state.state === 'enroll' ? (
-              <p data-testid="host-enroll-interrupted">
-                Enrollment was not finished. Enter a current code if the secret was already saved, or restart to get a
-                new one.{' '}
-                <button type="button" onClick={restart} disabled={busy} data-testid="host-enroll-start">
-                  Restart enrollment
-                </button>
-              </p>
-            ) : null}
-            <label>
-              Six-digit code
-              <input
-                inputMode="numeric"
-                pattern="\d{6}"
-                required
-                value={code}
-                onChange={(event) => setCode(event.target.value)}
-                data-testid="host-code"
-              />
-            </label>
-            <button type="submit" disabled={busy} data-testid="host-verify-submit">
-              Verify
+        <div className="panel">
+          {factor ? (
+            <form onSubmit={verify} className="stack" data-testid="host-verify-form">
+              {factor.secret ? (
+                <p>
+                  Add this secret to your authenticator app: <code data-testid="host-secret">{factor.secret}</code>
+                </p>
+              ) : state.state === 'enroll' ? (
+                <div className="stack" data-testid="host-enroll-interrupted">
+                  <p>
+                    Enrollment was not finished. Enter a current code if the secret was already saved, or restart to get
+                    a new one.
+                  </p>
+                  <button type="button" onClick={restart} disabled={busy} data-testid="host-enroll-start">
+                    Restart enrollment
+                  </button>
+                </div>
+              ) : null}
+              <label>
+                Six-digit code
+                <input
+                  inputMode="numeric"
+                  autoComplete="one-time-code"
+                  pattern="\d{6}"
+                  required
+                  value={code}
+                  onChange={(event) => setCode(event.target.value)}
+                  data-testid="host-code"
+                />
+              </label>
+              <button type="submit" className="primary" disabled={busy} data-testid="host-verify-submit">
+                Verify
+              </button>
+            </form>
+          ) : (
+            <button
+              type="button"
+              className="primary"
+              onClick={startEnroll}
+              disabled={busy}
+              data-testid="host-enroll-start"
+            >
+              Set up authenticator
             </button>
-          </form>
-        ) : (
-          <button type="button" onClick={startEnroll} disabled={busy} data-testid="host-enroll-start">
-            Set up authenticator
-          </button>
-        )}
-        <p data-testid="host-message" role="status">
-          {message}
+          )}
+          <p role="status" data-testid="host-message">
+            {message}
+          </p>
+        </div>
+        <p className="actions" style={{ marginTop: 16 }}>
+          <SignOutButton className="quiet" />
         </p>
-        <button type="button" onClick={logout} disabled={busy} data-testid="host-signout">
-          Sign out
-        </button>
       </main>
     );
   }
 
   return (
-    <main>
-      <h1>Host workspace</h1>
-      <p data-testid="host-state">workspace</p>
-      <h2>Properties</h2>
-      <form onSubmit={create} noValidate data-testid="host-create-form">
-        <p>
-          <label>
-            Property name{' '}
-            <input
-              name="displayName"
-              maxLength={120}
-              required
-              aria-invalid={Boolean(createErrors.displayName)}
-              aria-describedby={createErrors.displayName ? 'create-name-error' : undefined}
-              data-testid="host-create-name"
-            />
-          </label>
+    <>
+      <HostBar />
+      <main className="canvas">
+        <p hidden data-testid="host-state">
+          workspace
         </p>
-        {createErrors.displayName ? (
-          <p id="create-name-error" role="alert" data-testid="host-create-name-error">
-            {createErrors.displayName}
-          </p>
-        ) : null}
-        <p>
-          <label>
-            Guide language{' '}
-            <input
-              name="sourceLocale"
-              defaultValue="en"
-              maxLength={5}
-              required
-              title="Language tag like en or pt-BR"
-              aria-invalid={Boolean(createErrors.sourceLocale)}
-              aria-describedby={createErrors.sourceLocale ? 'create-locale-error' : undefined}
-              data-testid="host-create-locale"
-            />
-          </label>
-        </p>
-        {createErrors.sourceLocale ? (
-          <p id="create-locale-error" role="alert" data-testid="host-create-locale-error">
-            {createErrors.sourceLocale}
-          </p>
-        ) : null}
-        <p>
-          <button type="submit" disabled={busy} data-testid="host-create-submit">
-            Create property
-          </button>{' '}
-          <span role="status" data-testid="host-create-message">
-            {createMessage}
-          </span>
-        </p>
-      </form>
-      {properties.length === 0 ? (
-        <p data-testid="host-properties-empty">No properties yet.</p>
-      ) : (
-        <>
-          <ul data-testid="host-properties">
-            {properties.map((property: PropertySummary) => (
-              <li key={property.id} data-testid="host-property">
-                <Link
-                  to="/host/properties/$propertyId"
-                  params={{ propertyId: property.id }}
-                  data-testid="host-property-name"
-                >
-                  {property.displayName}
-                </Link>{' '}
-                <span data-testid="host-property-status">{property.published ? '(published)' : '(draft)'}</span>{' '}
+        <div className="title-row">
+          <div>
+            <h1>Properties</h1>
+            <p className="sub">
+              {properties.length === 1 ? '1 property' : `${properties.length} properties`}. Each has its own guide,
+              guest link and inbox.
+            </p>
+          </div>
+        </div>
+        <div className="layout">
+          <div>
+            <section className="panel" aria-labelledby="properties-heading">
+              <header>
+                <h2 id="properties-heading">Your properties</h2>
+              </header>
+              {properties.length === 0 ? (
+                <p className="empty" data-testid="host-properties-empty">
+                  No properties yet. Create the first one to start its guide.
+                </p>
+              ) : (
+                <>
+                  <ul className="rows" data-testid="host-properties">
+                    {properties.map((property: PropertySummary) => (
+                      <li key={property.id} className="property-row" data-testid="host-property">
+                        <Link
+                          to="/host/properties/$propertyId"
+                          params={{ propertyId: property.id }}
+                          data-testid="host-property-name"
+                        >
+                          {property.displayName}
+                        </Link>
+                        <span className={property.published ? 'pill live' : 'pill'} data-testid="host-property-status">
+                          {property.published ? 'Live' : 'Draft'}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => duplicate(property.id)}
+                          disabled={busy}
+                          data-testid="host-property-copy"
+                        >
+                          Make a copy
+                        </button>
+                      </li>
+                    ))}
+                  </ul>
+                  <p role="status" data-testid="host-copy-message">
+                    {copyMessage}
+                  </p>
+                </>
+              )}
+            </section>
+          </div>
+          <div>
+            <section className="panel" aria-labelledby="create-heading">
+              <header>
+                <h2 id="create-heading">New property</h2>
+              </header>
+              <form onSubmit={create} noValidate className="stack" data-testid="host-create-form">
+                <label>
+                  Property name
+                  <input
+                    name="displayName"
+                    maxLength={120}
+                    required
+                    aria-invalid={Boolean(createErrors.displayName)}
+                    aria-describedby={createErrors.displayName ? 'create-name-error' : undefined}
+                    data-testid="host-create-name"
+                  />
+                </label>
+                {createErrors.displayName ? (
+                  <p id="create-name-error" role="alert" data-testid="host-create-name-error">
+                    {createErrors.displayName}
+                  </p>
+                ) : null}
+                <label>
+                  Guide language
+                  <input
+                    name="sourceLocale"
+                    defaultValue="en"
+                    maxLength={5}
+                    required
+                    title="Language tag like en or pt-BR"
+                    aria-invalid={Boolean(createErrors.sourceLocale)}
+                    aria-describedby={createErrors.sourceLocale ? 'create-locale-error' : undefined}
+                    data-testid="host-create-locale"
+                  />
+                </label>
+                {createErrors.sourceLocale ? (
+                  <p id="create-locale-error" role="alert" data-testid="host-create-locale-error">
+                    {createErrors.sourceLocale}
+                  </p>
+                ) : null}
+                <div className="actions">
+                  <button type="submit" className="primary" disabled={busy} data-testid="host-create-submit">
+                    Create property
+                  </button>
+                  <span role="status" className="small" data-testid="host-create-message">
+                    {createMessage}
+                  </span>
+                </div>
+              </form>
+            </section>
+            <section className="panel stack" aria-labelledby="account-heading">
+              <h2 id="account-heading">Account</h2>
+              <p className="muted">Need a hand with the first guide? The pilot team can set it up with you.</p>
+              <div className="actions">
+                <button type="button" onClick={requestSupport} disabled={busy} data-testid="host-support-request">
+                  Request setup support
+                </button>
+                <span role="status" className="small" data-testid="host-support-message">
+                  {supportMessage}
+                </span>
+              </div>
+              <div className="actions">
                 <button
                   type="button"
-                  onClick={() => duplicate(property.id)}
-                  disabled={busy}
-                  data-testid="host-property-copy"
+                  className="danger"
+                  onClick={() => removeMfa(state.totpFactorIds[0] ?? '')}
+                  disabled={busy || state.totpFactorIds.length === 0}
+                  data-testid="host-remove-mfa"
                 >
-                  Make a copy
+                  Remove authenticator
                 </button>
-              </li>
-            ))}
-          </ul>
-          <p role="status" data-testid="host-copy-message">
-            {copyMessage}
-          </p>
-        </>
-      )}
-      <p>
-        <button type="button" onClick={requestSupport} disabled={busy} data-testid="host-support-request">
-          Request setup support
-        </button>{' '}
-        <span role="status" data-testid="host-support-message">
-          {supportMessage}
-        </span>
-      </p>
-      <button
-        type="button"
-        onClick={() => removeMfa(state.totpFactorIds[0] ?? '')}
-        disabled={busy || state.totpFactorIds.length === 0}
-        data-testid="host-remove-mfa"
-      >
-        Remove authenticator
-      </button>
-      <button type="button" onClick={logout} disabled={busy} data-testid="host-signout">
-        Sign out
-      </button>
-      <p>
-        <Link to="/privacy">Privacy and data handling</Link>
-      </p>
-    </main>
+              </div>
+            </section>
+          </div>
+        </div>
+      </main>
+    </>
   );
 }

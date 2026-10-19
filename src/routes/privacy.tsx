@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router';
+import { Mark } from '../mark';
 
 export const Route = createFileRoute('/privacy')({
   head: () => ({ meta: [{ title: 'Privacy and data handling — Staywise' }] }),
@@ -9,7 +10,9 @@ function PrivacyNotice() {
   return (
     <main className="notice">
       <p>
-        <Link to="/">Staywise</Link>
+        <Link to="/" className="mark">
+          <Mark />
+        </Link>
       </p>
       <h1>Privacy and data handling</h1>
       <p>

@@ -36,97 +36,123 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
     }
   }
 
+  const waiting = messages?.filter((entry) => entry.state !== 'handled').length ?? 0;
+
   return (
-    <section data-testid="inbox-panel">
-      <h2>Guest messages</h2>
-      <p role="status" data-testid="inbox-notice">
+    <section className="panel" aria-labelledby="inbox-heading" data-testid="inbox-panel">
+      <header>
+        <h2 id="inbox-heading">Guest messages</h2>
+        {messages && messages.length > 0 ? (
+          <span className="muted small">{waiting === 0 ? 'All handled' : `${waiting} waiting for you`}</span>
+        ) : null}
+      </header>
+      <p role="status" className="small" data-testid="inbox-notice">
         {notice}
       </p>
       {messages === null ? (
-        <p data-testid="inbox-unavailable">Inbox unavailable.</p>
+        <p className="empty" data-testid="inbox-unavailable">
+          Inbox unavailable.
+        </p>
       ) : messages.length === 0 ? (
-        <p data-testid="inbox-empty">No guest messages yet.</p>
+        <p className="empty" data-testid="inbox-empty">
+          No guest messages yet. Questions and issue reports from the guide's Help page land here.
+        </p>
       ) : (
-        <ul data-testid="inbox-list">
+        <ul className="rows" data-testid="inbox-list">
           {messages.map((entry) => (
-            <li key={entry.id} data-testid="inbox-item" data-state={entry.state} data-kind={entry.kind}>
-              <p>
-                <strong data-testid="inbox-item-kind">{entry.kind === 'question' ? 'Question' : 'Issue'}</strong>
-                {' · '}
+            <li
+              key={entry.id}
+              className="message"
+              data-testid="inbox-item"
+              data-state={entry.state}
+              data-kind={entry.kind}
+            >
+              <p className="message-meta">
+                <span className={entry.kind === 'question' ? 'pill' : 'pill issue'} data-testid="inbox-item-kind">
+                  {entry.kind === 'question' ? 'Question' : 'Issue'}
+                </span>
+                {entry.category ? <span>{sectionCategoryLabels[entry.category]}</span> : null}
                 <span data-testid="inbox-item-locale">{guestLocaleName(entry.locale)}</span>
-                {' · '}
                 <span data-testid="inbox-item-created">{stamp(entry.createdAt)}</span>
-                {' · '}
-                <span data-testid="inbox-item-state">{entry.state === 'handled' ? 'Handled' : 'New'}</span>
+                <span className={entry.state === 'handled' ? undefined : 'pill new'} data-testid="inbox-item-state">
+                  {entry.state === 'handled' ? 'Handled' : 'New'}
+                </span>
                 {entry.handledAt ? <span data-testid="inbox-item-handled"> {stamp(entry.handledAt)}</span> : null}
               </p>
-              {entry.category ? <p className="guest-category">{sectionCategoryLabels[entry.category]}</p> : null}
-              <p className="guest-body" data-testid="inbox-item-body">
+              <p className="message-body" data-testid="inbox-item-body">
                 {entry.body}
               </p>
               {entry.followUpEmail ? (
-                <p data-testid="inbox-item-email">
-                  {entry.followUpEmail}{' '}
-                  <span data-testid="inbox-item-email-unverified">(unverified — guest-supplied, not confirmed)</span>
+                <p className="small" style={{ marginTop: 8 }} data-testid="inbox-item-email">
+                  Reply address: {entry.followUpEmail}{' '}
+                  <span className="muted" data-testid="inbox-item-email-unverified">
+                    (unverified — guest-supplied, not confirmed)
+                  </span>
                 </p>
               ) : null}
-              {entry.kind === 'question' ? (
-                <p>
-                  <label htmlFor={`inbox-answer-${entry.id}`}>Answer was in the guide?</label>{' '}
-                  <select
-                    id={`inbox-answer-${entry.id}`}
-                    value={entry.answerInGuide === null ? '' : entry.answerInGuide ? 'yes' : 'no'}
-                    disabled={busyIds.has(entry.id)}
-                    onChange={(event) =>
-                      void run(entry.id, () =>
-                        tagInboxAnswer({
-                          data: {
-                            propertyId,
-                            messageId: entry.id,
-                            answerInGuide: event.target.value === 'yes',
-                          },
-                        }),
-                      )
+              <div className="message-foot">
+                {entry.kind === 'question' ? (
+                  <label htmlFor={`inbox-answer-${entry.id}`}>
+                    Answer was in the guide?
+                    <select
+                      id={`inbox-answer-${entry.id}`}
+                      value={entry.answerInGuide === null ? '' : entry.answerInGuide ? 'yes' : 'no'}
+                      disabled={busyIds.has(entry.id)}
+                      onChange={(event) =>
+                        void run(entry.id, () =>
+                          tagInboxAnswer({
+                            data: {
+                              propertyId,
+                              messageId: entry.id,
+                              answerInGuide: event.target.value === 'yes',
+                            },
+                          }),
+                        )
+                      }
+                      data-testid={`inbox-answer-${entry.id}`}
+                    >
+                      <option value="" disabled>
+                        Not tagged
+                      </option>
+                      <option value="yes">Yes</option>
+                      <option value="no">No</option>
+                    </select>
+                  </label>
+                ) : (
+                  <span />
+                )}
+                <div className="actions">
+                  <button
+                    type="button"
+                    className={entry.state === 'handled' ? undefined : 'primary'}
+                    disabled={busyIds.has(entry.id) || entry.state === 'handled'}
+                    onClick={() =>
+                      void run(entry.id, () => markInboxHandled({ data: { propertyId, messageId: entry.id } }))
                     }
-                    data-testid={`inbox-answer-${entry.id}`}
+                    data-testid={`inbox-handle-${entry.id}`}
                   >
-                    <option value="" disabled>
-                      Not tagged
-                    </option>
-                    <option value="yes">Yes</option>
-                    <option value="no">No</option>
-                  </select>
-                </p>
-              ) : null}
-              <p>
-                <button
-                  type="button"
-                  disabled={busyIds.has(entry.id) || entry.state === 'handled'}
-                  onClick={() =>
-                    void run(entry.id, () => markInboxHandled({ data: { propertyId, messageId: entry.id } }))
-                  }
-                  data-testid={`inbox-handle-${entry.id}`}
-                >
-                  Mark handled
-                </button>{' '}
-                <button
-                  type="button"
-                  disabled={busyIds.has(entry.id)}
-                  onClick={() => {
-                    if (!window.confirm('Delete this guest message permanently?')) return;
-                    void run(entry.id, () => deleteInboxMessage({ data: { propertyId, messageId: entry.id } }));
-                  }}
-                  data-testid={`inbox-delete-${entry.id}`}
-                >
-                  Delete
-                </button>
-              </p>
+                    Mark handled
+                  </button>
+                  <button
+                    type="button"
+                    className="quiet"
+                    disabled={busyIds.has(entry.id)}
+                    onClick={() => {
+                      if (!window.confirm('Delete this guest message permanently?')) return;
+                      void run(entry.id, () => deleteInboxMessage({ data: { propertyId, messageId: entry.id } }));
+                    }}
+                    data-testid={`inbox-delete-${entry.id}`}
+                  >
+                    Delete
+                  </button>
+                </div>
+              </div>
             </li>
           ))}
         </ul>
       )}
       {messages?.length === inboxLimit ? (
-        <p data-testid="inbox-truncated">
+        <p className="small muted" data-testid="inbox-truncated">
           Showing the newest {inboxLimit} messages. Delete or wait for older ones to expire to see the rest.
         </p>
       ) : null}

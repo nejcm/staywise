@@ -53,10 +53,12 @@ function GuestLayout() {
         {guestUiText(locale, 'nav.skip')}
       </a>
       <header className="guest-header">
-        <p className="guest-label">{guestUiText(locale, 'label.guest')}</p>
+        <div className="guest-top">
+          <p className="guest-label">{guestUiText(locale, 'label.guest')}</p>
+          <LocaleSwitch locale={locale} locales={locales} sourceLocale={sourceLocale} pathname={pathname} />
+        </div>
         <h1>{guest.guest.displayName}</h1>
         <GuestNav shareId={shareId} locale={locale} sourceLocale={sourceLocale} pathname={pathname} />
-        <LocaleSwitch locale={locale} locales={locales} sourceLocale={sourceLocale} pathname={pathname} />
       </header>
       <div id="guest-content" tabIndex={-1} data-testid="guest-content">
         <Outlet />

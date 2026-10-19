@@ -1,6 +1,7 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 import { z } from 'zod';
+import { HostBar } from '../app-shell';
 import { getHostAuthState } from '../host-fns';
 import { getGuestPreview, recordPreviewOpened } from '../guide-fns';
 import { guestCategoryLabel, guestLocaleName, guestUiText, languageNames } from '../guest-ui';
@@ -41,59 +42,76 @@ function PreviewPage() {
   }, [propertyId]);
 
   return (
-    <main>
-      <p>
-        <Link to="/host/properties/$propertyId" params={{ propertyId }} data-testid="preview-back">
-          Back to editor
-        </Link>
-      </p>
-      <p data-testid="preview-guide-status">
-        {guidePublished ? 'Guide is live.' : 'Guide is offline: guests cannot open it yet.'}
-      </p>
-      <h1 data-testid="preview-property-name">{guest.displayName}</h1>
-      <p data-testid="preview-locale-status">
-        Guests read this guide in: {guest.locales.map((code) => languageNames[code as GuestLocale] ?? code).join(', ')}.
-        Showing {languageNames[guest.locale as GuestLocale] ?? guest.locale}.
-      </p>
-      {guest.locales.length > 1 ? (
-        <ul data-testid="preview-locale-switch">
-          {guest.locales.map((code) => (
-            <li key={code}>
-              <Link
-                to="/host/preview/$propertyId"
-                params={{ propertyId }}
-                search={{ lang: code }}
-                aria-current={code === guest.locale ? 'true' : undefined}
-                data-testid={`preview-locale-${code}`}
-              >
-                {languageNames[code as GuestLocale] ?? code}
-              </Link>
-            </li>
-          ))}
-        </ul>
-      ) : null}
-      {guest.sections.length === 0 ? (
-        <p data-testid="preview-empty">No published guest content yet.</p>
-      ) : (
-        <div>
-          {guest.sections.map((section, index) => (
-            <section key={`${section.category}-${index}`} data-testid="preview-section">
-              <h2>{guestCategoryLabel(guest.locale, section.category)}</h2>
-              <h3 lang={section.fallback ? guest.sourceLocale : undefined} data-testid="preview-section-title">
-                {section.title}
-              </h3>
-              <p lang={section.fallback ? guest.sourceLocale : undefined} data-testid="preview-section-body">
-                {section.body}
-              </p>
-              {section.fallback ? (
-                <p data-testid="preview-fallback">
-                  {guestUiText(guest.locale, 'fallback.notice', { language: guestLocaleName(guest.sourceLocale) })}
-                </p>
-              ) : null}
-            </section>
-          ))}
+    <>
+      <HostBar />
+      <main className="canvas">
+        <div className="title-row">
+          <div>
+            <Link
+              to="/host/properties/$propertyId"
+              params={{ propertyId }}
+              className="crumb"
+              data-testid="preview-back"
+            >
+              Back to editor
+            </Link>
+            <h1 data-testid="preview-property-name">{guest.displayName}</h1>
+            <p className="sub" data-testid="preview-locale-status">
+              Guests read this guide in:{' '}
+              {guest.locales.map((code) => languageNames[code as GuestLocale] ?? code).join(', ')}. Showing{' '}
+              {languageNames[guest.locale as GuestLocale] ?? guest.locale}.
+            </p>
+          </div>
+          <span className={guidePublished ? 'pill live' : 'pill'} data-testid="preview-guide-status">
+            {guidePublished ? 'Guide is live.' : 'Guide is offline: guests cannot open it yet.'}
+          </span>
         </div>
-      )}
-    </main>
+        <div className="guest preview">
+          {guest.locales.length > 1 ? (
+            <ul className="guest-locales" data-testid="preview-locale-switch">
+              {guest.locales.map((code) => (
+                <li key={code}>
+                  <Link
+                    to="/host/preview/$propertyId"
+                    params={{ propertyId }}
+                    search={{ lang: code }}
+                    aria-current={code === guest.locale ? 'true' : undefined}
+                    data-testid={`preview-locale-${code}`}
+                  >
+                    {languageNames[code as GuestLocale] ?? code}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          {guest.sections.length === 0 ? (
+            <p className="guest-card empty" data-testid="preview-empty">
+              No published guest content yet.
+            </p>
+          ) : (
+            guest.sections.map((section, index) => (
+              <section key={`${section.category}-${index}`} className="guest-card" data-testid="preview-section">
+                <h2 className="guest-category">{guestCategoryLabel(guest.locale, section.category)}</h2>
+                <h3 lang={section.fallback ? guest.sourceLocale : undefined} data-testid="preview-section-title">
+                  {section.title}
+                </h3>
+                <p
+                  className="guest-body"
+                  lang={section.fallback ? guest.sourceLocale : undefined}
+                  data-testid="preview-section-body"
+                >
+                  {section.body}
+                </p>
+                {section.fallback ? (
+                  <p className="guest-fallback" data-testid="preview-fallback">
+                    {guestUiText(guest.locale, 'fallback.notice', { language: guestLocaleName(guest.sourceLocale) })}
+                  </p>
+                ) : null}
+              </section>
+            ))
+          )}
+        </div>
+      </main>
+    </>
   );
 }

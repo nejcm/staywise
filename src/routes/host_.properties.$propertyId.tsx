@@ -15,6 +15,7 @@ import {
 import { createGuestLink, disableGuestLink, getGuestLink, rotateGuestLink } from '../share-fns';
 import { getInbox } from '../messages-fns';
 import { InboxPanel } from '../host-inbox';
+import { HostBar } from '../app-shell';
 import { approveGuideTranslation, generateGuideTranslations, rejectGuideTranslation } from '../translation-fns';
 import type { ShareLinkState } from '../share.server';
 import {
@@ -68,47 +69,68 @@ function localeName(code: string): string {
 function PropertyEditorPage() {
   const { editor, share, inbox } = Route.useLoaderData();
   return (
-    <main key={editor.property.id}>
-      <p>
-        <Link to="/host" data-testid="editor-back">
-          All properties
-        </Link>
-      </p>
-      <h1 data-testid="editor-property-name">{editor.property.displayName}</h1>
-      <GuidePublish propertyId={editor.property.id} published={editor.property.published} />
-      <GuestLinkPanel propertyId={editor.property.id} share={share} />
-      <InboxPanel propertyId={editor.property.id} messages={inbox} />
-      <TranslationPanel property={editor.property} sections={editor.sections} />
-      <PropertyForm property={editor.property} />
-      <p>
-        <Link
-          to="/host/preview/$propertyId"
-          params={{ propertyId: editor.property.id }}
-          data-testid="editor-preview-link"
-        >
-          Open guest preview
-        </Link>
-      </p>
-      <h2>Sections</h2>
-      {editor.sections.length === 0 ? (
-        <p data-testid="editor-sections-empty">No sections yet. Add the first one below.</p>
-      ) : (
-        <ul>
-          {editor.sections.map((section, index) => (
-            <li key={section.id}>
-              <SectionForm
-                propertyId={editor.property.id}
-                section={section}
-                first={index === 0}
-                last={index === editor.sections.length - 1}
-              />
-            </li>
-          ))}
-        </ul>
-      )}
-      <AddSectionForm propertyId={editor.property.id} />
-      <PropertyDangerZone propertyId={editor.property.id} />
-    </main>
+    <>
+      <HostBar />
+      <main className="canvas" key={editor.property.id}>
+        <div className="title-row">
+          <div>
+            <Link to="/host" className="crumb" data-testid="editor-back">
+              Properties
+            </Link>
+            <h1 data-testid="editor-property-name">{editor.property.displayName}</h1>
+          </div>
+          <div className="actions">
+            <Link
+              to="/host/preview/$propertyId"
+              params={{ propertyId: editor.property.id }}
+              className="button"
+              data-testid="editor-preview-link"
+            >
+              Open guest preview
+            </Link>
+            <GuidePublish propertyId={editor.property.id} published={editor.property.published} />
+          </div>
+        </div>
+        <div className="layout">
+          <div>
+            <InboxPanel propertyId={editor.property.id} messages={inbox} />
+            <section className="panel" aria-labelledby="sections-heading">
+              <header>
+                <h2 id="sections-heading">Guide</h2>
+                <span className="muted small">
+                  {editor.sections.length === 1 ? '1 section' : `${editor.sections.length} sections`}
+                </span>
+              </header>
+              {editor.sections.length === 0 ? (
+                <p className="empty" data-testid="editor-sections-empty">
+                  No sections yet. Add the first one below.
+                </p>
+              ) : (
+                <ul className="rows">
+                  {editor.sections.map((section, index) => (
+                    <li key={section.id}>
+                      <SectionForm
+                        propertyId={editor.property.id}
+                        section={section}
+                        first={index === 0}
+                        last={index === editor.sections.length - 1}
+                      />
+                    </li>
+                  ))}
+                </ul>
+              )}
+              <AddSectionForm propertyId={editor.property.id} />
+            </section>
+          </div>
+          <div>
+            <GuestLinkPanel propertyId={editor.property.id} share={share} />
+            <TranslationPanel property={editor.property} sections={editor.sections} />
+            <PropertyForm property={editor.property} />
+            <PropertyDangerZone propertyId={editor.property.id} />
+          </div>
+        </div>
+      </main>
+    </>
   );
 }
 
@@ -135,15 +157,23 @@ function GuidePublish({ propertyId, published }: { propertyId: string; published
   }
 
   return (
-    <p>
-      <span data-testid="guide-status">{published ? 'Guide is live.' : 'Guide is offline.'}</span>{' '}
-      <button type="button" onClick={toggle} disabled={busy} data-testid="guide-publish">
+    <>
+      <span className={published ? 'pill live' : 'pill'} data-testid="guide-status">
+        {published ? 'Guide is live' : 'Guide is offline'}
+      </span>
+      <button
+        type="button"
+        className={published ? undefined : 'primary'}
+        onClick={toggle}
+        disabled={busy}
+        data-testid="guide-publish"
+      >
         {published ? 'Unpublish guide' : 'Publish guide'}
-      </button>{' '}
-      <span role="status" data-testid="guide-status-message">
+      </button>
+      <span role="status" className="small" data-testid="guide-status-message">
         {message}
       </span>
-    </p>
+    </>
   );
 }
 
@@ -196,51 +226,62 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
   }
 
   return (
-    <section data-testid="guest-link-panel">
-      <h2>Guest link</h2>
+    <section className="panel stack" aria-labelledby="guest-link-heading" data-testid="guest-link-panel">
+      <h2 id="guest-link-heading">Guest link</h2>
       <p data-testid="guest-link-status">
         {share?.link
           ? `Active link issued ${new Date(share.link.createdAt).toLocaleDateString()}.`
           : 'No active guest link.'}
       </p>
+      {share?.link && !url ? (
+        <p className="muted">The link is shown only once, when it is issued. Rotate it to get a new one to share.</p>
+      ) : null}
       {share && !share.guidePublished ? (
-        <p data-testid="guest-link-unpublished">
+        <p className="muted" data-testid="guest-link-unpublished">
           Guests can open the link, but they only see the guide once you publish it.
         </p>
       ) : null}
-      <p>
+      {url ? (
+        <div className="link-box stack" data-testid="guest-link-issued">
+          <input readOnly value={url} aria-label="Guest link" data-testid="guest-link-url" />
+          <button type="button" className="primary" onClick={() => void copy(url)} data-testid="guest-link-copy">
+            Copy link
+          </button>
+          <QrSvg value={url} />
+          <p className="small muted">
+            Rotating creates a new link and immediately stops the old one, including any guest who already opened it.
+          </p>
+        </div>
+      ) : null}
+      <div className="actions">
         {share?.link ? (
           <>
             <button type="button" onClick={() => void run('rotate')} disabled={busy} data-testid="guest-link-rotate">
               Rotate link
-            </button>{' '}
-            <button type="button" onClick={() => void run('disable')} disabled={busy} data-testid="guest-link-disable">
+            </button>
+            <button
+              type="button"
+              className="danger"
+              onClick={() => void run('disable')}
+              disabled={busy}
+              data-testid="guest-link-disable"
+            >
               Disable link
             </button>
           </>
         ) : (
-          <button type="button" onClick={() => void run('create')} disabled={busy} data-testid="guest-link-create">
+          <button
+            type="button"
+            className="primary"
+            onClick={() => void run('create')}
+            disabled={busy}
+            data-testid="guest-link-create"
+          >
             Create guest link
           </button>
         )}
-      </p>
-      {url ? (
-        <div data-testid="guest-link-issued">
-          <p>
-            Rotating creates a new link and immediately stops the old one, including any guest who already opened it.
-          </p>
-          <p>
-            <input readOnly value={url} aria-label="Guest link" data-testid="guest-link-url" />
-          </p>
-          <p>
-            <button type="button" onClick={() => void copy(url)} data-testid="guest-link-copy">
-              Copy link
-            </button>
-          </p>
-          <QrSvg value={url} />
-        </div>
-      ) : null}
-      <p role="status" data-testid="guest-link-message">
+      </div>
+      <p role="status" className="small" data-testid="guest-link-message">
         {message}
       </p>
     </section>
@@ -342,46 +383,42 @@ function PropertyForm({ property }: { property: EditorProperty }) {
   }
 
   return (
-    <form onSubmit={submit} noValidate data-testid="property-form">
+    <form onSubmit={submit} noValidate className="panel stack" data-testid="property-form">
       <h2>Property settings</h2>
-      <p>
-        <label>
-          Property name{' '}
-          <input
-            name="displayName"
-            defaultValue={property.displayName}
-            maxLength={120}
-            required
-            aria-invalid={Boolean(errors.displayName)}
-            aria-describedby={errors.displayName ? 'property-name-error' : undefined}
-            data-testid="property-name"
-          />
-        </label>
-      </p>
+      <label>
+        Property name
+        <input
+          name="displayName"
+          defaultValue={property.displayName}
+          maxLength={120}
+          required
+          aria-invalid={Boolean(errors.displayName)}
+          aria-describedby={errors.displayName ? 'property-name-error' : undefined}
+          data-testid="property-name"
+        />
+      </label>
       {errors.displayName ? (
         <p id="property-name-error" role="alert" data-testid="property-name-error">
           {errors.displayName}
         </p>
       ) : null}
-      <p>
-        <label>
-          Guide language{' '}
-          <select
-            name="sourceLocale"
-            value={sourceLocale}
-            onChange={(event) => setSourceLocale(event.target.value)}
-            aria-invalid={Boolean(errors.sourceLocale)}
-            aria-describedby={errors.sourceLocale ? 'property-locale-error' : undefined}
-            data-testid="property-locale"
-          >
-            {guestLocales.map((code) => (
-              <option key={code} value={code}>
-                {languageNames[code]}
-              </option>
-            ))}
-          </select>
-        </label>
-      </p>
+      <label>
+        Guide language
+        <select
+          name="sourceLocale"
+          value={sourceLocale}
+          onChange={(event) => setSourceLocale(event.target.value)}
+          aria-invalid={Boolean(errors.sourceLocale)}
+          aria-describedby={errors.sourceLocale ? 'property-locale-error' : undefined}
+          data-testid="property-locale"
+        >
+          {guestLocales.map((code) => (
+            <option key={code} value={code}>
+              {languageNames[code]}
+            </option>
+          ))}
+        </select>
+      </label>
       {errors.sourceLocale ? (
         <p id="property-locale-error" role="alert" data-testid="property-locale-error">
           {errors.sourceLocale}
@@ -389,7 +426,7 @@ function PropertyForm({ property }: { property: EditorProperty }) {
       ) : null}
       <fieldset key={sourceLocale} data-testid="property-locales">
         <legend>Guest languages</legend>
-        <p>
+        <p className="small muted">
           Guests always read the guide in {languageNames[sourceLocale as GuestLocaleOption]} (the source language). Tick
           any other languages you want stored translations for; nothing is sent to a translation provider until you
           press Generate translations.
@@ -397,7 +434,7 @@ function PropertyForm({ property }: { property: EditorProperty }) {
         {guestLocales
           .filter((code) => code !== sourceLocale)
           .map((code) => (
-            <p key={code}>
+            <p key={code} style={{ marginTop: 8 }}>
               <label>
                 <input
                   type="checkbox"
@@ -405,18 +442,18 @@ function PropertyForm({ property }: { property: EditorProperty }) {
                   value={code}
                   defaultChecked={property.enabledLocales.includes(code)}
                   data-testid={`property-enabled-${code}`}
-                />{' '}
+                />
                 {languageNames[code]}
               </label>
             </p>
           ))}
       </fieldset>
-      <section aria-labelledby="alert-email-heading">
+      <section aria-labelledby="alert-email-heading" className="stack">
         <h3 id="alert-email-heading">New-message alerts</h3>
-        <p data-testid="alert-email">
+        <p className="small" data-testid="alert-email">
           {alertEmail ? `Alerts go to ${alertEmail}.` : 'No alert address is stored for this property.'}
         </p>
-        <p>
+        <div className="actions">
           <button
             type="button"
             onClick={() => void resyncEmail()}
@@ -425,19 +462,19 @@ function PropertyForm({ property }: { property: EditorProperty }) {
           >
             Use my current sign-in address
           </button>
-        </p>
-        <p role="status" data-testid="alert-email-message">
+        </div>
+        <p role="status" className="small" data-testid="alert-email-message">
           {alertMessage}
         </p>
       </section>
-      <p>
-        <button type="submit" disabled={busy} data-testid="property-save">
+      <div className="actions">
+        <button type="submit" className="primary" disabled={busy} data-testid="property-save">
           Save property
         </button>
-      </p>
-      <p role="status" data-testid="property-save-status">
-        {message}
-      </p>
+        <span role="status" className="small" data-testid="property-save-status">
+          {message}
+        </span>
+      </div>
     </form>
   );
 }
@@ -472,15 +509,29 @@ function PropertyDangerZone({ propertyId }: { propertyId: string }) {
   }
 
   return (
-    <section aria-labelledby="property-delete-heading" data-testid="property-danger-zone">
+    <section
+      aria-labelledby="property-delete-heading"
+      className="panel panel-danger stack"
+      data-testid="property-danger-zone"
+    >
       <h2 id="property-delete-heading">Delete property</h2>
-      <p>Deleting a property cannot be undone. Host audit records stay for the retention window.</p>
-      <button type="button" onClick={() => void remove()} disabled={busy} data-testid="property-delete">
-        Delete property
-      </button>{' '}
-      <span role="status" data-testid="property-delete-message">
-        {message}
-      </span>
+      <p className="small muted">
+        Deleting a property cannot be undone. Host audit records stay for the retention window.
+      </p>
+      <div className="actions">
+        <button
+          type="button"
+          className="danger"
+          onClick={() => void remove()}
+          disabled={busy}
+          data-testid="property-delete"
+        >
+          Delete property
+        </button>
+        <span role="status" className="small" data-testid="property-delete-message">
+          {message}
+        </span>
+      </div>
     </section>
   );
 }
@@ -558,28 +609,59 @@ function SectionForm({
     }
   }
 
+  const status =
+    section.visibility === 'host'
+      ? { label: 'Private note', className: 'pill private' }
+      : section.published
+        ? { label: 'Published', className: 'pill live' }
+        : { label: 'Draft', className: 'pill' };
+
   return (
-    <section data-testid="section-item">
-      <h3>
-        {sectionCategoryLabels[section.category]}
-        {section.visibility === 'host' ? ' (private note)' : ''}
-      </h3>
-      <form onSubmit={submit} noValidate data-testid="section-form">
-        <p>
+    <details className="section" data-testid="section-item">
+      <summary>
+        <span className="section-name">
+          <strong>{section.title || sectionCategoryLabels[section.category]}</strong>
+          <span>
+            {[
+              section.title && section.title !== sectionCategoryLabels[section.category]
+                ? sectionCategoryLabels[section.category]
+                : null,
+              ...section.translations.map((translation) => localeName(translation.locale)),
+            ]
+              .filter(Boolean)
+              .join(' · ')}
+          </span>
+        </span>
+        <span className={status.className}>{status.label}</span>
+      </summary>
+      <div className="section-body">
+        <form onSubmit={submit} noValidate className="stack" data-testid="section-form">
+          <div className="field-row">
+            <label>
+              Category
+              <select name="category" defaultValue={section.category} data-testid="section-category">
+                {sectionCategories.map((category: SectionCategory) => (
+                  <option key={category} value={category}>
+                    {sectionCategoryLabels[category]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              Visibility
+              <select
+                name="visibility"
+                value={visibility}
+                onChange={(event) => setVisibility(event.target.value as SectionVisibility)}
+                data-testid="section-visibility"
+              >
+                <option value="guest">Guest content</option>
+                <option value="host">Private note (never shown to guests)</option>
+              </select>
+            </label>
+          </div>
           <label>
-            Category{' '}
-            <select name="category" defaultValue={section.category} data-testid="section-category">
-              {sectionCategories.map((category: SectionCategory) => (
-                <option key={category} value={category}>
-                  {sectionCategoryLabels[category]}
-                </option>
-              ))}
-            </select>
-          </label>
-        </p>
-        <p>
-          <label>
-            Title{' '}
+            Title
             <input
               name="title"
               defaultValue={section.title}
@@ -590,41 +672,23 @@ function SectionForm({
               data-testid="section-title"
             />
           </label>
-        </p>
-        {errors.title ? (
-          <p id={`section-title-error-${section.id}`} role="alert" data-testid="section-title-error">
-            {errors.title}
-          </p>
-        ) : null}
-        <p>
+          {errors.title ? (
+            <p id={`section-title-error-${section.id}`} role="alert" data-testid="section-title-error">
+              {errors.title}
+            </p>
+          ) : null}
           <label>
-            Text{' '}
+            Text
             <textarea name="body" defaultValue={section.body} maxLength={8000} rows={6} data-testid="section-body" />
           </label>
-        </p>
-        {errors.body ? (
-          <p id={`section-body-error-${section.id}`} role="alert" data-testid="section-body-error">
-            {errors.body}
-          </p>
-        ) : null}
-        <p>
-          <label>
-            Visibility{' '}
-            <select
-              name="visibility"
-              value={visibility}
-              onChange={(event) => setVisibility(event.target.value as SectionVisibility)}
-              data-testid="section-visibility"
-            >
-              <option value="guest">Guest content</option>
-              <option value="host">Private note (never shown to guests)</option>
-            </select>
-          </label>
-        </p>
-        {visibility === 'host' ? (
-          <p>
+          {errors.body ? (
+            <p id={`section-body-error-${section.id}`} role="alert" data-testid="section-body-error">
+              {errors.body}
+            </p>
+          ) : null}
+          {visibility === 'host' ? (
             <label>
-              Secret value (stored for you only){' '}
+              Secret value (stored for you only)
               <input
                 name="secretValue"
                 defaultValue={section.secretValue ?? ''}
@@ -634,42 +698,40 @@ function SectionForm({
                 data-testid="section-secret"
               />
             </label>
-          </p>
-        ) : (
-          <p>
+          ) : (
             <label>
               <input
                 type="checkbox"
                 name="published"
                 defaultChecked={section.published}
                 data-testid="section-published"
-              />{' '}
+              />
               Published for guests
             </label>
-          </p>
-        )}
-        {errors.secretValue ? (
-          <p id={`section-secret-error-${section.id}`} role="alert" data-testid="section-secret-error">
-            {errors.secretValue}
-          </p>
-        ) : null}
-        <p>
-          <button type="submit" disabled={busy} data-testid="section-save">
-            Save section
-          </button>{' '}
-          <button type="button" onClick={() => move('up')} disabled={busy || first} data-testid="section-move-up">
-            Move up
-          </button>{' '}
-          <button type="button" onClick={() => move('down')} disabled={busy || last} data-testid="section-move-down">
-            Move down
-          </button>
-        </p>
-        <p role="status" data-testid="section-status">
-          {message}
-        </p>
-      </form>
-      <TranslationBlocks propertyId={propertyId} translations={section.translations} />
-    </section>
+          )}
+          {errors.secretValue ? (
+            <p id={`section-secret-error-${section.id}`} role="alert" data-testid="section-secret-error">
+              {errors.secretValue}
+            </p>
+          ) : null}
+          <div className="actions">
+            <button type="submit" className="primary" disabled={busy} data-testid="section-save">
+              Save section
+            </button>
+            <button type="button" onClick={() => move('up')} disabled={busy || first} data-testid="section-move-up">
+              Move up
+            </button>
+            <button type="button" onClick={() => move('down')} disabled={busy || last} data-testid="section-move-down">
+              Move down
+            </button>
+            <span role="status" className="small" data-testid="section-status">
+              {message}
+            </span>
+          </div>
+        </form>
+        <TranslationBlocks propertyId={propertyId} translations={section.translations} />
+      </div>
+    </details>
   );
 }
 
@@ -754,10 +816,13 @@ function TranslationBlock({ propertyId, translation }: { propertyId: string; tra
   }
 
   return (
-    <fieldset data-testid={`translation-${locale}`}>
+    <fieldset className="translation stack" data-testid={`translation-${locale}`}>
       <legend>
-        {localeName(locale)} — {translation.state === 'approved' ? 'approved' : 'draft'}
-        {translation.stale ? ' · source changed' : ''}
+        {localeName(locale)}{' '}
+        <span className={translation.state === 'approved' ? 'pill live' : 'pill'}>
+          {translation.state === 'approved' ? 'Approved' : 'Draft'}
+        </span>{' '}
+        {translation.stale ? <span className="pill issue">Source changed</span> : null}
       </legend>
       {translation.stale ? (
         <p role="alert" data-testid={`translation-stale-${locale}`}>
@@ -765,66 +830,71 @@ function TranslationBlock({ propertyId, translation }: { propertyId: string; tra
         </p>
       ) : null}
       {translation.state === 'draft' ? (
-        <form onSubmit={approve} noValidate>
-          <p>
-            <label>
-              Title{' '}
-              <input
-                name="title"
-                defaultValue={translation.title}
-                maxLength={400}
-                required
-                aria-invalid={Boolean(errors.title)}
-                aria-describedby={errors.title ? `translation-title-error-${translation.id}` : undefined}
-                data-testid={`translation-title-${locale}`}
-              />
-            </label>
-          </p>
+        <form onSubmit={approve} noValidate className="stack">
+          <label>
+            Title
+            <input
+              name="title"
+              defaultValue={translation.title}
+              maxLength={400}
+              required
+              aria-invalid={Boolean(errors.title)}
+              aria-describedby={errors.title ? `translation-title-error-${translation.id}` : undefined}
+              data-testid={`translation-title-${locale}`}
+            />
+          </label>
           {errors.title ? (
             <p id={`translation-title-error-${translation.id}`} role="alert" data-testid="translation-title-error">
               {errors.title}
             </p>
           ) : null}
-          <p>
-            <label>
-              Text{' '}
-              <textarea
-                name="body"
-                defaultValue={translation.body}
-                maxLength={16000}
-                rows={5}
-                aria-invalid={Boolean(errors.body)}
-                aria-describedby={errors.body ? `translation-body-error-${translation.id}` : undefined}
-                data-testid={`translation-body-${locale}`}
-              />
-            </label>
-          </p>
+          <label>
+            Text
+            <textarea
+              name="body"
+              defaultValue={translation.body}
+              maxLength={16000}
+              rows={5}
+              aria-invalid={Boolean(errors.body)}
+              aria-describedby={errors.body ? `translation-body-error-${translation.id}` : undefined}
+              data-testid={`translation-body-${locale}`}
+            />
+          </label>
           {errors.body ? (
             <p id={`translation-body-error-${translation.id}`} role="alert" data-testid="translation-body-error">
               {errors.body}
             </p>
           ) : null}
-          <p>
-            <button type="submit" disabled={busy || translation.stale} data-testid={`translation-approve-${locale}`}>
+          <div className="actions">
+            <button
+              type="submit"
+              className="primary"
+              disabled={busy || translation.stale}
+              data-testid={`translation-approve-${locale}`}
+            >
               Approve translation
-            </button>{' '}
+            </button>
             <button type="button" onClick={reject} disabled={busy} data-testid={`translation-reject-${locale}`}>
               Reject draft
             </button>
-          </p>
+          </div>
         </form>
       ) : (
-        <div>
-          <h4 data-testid={`translation-approved-title-${locale}`}>{translation.title}</h4>
-          <p data-testid={`translation-approved-body-${locale}`}>{translation.body}</p>
-          <p>
+        <div className="stack">
+          <div>
+            <h4 data-testid={`translation-approved-title-${locale}`}>{translation.title}</h4>
+            <p className="translation-text" data-testid={`translation-approved-body-${locale}`}>
+              {translation.body}
+            </p>
+          </div>
+          <div className="actions">
             <button type="button" onClick={reject} disabled={busy} data-testid={`translation-withdraw-${locale}`}>
               Withdraw translation
             </button>
-          </p>
+          </div>
         </div>
       )}
-      <p role="status" data-testid={`translation-status-${locale}`}>
+      <p role="status" className="small" data-testid={`translation-status-${locale}`}>
         {message}
       </p>
     </fieldset>
@@ -882,8 +952,8 @@ function TranslationPanel({ property, sections }: { property: EditorProperty; se
   }
 
   return (
-    <section data-testid="translation-panel">
-      <h2>Translations</h2>
+    <section className="panel stack" aria-labelledby="translation-heading" data-testid="translation-panel">
+      <h2 id="translation-heading">Translations</h2>
       <p data-testid="translation-status">
         {targets.length === 0
           ? 'No guest languages enabled yet: guests read the source language only.'
@@ -891,11 +961,11 @@ function TranslationPanel({ property, sections }: { property: EditorProperty; se
               property.sourceLocale,
             )}.`}
       </p>
-      <p>
+      <p className="small muted">
         Drafts are generated by Google Cloud Translation (EU) and stay invisible to guests until you approve them under
         each section.
       </p>
-      <p>
+      <div className="actions">
         <button
           type="button"
           onClick={generate}
@@ -904,8 +974,8 @@ function TranslationPanel({ property, sections }: { property: EditorProperty; se
         >
           Generate translations
         </button>
-      </p>
-      <p role="status" data-testid="translation-message">
+      </div>
+      <p role="status" className="small" data-testid="translation-message">
         {message}
       </p>
     </section>
@@ -942,24 +1012,26 @@ function AddSectionForm({ propertyId }: { propertyId: string }) {
   }
 
   return (
-    <form onSubmit={submit} noValidate data-testid="section-new-form">
-      <h2>Add a section</h2>
-      <p>
-        <label>
-          Category{' '}
-          <select name="category" defaultValue="arrival" data-testid="section-new-category">
-            {sectionCategories.map((category: SectionCategory) => (
-              <option key={category} value={category}>
-                {sectionCategoryLabels[category]}
-              </option>
-            ))}
-          </select>
-        </label>{' '}
+    <form onSubmit={submit} noValidate className="add-section" data-testid="section-new-form">
+      <h3>Add a section</h3>
+      <div className="actions">
+        <select
+          name="category"
+          defaultValue="arrival"
+          aria-label="New section category"
+          data-testid="section-new-category"
+        >
+          {sectionCategories.map((category: SectionCategory) => (
+            <option key={category} value={category}>
+              {sectionCategoryLabels[category]}
+            </option>
+          ))}
+        </select>
         <button type="submit" disabled={busy} data-testid="section-new-submit">
           Add section
         </button>
-      </p>
-      <p role="status" data-testid="section-new-status">
+      </div>
+      <p role="status" className="small" data-testid="section-new-status">
         {message}
       </p>
     </form>
