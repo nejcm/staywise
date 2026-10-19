@@ -71,7 +71,9 @@ type ProviderMode =
   | { kind: 'fail_sl' }
   | { kind: 'count_mismatch' }
   | { kind: 'empty_text' }
-  | { kind: 'control_text' };
+  | { kind: 'control_text' }
+  | { kind: 'long_title' }
+  | { kind: 'unauthorized' };
 
 const requests: Captured[] = [];
 let providerMode: ProviderMode = { kind: 'ok' };
@@ -94,6 +96,7 @@ vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
     return Response.json({ access_token: 'synthetic-access-token', expires_in: 3600 });
   }
   if (providerMode.kind === 'translate_error') return new Response('synthetic failure', { status: 500 });
+  if (providerMode.kind === 'unauthorized') return new Response('synthetic revoked', { status: 401 });
   const request = JSON.parse(String(init?.body ?? '{}')) as {
     contents: string[];
     targetLanguageCode: string;
@@ -105,6 +108,7 @@ vi.stubGlobal('fetch', async (input: RequestInfo | URL, init?: RequestInit) => {
   const translations = request.contents.map((content, index) => {
     if (providerMode.kind === 'empty_text' && index === 0) return { translatedText: '   ' };
     if (providerMode.kind === 'control_text' && index === 0) return { translatedText: 'bad\u0000text' };
+    if (providerMode.kind === 'long_title' && index === 0) return { translatedText: 'x'.repeat(401) };
     return { translatedText: `${request.targetLanguageCode.toUpperCase()}#${index} ${content}` };
   });
   return Response.json({ translations });
@@ -690,6 +694,7 @@ describeLocal('stored guide localization (synthetic provider double)', () => {
       { kind: 'count_mismatch' } as const,
       { kind: 'empty_text' } as const,
       { kind: 'control_text' } as const,
+      { kind: 'long_title' } as const,
     ]) {
       providerMode = mode;
       const propertyId = await cleanProperty();
@@ -714,6 +719,17 @@ describeLocal('stored guide localization (synthetic provider double)', () => {
     expect(
       await admin`select id from app.audit_events where actor_id = ${host.userId} and action = 'translation_generated'`,
     ).toHaveLength(0);
+
+    // A 401 drops the cached token, so the next generation signs in again.
+    providerMode = { kind: 'unauthorized' };
+    expect(await generateTranslations({ propertyId: await cleanProperty(), actorId: host.userId })).toEqual({
+      state: 'provider_unavailable',
+    });
+    providerMode = { kind: 'ok' };
+    requests.length = 0;
+    const recovered = await cleanProperty();
+    expect((await generateTranslations({ propertyId: recovered, actorId: host.userId })).state).toBe('generated');
+    expect(requests.filter((request) => request.url === TOKEN_URL)).toHaveLength(1);
   }, 60_000);
 
   it('reports provider_unavailable without credentials and performs no egress', async () => {

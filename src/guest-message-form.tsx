@@ -19,6 +19,7 @@ export function GuestMessageForm({ shareId, locale }: { shareId: string; locale:
   function fieldError(code: string): string {
     if (code === 'message_required') return guestUiText(locale, 'form.bodyRequired');
     if (code === 'message_too_long') return guestUiText(locale, 'form.bodyTooLong');
+    if (code === 'message_invalid') return guestUiText(locale, 'form.bodyInvalid');
     if (code === 'email_invalid') return guestUiText(locale, 'form.emailInvalid');
     if (code === 'category_invalid') return guestUiText(locale, 'form.categoryRequired');
     return guestUiText(locale, 'form.error');
@@ -54,6 +55,9 @@ export function GuestMessageForm({ shareId, locale }: { shareId: string; locale:
       }
       if (response.status === 400 && payload.fields) {
         setSendErrors(payload.fields);
+        // Kind and locale errors have no field of their own on the form.
+        const shown = ['category', 'body', 'replyEmail'].some((field) => payload.fields?.[field]);
+        if (!shown) setNotice(guestUiText(locale, 'form.error'));
         return;
       }
       if (response.status === 403) {

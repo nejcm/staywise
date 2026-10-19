@@ -9,6 +9,7 @@ import {
   duplicateWindowMinutes,
   guestMessageFields,
   inboxInput,
+  inboxLimit,
   messageActionInput,
   messageLimits,
   setAnswerInGuideInput,
@@ -173,6 +174,7 @@ export async function readInbox(tx: postgres.TransactionSql, propertyId: string)
     from app.guest_messages
     where property_id = ${parsed.propertyId}
     order by created_at desc, id desc
+    limit ${inboxLimit}
   `;
   return rows.map(toInboxMessage);
 }

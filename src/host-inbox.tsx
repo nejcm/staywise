@@ -2,6 +2,7 @@ import { useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { guestLocaleName } from './guest-ui';
 import { sectionCategoryLabels } from './guide-validation';
+import { inboxLimit } from './message-validation';
 import { deleteInboxMessage, markInboxHandled, tagInboxAnswer } from './messages-fns';
 import type { InboxMessage } from './messages.server';
 
@@ -119,6 +120,11 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
           ))}
         </ul>
       )}
+      {messages?.length === inboxLimit ? (
+        <p data-testid="inbox-truncated">
+          Showing the newest {inboxLimit} messages. Delete or wait for older ones to expire to see the rest.
+        </p>
+      ) : null}
     </section>
   );
 }

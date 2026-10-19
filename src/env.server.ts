@@ -88,7 +88,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     smtpUrl: parseValue(env, 'SMTP_URL', appEnv, z.url()),
     smtpFrom: parseValue(env, 'SMTP_FROM', appEnv, z.email()),
     appOrigin: parseValue(env, 'APP_ORIGIN', appEnv, z.url()),
-    // Key for share-secret and guest-session HMACs; never leaves the server.
+    // Key for share-secret digests and guest rate-limit fingerprints; never leaves the server.
     shareHmacKey: parseValue(env, 'SHARE_HMAC_KEY', appEnv, z.string().min(32)),
     guestAccessDisabled: parseGuestAccessDisabled(env.GUEST_ACCESS_DISABLED),
     googleTranslateServiceAccount: parseGoogleTranslateServiceAccount(env.GOOGLE_TRANSLATE_SERVICE_ACCOUNT),

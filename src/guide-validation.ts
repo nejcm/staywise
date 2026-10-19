@@ -74,7 +74,13 @@ export const createSectionInput = z.object({
   category: z.enum(sectionCategories, 'Choose a section category'),
 });
 export const saveSectionInput = z
-  .object({ propertyId: z.uuid(), sectionId: z.uuid(), ...sectionFieldsShape })
+  .object({
+    propertyId: z.uuid(),
+    sectionId: z.uuid(),
+    // The revision the editor loaded; when present, a save over a newer revision is refused.
+    expectedRevision: z.number().int().positive().optional(),
+    ...sectionFieldsShape,
+  })
   .refine((value) => value.visibility === 'host' || value.secretValue === '', secretOnlyOnPrivateNote);
 export const savePropertyInput = propertyFields.extend({ propertyId: z.uuid() });
 export const copyPropertyInput = z.object({ sourcePropertyId: z.uuid() });

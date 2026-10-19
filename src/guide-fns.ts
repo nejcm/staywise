@@ -167,6 +167,7 @@ export const saveSection = createServerFn({ method: 'POST' })
         visibility: string;
         secretValue: string;
         published: boolean;
+        expectedRevision?: number;
       },
   )
   .handler(async ({ data }) =>
@@ -176,13 +177,13 @@ export const saveSection = createServerFn({ method: 'POST' })
       if (!input.success) return { error: 'invalid_input' } satisfies FnError;
       const host = await aal2Host();
       if ('error' in host) return host;
-      const saved = await withOwnerContext(host.userId, (tx) => updateSection(tx, input.data));
-      if (!saved) return { error: 'invalid_input' } satisfies FnError;
+      const sourceRevision = await withOwnerContext(host.userId, (tx) => updateSection(tx, input.data));
+      if (sourceRevision === null) return { error: 'invalid_input' } satisfies FnError;
       await recordSetupEvent(host.userId, 'section_saved', {
         propertyId: input.data.propertyId,
         step: input.data.category,
       });
-      return { ok: true as const };
+      return { ok: true as const, sourceRevision };
     }),
   );
 

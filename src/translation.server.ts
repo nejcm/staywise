@@ -206,7 +206,11 @@ async function translateContents(
       body: JSON.stringify(buildTranslationRequest(chunk, sourceLocale, targetLocale)),
       signal: AbortSignal.timeout(providerTimeoutMs),
     });
-    if (!response.ok) throw new Error('provider_http_error');
+    if (!response.ok) {
+      // A revoked or rotated credential must not keep failing until the cached token expires.
+      if (response.status === 401 || response.status === 403) cachedToken = null;
+      throw new Error('provider_http_error');
+    }
     const parsed = responseSchema.safeParse(await response.json().catch(() => null));
     if (!parsed.success || parsed.data.translations.length !== chunk.length)
       throw new Error('provider_response_invalid');
@@ -346,13 +350,16 @@ export async function generateTranslations(input: { propertyId: string; actorId:
       const contents = items.flatMap((item) => [item.title, item.body]);
       const translated = await translateContents(credentials, contents, job.sourceLocale, locale);
       items.forEach((item, index) => {
-        drafts.push({
-          sectionId: item.sectionId,
-          locale,
-          title: translated[index * 2]!,
-          body: translated[index * 2 + 1]!,
-          sourceRevision: item.sourceRevision,
-        });
+        // Store limits are tighter than the provider bounds (titles); fail here, inside the logged path.
+        drafts.push(
+          storedDraftSchema.parse({
+            sectionId: item.sectionId,
+            locale,
+            title: translated[index * 2],
+            body: translated[index * 2 + 1],
+            sourceRevision: item.sourceRevision,
+          }),
+        );
       });
     }
   } catch {

@@ -498,6 +498,8 @@ function SectionForm({
 }) {
   const router = useRouter();
   const [visibility, setVisibility] = useState<SectionVisibility>(section.visibility);
+  // The fields are uncontrolled, so they still show this revision after a refresh brings a newer one.
+  const [loadedRevision, setLoadedRevision] = useState(section.sourceRevision);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
   const [busy, setBusy] = useState(false);
@@ -522,11 +524,14 @@ function SectionForm({
     setBusy(true);
     setMessage('');
     try {
-      const result = await saveSection({ data: { propertyId, sectionId: section.id, ...parsed.data } });
+      const result = await saveSection({
+        data: { propertyId, sectionId: section.id, expectedRevision: loadedRevision, ...parsed.data },
+      });
       if ('error' in result) {
-        setMessage('Something went wrong. Try again.');
+        setMessage('Could not save; if this section changed in another tab, reload the page and try again.');
         return;
       }
+      setLoadedRevision(result.sourceRevision);
       setMessage('Saved.');
       await router.invalidate();
     } catch {

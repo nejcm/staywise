@@ -49,6 +49,9 @@ export const messageLimits = {
   propertyPerDay: 100,
 } as const;
 
+// The editor loads the inbox on every visit, so it reads the newest messages only.
+export const inboxLimit = 200;
+
 // An identical retry from one session inside this window is the same submission.
 export const duplicateWindowMinutes = 5;
 

@@ -81,6 +81,7 @@ export type SectionWrite = {
   visibility: SectionVisibility;
   secretValue: string;
   published: boolean;
+  expectedRevision?: number;
 };
 
 // Explicit allowlist for everything guests receive: published guest prose in display order; host
@@ -367,9 +368,10 @@ export async function insertSection(
   return row?.id ?? null;
 }
 
-export async function updateSection(tx: postgres.TransactionSql, input: SectionWrite): Promise<boolean> {
+// Returns the saved source revision, or null when the section is missing or changed since it loaded.
+export async function updateSection(tx: postgres.TransactionSql, input: SectionWrite): Promise<number | null> {
   const parsed = canonicalInput(saveSectionInput, input);
-  const rows = await tx`
+  const rows = await tx<{ source_revision: number }[]>`
     update app.guide_sections set
       category = ${parsed.category},
       title = ${parsed.title},
@@ -382,9 +384,10 @@ export async function updateSection(tx: postgres.TransactionSql, input: SectionW
             is distinct from (${parsed.title}, ${parsed.body}, ${parsed.category}, ${parsed.visibility}) then 1 else 0 end,
       updated_at = now()
     where id = ${parsed.sectionId} and property_id = ${parsed.propertyId}
-    returning id
+      and (${parsed.expectedRevision ?? null}::int is null or source_revision = ${parsed.expectedRevision ?? null})
+    returning source_revision
   `;
-  return rows.length === 1;
+  return rows[0]?.source_revision ?? null;
 }
 
 export async function moveSection(

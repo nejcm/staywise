@@ -113,7 +113,7 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
         jar: host.jar,
         data: sectionData(propertyId, sectionId, { body: 'SYNTHETIC-DRAFT-BODY' }),
       });
-      expect(decode(draft)?.result).toEqual({ ok: true });
+      expect(decode(draft)?.result).toMatchObject({ ok: true });
 
       const beforePublish = await guideFn('getGuestPreview', { jar: host.jar, data: { propertyId } });
       expect(decode(beforePublish)?.result).toEqual({
@@ -536,6 +536,50 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
       await adminClient(local).deleteUser(intruder.userId);
     }
   }, 90_000);
+
+  it('refuses a section save made against an older revision', async () => {
+    const local = localStack as LocalStack;
+    const host = await verifiedHost(local, 'conflict');
+    try {
+      const propertyId = await createProperty(host);
+      const sectionId = await createSection(host, propertyId, 'wifi');
+      const admin = localAdmin();
+      try {
+        const [loaded] = await admin<{ source_revision: number }[]>`
+          select source_revision from app.guide_sections where id = ${sectionId}
+        `;
+        const first = decode<{ ok?: boolean; sourceRevision?: number }>(
+          await guideFn('saveSection', {
+            jar: host.jar,
+            data: sectionData(propertyId, sectionId, { expectedRevision: loaded!.source_revision, body: 'Tab B body' }),
+          }),
+        )?.result;
+        expect(first).toMatchObject({ ok: true, sourceRevision: loaded!.source_revision + 1 });
+
+        const stale = decode<{ error?: string }>(
+          await guideFn('saveSection', {
+            jar: host.jar,
+            data: sectionData(propertyId, sectionId, { expectedRevision: loaded!.source_revision, body: 'Tab A body' }),
+          }),
+        )?.result;
+        expect(stale?.error).toBe('invalid_input');
+        const [kept] = await admin<{ body: string }[]>`select body from app.guide_sections where id = ${sectionId}`;
+        expect(kept?.body).toBe('Tab B body');
+
+        const current = decode<{ ok?: boolean }>(
+          await guideFn('saveSection', {
+            jar: host.jar,
+            data: sectionData(propertyId, sectionId, { expectedRevision: first!.sourceRevision, body: 'Tab A body' }),
+          }),
+        )?.result;
+        expect(current?.ok).toBe(true);
+      } finally {
+        await admin.end({ timeout: 0 });
+      }
+    } finally {
+      await adminClient(local).deleteUser(host.userId);
+    }
+  }, 60_000);
 
   it('rejects malformed and oversized guide input before any write', async () => {
     const local = localStack as LocalStack;
