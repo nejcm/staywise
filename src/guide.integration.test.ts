@@ -411,6 +411,132 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
     }
   }, 90_000);
 
+  it('deletes a property and every child immediately, and resyncs the alert address on demand', async () => {
+    const local = localStack as LocalStack;
+    const owner = await verifiedHost(local, 'delete-owner');
+    const intruder = await verifiedHost(local, 'delete-intruder');
+    const admin = localAdmin();
+    try {
+      const propertyId = await createProperty(owner);
+      const sectionId = await createSection(owner, propertyId, 'wifi');
+      const linkId = `itc7${Date.now()}`;
+      const messageId = crypto.randomUUID();
+      const sessionId = crypto.randomUUID();
+      const translationId = crypto.randomUUID();
+      const reservationId = crypto.randomUUID();
+      const tokenId = crypto.randomUUID();
+      await admin`
+        insert into app.guide_translations (id, section_id, locale, title, body, source_revision, state, provider)
+        values (${translationId}, ${sectionId}, 'de', 'Synthetic', 'Synthetic', 1, 'approved', 'synthetic')
+      `;
+      await admin`
+        insert into app.share_links (id, secret_hmac, property_id) values (${linkId}, ${Buffer.from('0102', 'hex')}, ${propertyId})
+      `;
+      await admin`
+        insert into app.guest_sessions (id, session_hash, share_link_id, expires_at)
+        values (${sessionId}, ${Buffer.from('11', 'hex')}, ${linkId}, now() + interval '1 hour')
+      `;
+      await admin`
+        insert into app.guest_messages (id, property_id, kind, category, body)
+        values (${messageId}, ${propertyId}, 'question', 'wifi', 'Synthetic delete body')
+      `;
+      await admin`
+        insert into app.rate_limits (property_id, key_hash, window_start, count) values
+          (${propertyId}, ${crypto.randomBytes(16)}, now(), 1),
+          (${propertyId}, ${crypto.randomBytes(16)}, now(), 1)
+      `;
+      await admin`
+        insert into app.guest_counters (property_id, day, link_exchanges, guide_opens, submissions)
+        values (${propertyId}, current_date, 1, 1, 1)
+      `;
+      await admin`
+        insert into app.reservations (id, property_id, source, external_id, stay_start, stay_end)
+        values (${reservationId}, ${propertyId}, 'synthetic', ${reservationId}, current_date, current_date)
+      `;
+      await admin`
+        insert into app.setup_events (owner_id, event_type, property_id, step)
+        values (${owner.userId}, 'section_saved', ${propertyId}, 'wifi')
+      `;
+      await admin`
+        insert into app.api_tokens (id, owner_id, token_hash, scopes, property_id)
+        values (${tokenId}, ${owner.userId}, ${crypto.randomBytes(16)}, '{content:write}', ${propertyId})
+      `;
+
+      const [before] = await admin<{ alert_email: string | null }[]>`
+        select alert_email from app.properties where id = ${propertyId}
+      `;
+      expect(before?.alert_email).toBe(owner.email);
+      const newEmail = `synthetic-delete-owner-updated-${Date.now()}@example.test`;
+      await adminClient(local).updateUserEmail(owner.userId, newEmail);
+      const resynced = decode<{ ok?: boolean; alertEmail?: string }>(
+        await guideFn('resyncAlertEmail', { jar: owner.jar, data: { propertyId } }),
+      )?.result;
+      expect(resynced).toEqual({ ok: true, alertEmail: newEmail });
+      const [after] = await admin<{ alert_email: string | null }[]>`
+        select alert_email from app.properties where id = ${propertyId}
+      `;
+      expect(after?.alert_email).toBe(newEmail);
+
+      const crossOwner = await guideFn('deleteProperty', { jar: intruder.jar, data: { propertyId } });
+      expect(decode<{ error?: string }>(crossOwner)?.result?.error).toBe('invalid_input');
+      const [stillThere] = await admin<{ n: number }[]>`
+        select count(*)::int as n from app.properties where id = ${propertyId}
+      `;
+      expect(stillThere?.n).toBe(1);
+
+      const deleted = await guideFn('deleteProperty', { jar: owner.jar, data: { propertyId } });
+      expect(decode<{ ok?: boolean }>(deleted)?.result).toEqual({ ok: true });
+      const [children] = await admin<
+        {
+          properties: number;
+          sections: number;
+          translations: number;
+          links: number;
+          sessions: number;
+          messages: number;
+          rates: number;
+          counters: number;
+          reservations: number;
+          setup_events: number;
+          api_tokens: number;
+          delete_audits: number;
+        }[]
+      >`
+        select
+          (select count(*)::int from app.properties where id = ${propertyId}) as properties,
+          (select count(*)::int from app.guide_sections where property_id = ${propertyId}) as sections,
+          (select count(*)::int from app.guide_translations where id = ${translationId}) as translations,
+          (select count(*)::int from app.share_links where property_id = ${propertyId}) as links,
+          (select count(*)::int from app.guest_sessions where id = ${sessionId}) as sessions,
+          (select count(*)::int from app.guest_messages where id = ${messageId}) as messages,
+          (select count(*)::int from app.rate_limits where property_id = ${propertyId}) as rates,
+          (select count(*)::int from app.guest_counters where property_id = ${propertyId}) as counters,
+          (select count(*)::int from app.reservations where id = ${reservationId}) as reservations,
+          (select count(*)::int from app.setup_events where property_id = ${propertyId}) as setup_events,
+          (select count(*)::int from app.api_tokens where id = ${tokenId}) as api_tokens,
+          (select count(*)::int from app.audit_events where actor_id = ${owner.userId} and action = 'delete') as delete_audits
+      `;
+      expect(children).toEqual({
+        properties: 0,
+        sections: 0,
+        translations: 0,
+        links: 0,
+        sessions: 0,
+        messages: 0,
+        rates: 0,
+        counters: 0,
+        reservations: 0,
+        setup_events: 0,
+        api_tokens: 0,
+        delete_audits: 1,
+      });
+    } finally {
+      await admin.end({ timeout: 0 });
+      await adminClient(local).deleteUser(owner.userId);
+      await adminClient(local).deleteUser(intruder.userId);
+    }
+  }, 90_000);
+
   it('rejects malformed and oversized guide input before any write', async () => {
     const local = localStack as LocalStack;
     const host = await verifiedHost(local, 'invalid');

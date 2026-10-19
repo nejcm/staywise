@@ -113,7 +113,8 @@ begin
 end $$;
 create temp table probe_rate on commit drop as
   with ins as (
-    insert into app.rate_limits (key_hash, window_start) values (decode('00', 'hex'), now()) returning 1 as n
+    insert into app.rate_limits (property_id, key_hash, window_start)
+      values ('78000000-0000-4000-8000-0000000000a2', decode('00', 'hex'), now()) returning 1 as n
   )
   select n from ins;
 reset role;

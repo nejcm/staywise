@@ -8,9 +8,15 @@ function HomePage() {
   return (
     <main>
       <h1>Staywise</h1>
-      <p>Guest guide portal — application foundation. No guest or host features are live yet.</p>
+      <p>
+        Hosts create and publish a guest guide, share it by link or QR code, and answer guest messages. Guests open the
+        shared link to read the guide in English, German, or Slovenian.
+      </p>
       <p>
         <Link to="/auth/sign-in">Host sign in</Link>
+      </p>
+      <p>
+        <Link to="/privacy">Privacy and data handling</Link>
       </p>
     </main>
   );

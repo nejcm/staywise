@@ -343,6 +343,9 @@ function HostPage() {
       <button type="button" onClick={logout} disabled={busy} data-testid="host-signout">
         Sign out
       </button>
+      <p>
+        <Link to="/privacy">Privacy and data handling</Link>
+      </p>
     </main>
   );
 }

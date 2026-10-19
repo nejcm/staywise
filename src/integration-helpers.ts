@@ -171,6 +171,14 @@ export function adminClient(local: LocalStack) {
       return user.id;
     },
     deleteUser: (id: string) => fetch(`${local.apiUrl}/auth/v1/admin/users/${id}`, { method: 'DELETE', headers }),
+    updateUserEmail: async (id: string, email: string) => {
+      const response = await fetch(`${local.apiUrl}/auth/v1/admin/users/${id}`, {
+        method: 'PUT',
+        headers,
+        body: JSON.stringify({ email, email_confirm: true }),
+      });
+      if (!response.ok) throw new Error('synthetic admin email update failed');
+    },
   };
 }
 

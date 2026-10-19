@@ -16,6 +16,7 @@ const localEnv: ServerEnv = {
   smtpFrom: 'staywise@example.test',
   appOrigin: 'http://localhost:3000',
   shareHmacKey: 'synthetic-share-hmac-key-not-for-use',
+  guestAccessDisabled: false,
   googleTranslateServiceAccount: null,
 };
 

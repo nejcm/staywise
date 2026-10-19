@@ -16,6 +16,24 @@ body {
   padding: 1rem 1rem 2.5rem;
 }
 
+.skip-link {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 100;
+  max-width: calc(100vw - 1rem);
+  padding: 0.65rem 1rem;
+  color: #14181c;
+  background: #fff;
+  border: 2px solid #14181c;
+  border-radius: 0 0.5rem 0.5rem 0;
+  transform: translateY(-150%);
+}
+
+.skip-link:focus {
+  transform: translateY(0);
+}
+
 .guest-label {
   margin: 0;
   font-size: 0.75rem;
@@ -181,4 +199,36 @@ body {
   margin-top: 0.25rem;
   font-size: 0.85rem;
   color: #b3261e;
+}
+
+.notice {
+  max-width: 42rem;
+  margin: 0 auto;
+  padding: 1rem 1rem 2.5rem;
+}
+
+.notice h1 {
+  font-size: 1.6rem;
+}
+
+.notice h2 {
+  margin-top: 1.5rem;
+  font-size: 1.1rem;
+}
+
+.notice ul {
+  padding-left: 1.25rem;
+}
+
+.notice li + li {
+  margin-top: 0.4rem;
+}
+
+.notice a {
+  color: #1d4ed8;
+}
+
+.notice a:focus-visible {
+  outline: 3px solid #1d4ed8;
+  outline-offset: 2px;
 }

@@ -85,4 +85,11 @@ describe('parseServerEnv', () => {
     expect(() => parseServerEnv(missing)).toThrow(/SHARE_HMAC_KEY/);
     expect(parseServerEnv(remoteEnv(appDbUrl)).shareHmacKey).toBe('synthetic-remote-share-hmac-key-0123456789');
   });
+
+  it('parses the guest kill switch strictly and defaults it off', () => {
+    expect(parseServerEnv({ APP_ENV: 'local' }).guestAccessDisabled).toBe(false);
+    expect(parseServerEnv({ APP_ENV: 'local', GUEST_ACCESS_DISABLED: 'false' }).guestAccessDisabled).toBe(false);
+    expect(parseServerEnv({ APP_ENV: 'local', GUEST_ACCESS_DISABLED: 'true' }).guestAccessDisabled).toBe(true);
+    expect(() => parseServerEnv({ APP_ENV: 'local', GUEST_ACCESS_DISABLED: 'yes' })).toThrow(/GUEST_ACCESS_DISABLED/);
+  });
 });

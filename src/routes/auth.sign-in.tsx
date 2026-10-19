@@ -1,4 +1,4 @@
-import { createFileRoute } from '@tanstack/react-router';
+import { Link, createFileRoute } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
 import { getHostAuthState, requestMagicLink } from '../host-fns';
 
@@ -62,6 +62,9 @@ function SignInPage() {
       </form>
       <p data-testid="signin-message" role="status">
         {message}
+      </p>
+      <p>
+        <Link to="/privacy">Privacy and data handling</Link>
       </p>
     </main>
   );

@@ -37,6 +37,7 @@ export type ServerEnv = {
   smtpFrom: string;
   appOrigin: string;
   shareHmacKey: string;
+  guestAccessDisabled: boolean;
   // Absent means translation egress is not configured; a malformed value fails closed at boot.
   googleTranslateServiceAccount: GoogleTranslateCredentials | null;
 };
@@ -89,8 +90,18 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     appOrigin: parseValue(env, 'APP_ORIGIN', appEnv, z.url()),
     // Key for share-secret and guest-session HMACs; never leaves the server.
     shareHmacKey: parseValue(env, 'SHARE_HMAC_KEY', appEnv, z.string().min(32)),
+    guestAccessDisabled: parseGuestAccessDisabled(env.GUEST_ACCESS_DISABLED),
     googleTranslateServiceAccount: parseGoogleTranslateServiceAccount(env.GOOGLE_TRANSLATE_SERVICE_ACCOUNT),
   };
+}
+
+// Operator kill switch: a deliberate value is required, and a typo must stop the boot rather than
+// leave guest access silently enabled.
+function parseGuestAccessDisabled(raw: string | undefined): boolean {
+  if (raw === undefined || raw === '') return false;
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  throw new Error('GUEST_ACCESS_DISABLED must be true or false');
 }
 
 // Translation egress stays off until the documented provider gate is passed and the service

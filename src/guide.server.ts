@@ -6,6 +6,7 @@ import {
   createSectionInput,
   moveSectionInput,
   propertyFields,
+  propertyIdInput,
   savePropertyInput,
   saveSectionInput,
   setGuidePublishedInput,
@@ -35,6 +36,7 @@ export type GuideEditorData = {
     sourceLocale: string;
     enabledLocales: string[];
     published: boolean;
+    alertEmail: string | null;
   };
   sections: {
     id: string;
@@ -131,9 +133,17 @@ export async function readGuideEditor(
   propertyId: string,
 ): Promise<GuideEditorData | null> {
   const [property] = await tx<
-    { id: string; display_name: string; source_locale: string; enabled_locales: string[]; published: boolean }[]
+    {
+      id: string;
+      display_name: string;
+      source_locale: string;
+      enabled_locales: string[];
+      published: boolean;
+      alert_email: string | null;
+    }[]
   >`
-    select id, display_name, source_locale, enabled_locales, published from app.properties where id = ${propertyId}
+    select id, display_name, source_locale, enabled_locales, published, alert_email
+    from app.properties where id = ${propertyId}
   `;
   if (!property) return null;
   const sections = await tx<
@@ -198,6 +208,7 @@ export async function readGuideEditor(
       sourceLocale: property.source_locale,
       enabledLocales: property.enabled_locales,
       published: property.published,
+      alertEmail: property.alert_email,
     },
     sections: sections.map((section) => ({
       id: section.id,
@@ -288,6 +299,27 @@ export async function setPropertyPublished(
   const parsed = canonicalInput(setGuidePublishedInput, { propertyId, published });
   const rows = await tx`
     update app.properties set published = ${parsed.published}, updated_at = now() where id = ${parsed.propertyId} returning id
+  `;
+  return rows.length === 1;
+}
+
+export async function deleteProperty(tx: postgres.TransactionSql, propertyId: string): Promise<boolean> {
+  const parsed = canonicalInput(propertyIdInput, { propertyId });
+  const rows = await tx`delete from app.properties where id = ${parsed.propertyId} returning id`;
+  return rows.length === 1;
+}
+
+export async function updateAlertEmail(
+  tx: postgres.TransactionSql,
+  propertyId: string,
+  alertEmail: string,
+): Promise<boolean> {
+  const parsed = canonicalInput(propertyIdInput, { propertyId });
+  const email = alertEmailSchema.safeParse(alertEmail);
+  if (!email.success) return false;
+  const rows = await tx`
+    update app.properties set alert_email = ${email.data}, updated_at = now()
+    where id = ${parsed.propertyId} returning id
   `;
   return rows.length === 1;
 }

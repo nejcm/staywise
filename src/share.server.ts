@@ -141,6 +141,7 @@ export async function rotateShareLink(
 
 export async function exchangeGuestLink(input: { shareId: string; secret: string }): Promise<string | null> {
   const parsed = canonicalInput(exchangeGuestLinkInput, input);
+  if (serverEnv.guestAccessDisabled) return null;
   const token = randomBytes(32).toString('base64url');
   const expiresAt = new Date(Date.now() + GUEST_SESSION_SECONDS * 1000);
   const exchanged = await withLinkContext(parsed.shareId, async (tx) => {
@@ -176,6 +177,7 @@ export async function withActiveGuestLink<T>(
   if (!parsed.success) return null;
   const token = input.sessionToken ? secretSchema.safeParse(input.sessionToken) : null;
   if (!token?.success) return null;
+  if (serverEnv.guestAccessDisabled) return null;
   return withLinkContext(parsed.data.shareId, async (tx) => {
     const [link] = await tx<{ property_id: string }[]>`
       select property_id from app.share_links where id = ${parsed.data.shareId}

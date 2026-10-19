@@ -1,6 +1,7 @@
 import { Outlet, createFileRoute, useRouterState } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
+import { bearerSecretFromFragment } from '../guest-fragment';
 import { getGuestPage } from '../guest-fns';
 import { guestLink, guestLocaleName, guestUiText, languageNames } from '../guest-ui';
 import type { GuestPage } from '../share.server';
@@ -22,9 +23,10 @@ function GuestLayout() {
   const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   useEffect(() => {
-    // The entry fragment exchanged for the session cookie; keep it out of the address bar.
-    if (guest.state === 'guide' && window.location.hash) {
-      history.replaceState(null, '', window.location.pathname + window.location.search);
+    // A full reload keeps the /g-scoped cookie; a client-side replace would re-run this route
+    // loader through /_serverFn, where that path-scoped cookie is never sent.
+    if (guest.state === 'guide' && bearerSecretFromFragment(window.location.hash)) {
+      window.location.replace(window.location.pathname + window.location.search);
     }
   }, [guest.state]);
 
@@ -38,13 +40,27 @@ function GuestLayout() {
   const { locale, locales, sourceLocale } = guest.guest;
   return (
     <main className="guest" lang={locale}>
+      <a
+        className="skip-link"
+        href="#guest-content"
+        data-testid="guest-skip"
+        onClick={(event) => {
+          // A native hash navigation re-runs the guest loader through /_serverFn, where the /g cookie is absent.
+          event.preventDefault();
+          document.getElementById('guest-content')?.focus();
+        }}
+      >
+        {guestUiText(locale, 'nav.skip')}
+      </a>
       <header className="guest-header">
         <p className="guest-label">{guestUiText(locale, 'label.guest')}</p>
         <h1>{guest.guest.displayName}</h1>
         <GuestNav shareId={shareId} locale={locale} sourceLocale={sourceLocale} pathname={pathname} />
         <LocaleSwitch locale={locale} locales={locales} sourceLocale={sourceLocale} pathname={pathname} />
       </header>
-      <Outlet />
+      <div id="guest-content" tabIndex={-1} data-testid="guest-content">
+        <Outlet />
+      </div>
     </main>
   );
 }
@@ -119,7 +135,7 @@ function GuestOpen({ shareId }: { shareId: string }) {
 
   useEffect(() => {
     let active = true;
-    const secret = window.location.hash.replace(/^#/, '');
+    const secret = bearerSecretFromFragment(window.location.hash);
     if (!secret) {
       setDenied(true);
       return;

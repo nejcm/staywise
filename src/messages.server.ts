@@ -83,9 +83,15 @@ export function duplicateFingerprint(input: {
 }
 
 // Atomic fixed-window counter: concurrent submissions cannot both read the same pre-increment value.
-async function bumpRate(tx: postgres.TransactionSql, keyHash: Buffer, windowStart: Date): Promise<number> {
+async function bumpRate(
+  tx: postgres.TransactionSql,
+  propertyId: string,
+  keyHash: Buffer,
+  windowStart: Date,
+): Promise<number> {
   const [row] = await tx<{ count: number }[]>`
-    insert into app.rate_limits (key_hash, window_start, count) values (${keyHash}, ${windowStart}, 1)
+    insert into app.rate_limits (property_id, key_hash, window_start, count)
+    values (${propertyId}, ${keyHash}, ${windowStart}, 1)
     on conflict (key_hash, window_start) do update set count = app.rate_limits.count + 1
     returning count
   `;
@@ -103,9 +109,9 @@ export async function submitGuestMessage(input: GuestMessageInput): Promise<Subm
         sessionToken: link.sessionToken,
       });
       const hour = utcWindow(3600);
-      const sessionCount = await bumpRate(tx, fingerprints.session, hour);
-      const linkCount = await bumpRate(tx, fingerprints.link, hour);
-      const propertyCount = await bumpRate(tx, fingerprints.property, utcWindow(86_400));
+      const sessionCount = await bumpRate(tx, link.propertyId, fingerprints.session, hour);
+      const linkCount = await bumpRate(tx, link.propertyId, fingerprints.link, hour);
+      const propertyCount = await bumpRate(tx, link.propertyId, fingerprints.property, utcWindow(86_400));
       // Denials commit their increments, so a flood keeps the window closed instead of resetting it.
       if (
         sessionCount > messageLimits.sessionPerHour ||
@@ -123,7 +129,7 @@ export async function submitGuestMessage(input: GuestMessageInput): Promise<Subm
         body: message.body,
         replyEmail: followUpEmail,
       });
-      if ((await bumpRate(tx, duplicateKey, utcWindow(duplicateWindowMinutes * 60))) > 1) {
+      if ((await bumpRate(tx, link.propertyId, duplicateKey, utcWindow(duplicateWindowMinutes * 60))) > 1) {
         return { state: 'duplicate' } as const;
       }
       // No RETURNING: guests have no SELECT policy over stored messages, and RETURNING would need one.

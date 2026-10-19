@@ -1,11 +1,13 @@
-import { Link, createFileRoute, redirect, useRouter } from '@tanstack/react-router';
+import { Link, createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
 import { encode } from 'uqr';
 import { getHostAuthState } from '../host-fns';
 import {
   createSection,
+  deleteProperty,
   getPropertyEditor,
   moveSectionOrder,
+  resyncAlertEmail,
   saveProperty,
   saveSection,
   setGuidePublished,
@@ -105,6 +107,7 @@ function PropertyEditorPage() {
         </ul>
       )}
       <AddSectionForm propertyId={editor.property.id} />
+      <PropertyDangerZone propertyId={editor.property.id} />
     </main>
   );
 }
@@ -281,8 +284,11 @@ function QrSvg({ value }: { value: string }) {
 function PropertyForm({ property }: { property: EditorProperty }) {
   const router = useRouter();
   const [sourceLocale, setSourceLocale] = useState(property.sourceLocale);
+  const [alertEmail, setAlertEmail] = useState(property.alertEmail);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertBusy, setAlertBusy] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -316,8 +322,28 @@ function PropertyForm({ property }: { property: EditorProperty }) {
     }
   }
 
+  async function resyncEmail() {
+    setAlertBusy(true);
+    setAlertMessage('');
+    try {
+      const result = await resyncAlertEmail({ data: { propertyId: property.id } });
+      if ('error' in result) {
+        setAlertMessage('Something went wrong. Try again.');
+        return;
+      }
+      setAlertEmail(result.alertEmail);
+      setAlertMessage('Alert address updated to your current sign-in address.');
+      await router.invalidate();
+    } catch {
+      setAlertMessage('Something went wrong. Try again.');
+    } finally {
+      setAlertBusy(false);
+    }
+  }
+
   return (
     <form onSubmit={submit} noValidate data-testid="property-form">
+      <h2>Property settings</h2>
       <p>
         <label>
           Property name{' '}
@@ -385,6 +411,25 @@ function PropertyForm({ property }: { property: EditorProperty }) {
             </p>
           ))}
       </fieldset>
+      <section aria-labelledby="alert-email-heading">
+        <h3 id="alert-email-heading">New-message alerts</h3>
+        <p data-testid="alert-email">
+          {alertEmail ? `Alerts go to ${alertEmail}.` : 'No alert address is stored for this property.'}
+        </p>
+        <p>
+          <button
+            type="button"
+            onClick={() => void resyncEmail()}
+            disabled={alertBusy}
+            data-testid="alert-email-resync"
+          >
+            Use my current sign-in address
+          </button>
+        </p>
+        <p role="status" data-testid="alert-email-message">
+          {alertMessage}
+        </p>
+      </section>
       <p>
         <button type="submit" disabled={busy} data-testid="property-save">
           Save property
@@ -394,6 +439,49 @@ function PropertyForm({ property }: { property: EditorProperty }) {
         {message}
       </p>
     </form>
+  );
+}
+
+function PropertyDangerZone({ propertyId }: { propertyId: string }) {
+  const navigate = useNavigate();
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+
+  async function remove() {
+    if (
+      !window.confirm(
+        'Delete this property? This permanently removes its guide, guest links, active guest sessions, messages, translations, and usage counters.',
+      )
+    ) {
+      return;
+    }
+    setBusy(true);
+    setMessage('');
+    try {
+      const result = await deleteProperty({ data: { propertyId } });
+      if ('error' in result) {
+        setMessage('Something went wrong. Try again.');
+        return;
+      }
+      await navigate({ to: '/host' });
+    } catch {
+      setMessage('Something went wrong. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <section aria-labelledby="property-delete-heading" data-testid="property-danger-zone">
+      <h2 id="property-delete-heading">Delete property</h2>
+      <p>Deleting a property cannot be undone. Host audit records stay for the retention window.</p>
+      <button type="button" onClick={() => void remove()} disabled={busy} data-testid="property-delete">
+        Delete property
+      </button>{' '}
+      <span role="status" data-testid="property-delete-message">
+        {message}
+      </span>
+    </section>
   );
 }
 

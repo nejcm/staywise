@@ -20,6 +20,7 @@ const auditActions = [
   'message_handled',
   'message_tagged',
   'message_deleted',
+  'delete',
 ] as const;
 export type AuditAction = (typeof auditActions)[number];
 

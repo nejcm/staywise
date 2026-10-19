@@ -48,9 +48,9 @@ insert into app.setup_events (owner_id, event_type, property_id, created_at) val
 insert into app.reservations (id, property_id, source, external_id, stay_start, stay_end) values
   ('7b7b0000-0000-4000-8000-0000000000ad', '${PROPERTY_A}', 'restore', 'restore-expired', '2026-07-10', '2026-07-16'),
   ('7b7b0000-0000-4000-8000-0000000000ae', '${PROPERTY_A}', 'restore', 'restore-fresh', '2026-10-01', '2026-10-09');
-insert into app.rate_limits (key_hash, window_start, count) values
-  ('\\x21', '2026-10-18T00:00:00Z', 4),
-  ('\\x22', '2026-10-19T00:00:00Z', 2);
+insert into app.rate_limits (property_id, key_hash, window_start, count) values
+  ('${PROPERTY_A}', '\\x21', '2026-10-18T00:00:00Z', 4),
+  ('${PROPERTY_A}', '\\x22', '2026-10-19T00:00:00Z', 2);
 insert into app.guest_counters (property_id, day, link_exchanges, guide_opens, submissions) values
   ('${PROPERTY_A}', '2026-10-19', 3, 4, 2);
 `;

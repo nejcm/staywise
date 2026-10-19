@@ -15,6 +15,7 @@ import {
   setGuidePublishedInput,
 } from './guide-validation';
 import {
+  deleteProperty as deleteOwnedProperty,
   insertCopy,
   insertProperty,
   insertSection,
@@ -23,6 +24,7 @@ import {
   readGuideEditor,
   readGuestGuide,
   setPropertyPublished,
+  updateAlertEmail as updateOwnedAlertEmail,
   updateProperty,
   updateSection,
 } from './guide.server';
@@ -73,6 +75,44 @@ export const saveProperty = createServerFn({ method: 'POST' })
       const saved = await withOwnerContext(host.userId, (tx) => updateProperty(tx, input.data));
       if (!saved) return { error: 'invalid_input' } satisfies FnError;
       return { ok: true as const };
+    }),
+  );
+
+export const deleteProperty = createServerFn({ method: 'POST' })
+  .validator((value: unknown) => value as { propertyId: string })
+  .handler(async ({ data }) =>
+    runGuarded(async () => {
+      if (!isGuardedMutation()) return { error: 'invalid_input' } satisfies FnError;
+      const input = propertyIdInput.safeParse(data);
+      if (!input.success) return { error: 'invalid_input' } satisfies FnError;
+      const host = await aal2Host();
+      if ('error' in host) return host;
+      const deleted = await withOwnerContext(host.userId, async (tx) => {
+        if (!(await deleteOwnedProperty(tx, input.data.propertyId))) return false;
+        await insertAudit(tx, host.userId, 'delete');
+        return true;
+      });
+      if (!deleted) return { error: 'invalid_input' } satisfies FnError;
+      return { ok: true as const };
+    }),
+  );
+
+export const resyncAlertEmail = createServerFn({ method: 'POST' })
+  .validator((value: unknown) => value as { propertyId: string })
+  .handler(async ({ data }) =>
+    runGuarded(async () => {
+      if (!isGuardedMutation()) return { error: 'invalid_input' } satisfies FnError;
+      const input = propertyIdInput.safeParse(data);
+      if (!input.success) return { error: 'invalid_input' } satisfies FnError;
+      const host = await aal2Host();
+      if ('error' in host) return host;
+      if (!host.email) return { error: 'invalid_input' } satisfies FnError;
+      const email = host.email;
+      const updated = await withOwnerContext(host.userId, (tx) =>
+        updateOwnedAlertEmail(tx, input.data.propertyId, email),
+      );
+      if (!updated) return { error: 'invalid_input' } satisfies FnError;
+      return { ok: true as const, alertEmail: email };
     }),
   );
 

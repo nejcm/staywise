@@ -845,9 +845,9 @@ describeLocal('guest message intake and host inbox against the local stack', () 
       });
       const staleWindow = new Date(utcWindow(86_400).getTime() - 86_400_000);
       await admin`
-        insert into app.rate_limits (key_hash, window_start, count) values
-          (${fingerprints.property}, ${utcWindow(86_400)}, 100),
-          (${fingerprints.session}, ${staleWindow}, 3)
+        insert into app.rate_limits (property_id, key_hash, window_start, count) values
+          (${propertyId}, ${fingerprints.property}, ${utcWindow(86_400)}, 100),
+          (${propertyId}, ${fingerprints.session}, ${staleWindow}, 3)
       `;
 
       const capped = await submit(

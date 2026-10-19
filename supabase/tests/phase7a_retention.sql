@@ -61,9 +61,10 @@ insert into app.reservations (id, property_id, source, external_id, stay_start, 
   ('7a7a0000-0000-4000-8000-0000000000ae', '7a7a0000-0000-4000-8000-0000000000a2', 'pgtap', 'rent-boundary', '2026-07-18', '2026-07-21'),
   ('7a7a0000-0000-4000-8000-0000000000be', '7a7a0000-0000-4000-8000-0000000000b2', 'pgtap', 'rent-b-expired', '2026-07-14', '2026-07-19'),
   ('7a7a0000-0000-4000-8000-0000000000ce', '7a7a0000-0000-4000-8000-0000000000c2', 'pgtap', 'rent-c', '2026-10-01', '2026-10-05');
-insert into app.rate_limits (key_hash, window_start, count) values
-  ('\x21', '2026-10-18T00:00:00Z', 5),
-  ('\x22', '2026-10-19T00:00:00Z', 3);
+insert into app.rate_limits (property_id, key_hash, window_start, count) values
+  ('7a7a0000-0000-4000-8000-0000000000a2', '\x21', '2026-10-18T00:00:00Z', 5),
+  ('7a7a0000-0000-4000-8000-0000000000a2', '\x22', '2026-10-19T00:00:00Z', 3),
+  ('7a7a0000-0000-4000-8000-0000000000c2', '\x23', '2026-10-19T00:00:00Z', 1);
 insert into app.guest_counters (property_id, day, link_exchanges, guide_opens, submissions) values
   ('7a7a0000-0000-4000-8000-0000000000a2', '2026-10-19', 4, 5, 3),
   ('7a7a0000-0000-4000-8000-0000000000c2', '2026-10-19', 1, 1, 1);

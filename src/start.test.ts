@@ -55,6 +55,24 @@ describe('baseline request middleware', () => {
     }
   });
 
+  it('marks nonce-bearing HTML responses private and no-store', async () => {
+    const capture = captureConsole();
+    try {
+      const html = await runRequest(async () => ({
+        response: new Response('<p>ok</p>', { headers: { 'content-type': 'text/html; charset=utf-8' } }),
+      }));
+      expect(html.headers.get('Cache-Control')).toBe('private, no-store');
+      const text = await runRequest(async () => ({
+        response: new Response('ok', { headers: { 'content-type': 'text/plain; charset=utf-8' } }),
+      }));
+      expect(text.headers.get('Cache-Control')).toBeNull();
+      expect(capture.lines).toEqual([]);
+      expect(capture.errors).toEqual([]);
+    } finally {
+      capture.restore();
+    }
+  });
+
   it('decorates returned 500 responses and logs one safe event', async () => {
     const capture = captureConsole();
     try {

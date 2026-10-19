@@ -30,6 +30,12 @@ function GuestHelp() {
       <section className="guest-card" data-testid="guest-contact">
         <h3>{guestUiText(locale, 'help.contact.title')}</h3>
         <p>{guestUiText(locale, 'help.contact.body')}</p>
+        <p className="guest-fallback" data-testid="guest-privacy-summary">
+          {guestUiText(locale, 'help.privacy.summary')}{' '}
+          <a href="/privacy" data-testid="guest-privacy-link">
+            {guestUiText(locale, 'help.privacy.link')}
+          </a>
+        </p>
       </section>
       <GuestMessageForm shareId={shareId} locale={locale} />
     </>
