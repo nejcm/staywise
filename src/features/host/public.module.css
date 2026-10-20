@@ -1,0 +1,158 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.top {
+  padding: 20px clamp(16px, 4vw, 40px);
+}
+
+.top a {
+  border-radius: var(--radius-control);
+  text-decoration: none;
+}
+
+.split {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: stretch;
+  gap: var(--space-4);
+  width: 100%;
+  max-width: 1120px;
+  margin: 0 auto;
+  padding: var(--space-4) clamp(16px, 4vw, 40px) 40px;
+}
+
+.hero {
+  display: flex;
+  flex: 1 1 380px;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 20px;
+  min-height: 420px;
+  padding: clamp(28px, 4vw, 48px);
+  color: #fff;
+  background: var(--accent);
+  border-radius: 20px;
+}
+
+.hero h1 {
+  max-width: 14ch;
+  font-size: clamp(30px, 3.4vw, 42px);
+  line-height: 1.08;
+  letter-spacing: -0.025em;
+}
+
+.hero p {
+  max-width: 40ch;
+  font-size: 18px;
+  line-height: 28px;
+  color: var(--accent-soft);
+}
+
+.card {
+  display: flex;
+  flex: 1 1 360px;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--space-6);
+  min-width: 0;
+  max-width: 480px;
+  padding: clamp(28px, 4vw, 44px);
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 20px;
+}
+
+.solo {
+  align-self: flex-start;
+  margin: 0 auto;
+}
+
+.card h1,
+.card h2 {
+  font-size: var(--fs-title);
+  line-height: 34px;
+  letter-spacing: -0.015em;
+}
+
+.lede {
+  margin-top: 6px;
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.facts {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.facts dt {
+  font-weight: 600;
+}
+
+.facts dd {
+  margin: 2px 0 0;
+  color: var(--muted);
+}
+
+.foot {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2) 20px;
+  padding: var(--space-4) clamp(16px, 4vw, 40px) var(--space-6);
+  font-size: 14px;
+}
+
+.prose {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  width: 100%;
+  max-width: calc(68ch + 2 * clamp(16px, 4vw, 40px));
+  margin: 0 auto;
+  padding: var(--space-6) clamp(16px, 4vw, 40px) 64px;
+  font-size: 17px;
+  line-height: 28px;
+}
+
+.prose h1 {
+  font-size: clamp(30px, 5vw, 40px);
+  line-height: 1.1;
+  letter-spacing: -0.025em;
+}
+
+.prose h2 {
+  padding-top: 28px;
+  font-size: 24px;
+  line-height: 30px;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+}
+
+.prose ul {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 22px;
+}
+
+@media (max-width: 700px) {
+  .hero {
+    order: 1;
+    min-height: 0;
+  }
+}
+
+.callout {
+  padding: var(--space-6) 26px;
+  color: var(--accent-soft);
+  background: var(--accent);
+  border-radius: 20px;
+}
+
+.callout strong {
+  color: #fff;
+}

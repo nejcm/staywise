@@ -1,6 +1,8 @@
+import styles from './mark.module.css';
+
 export function Mark({ name = 'Staywise' }: { name?: string }) {
   return (
-    <>
+    <span className={styles.mark}>
       <svg viewBox="0 0 24 24" aria-hidden="true">
         <rect width="24" height="24" rx="6" fill="var(--accent)" />
         <path
@@ -13,6 +15,6 @@ export function Mark({ name = 'Staywise' }: { name?: string }) {
         />
       </svg>
       {name}
-    </>
+    </span>
   );
 }

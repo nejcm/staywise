@@ -5,6 +5,7 @@ import { Field } from '../components/field';
 import { Mark } from '../components/mark';
 import { Toast } from '../components/toast';
 import { getHostAuthState, requestMagicLink } from '../features/host/host-fns';
+import styles from '../features/host/public.module.css';
 
 export const Route = createFileRoute('/auth/sign-in')({
   validateSearch: (search: Record<string, unknown>): { status?: string } => ({
@@ -50,35 +51,39 @@ function SignInPage() {
   }
 
   return (
-    <main className="narrow">
-      <Link to="/" className="mark">
-        <Mark />
-      </Link>
-      <h1>Host sign in</h1>
-      <p className="lede">
-        Host accounts are invite-only. Enter your invited email address to get a one-time sign-in link.
-      </p>
-      <form onSubmit={onSubmit} className="panel stack" data-testid="signin-form">
-        <Field label="Email">
-          <input
-            type="email"
-            autoComplete="email"
-            required
-            value={email}
-            onChange={(event) => setEmail(event.target.value)}
-            data-testid="signin-email"
-          />
-        </Field>
-        <Button type="submit" variant="primary" disabled={busy} data-testid="signin-submit">
-          {busy ? 'Sending…' : 'Email me a sign-in link'}
-        </Button>
-        <Toast testId="signin-message" tone={messageFailed ? 'error' : undefined}>
-          {message}
-        </Toast>
-      </form>
-      <p style={{ marginTop: 24 }}>
+    <div className={styles.page}>
+      <header className={styles.top}>
+        <Link to="/">
+          <Mark />
+        </Link>
+      </header>
+      <main className={styles.split}>
+        <section className={styles.hero}>
+          <h1>Host sign in</h1>
+          <p>Host accounts are invite-only. Enter your invited email address to get a one-time sign-in link.</p>
+        </section>
+        <form onSubmit={onSubmit} className={styles.card} data-testid="signin-form">
+          <Field label="Email">
+            <input
+              type="email"
+              autoComplete="email"
+              required
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
+              data-testid="signin-email"
+            />
+          </Field>
+          <Button type="submit" variant="primary" disabled={busy} data-testid="signin-submit">
+            {busy ? 'Sending…' : 'Email me a sign-in link'}
+          </Button>
+          <Toast testId="signin-message" tone={messageFailed ? 'error' : undefined}>
+            {message}
+          </Toast>
+        </form>
+      </main>
+      <footer className={styles.foot}>
         <Link to="/privacy">Privacy and data handling</Link>
-      </p>
-    </main>
+      </footer>
+    </div>
   );
 }

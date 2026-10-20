@@ -1,0 +1,85 @@
+.page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  background: var(--raised);
+}
+
+.bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  padding: 10px clamp(16px, 3vw, 32px);
+  color: #e8eeed;
+  background: var(--text);
+}
+
+.bar :focus-visible {
+  outline-color: #fff;
+}
+
+.chip {
+  padding: 2px 12px;
+  font-size: var(--fs-small);
+  font-weight: 700;
+  color: var(--text);
+  background: #f4a36b;
+  border-radius: 999px;
+}
+
+.status {
+  flex: 1 1 280px;
+  min-width: 0;
+}
+
+.status h1 {
+  font-size: var(--fs-section);
+  line-height: 1.375;
+  color: #fff;
+}
+
+.status p {
+  font-size: 14px;
+  line-height: 20px;
+}
+
+.stage {
+  display: flex;
+  flex: 1;
+  justify-content: center;
+  padding: 40px var(--space-4) 56px;
+}
+
+.phone {
+  align-self: flex-start;
+  width: 375px;
+  max-width: 100%;
+  overflow: hidden;
+  background: var(--ground);
+  border-radius: 28px;
+  box-shadow:
+    0 0 0 8px var(--text),
+    0 24px 48px rgb(19 32 31 / 25%);
+}
+
+.banner {
+  padding: 6px var(--space-4);
+  font-size: var(--fs-small);
+  font-weight: 600;
+  text-align: center;
+  color: var(--pill-warning-ink);
+  background: var(--pill-warning-bg);
+}
+
+@media (max-width: 420px) {
+  .stage {
+    padding: 0;
+  }
+
+  .phone {
+    width: 100%;
+    border-radius: 0;
+    box-shadow: none;
+  }
+}

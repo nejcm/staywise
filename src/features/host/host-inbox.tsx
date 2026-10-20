@@ -9,14 +9,14 @@ import { sectionCategoryLabels } from '../guide/guide-validation';
 import { inboxLimit } from '../messages/message-validation';
 import { deleteInboxMessage, markInboxHandled, tagInboxAnswer } from '../messages/messages-fns';
 import type { InboxMessage } from '../messages/messages.server';
+import styles from './host.module.css';
 
 // Host inbox: one property-scoped, newest-first list. Guest text is shown verbatim here and nowhere
 // else; the reply address stays visibly unverified and the alert mail never carries either.
 export function InboxPanel({ propertyId, messages }: { propertyId: string; messages: InboxMessage[] | null }) {
   const router = useRouter();
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set());
-  const [notice, setNotice] = useState('');
-  const [noticeFailed, setNoticeFailed] = useState(false);
+  const [notice, setNotice] = useState({ text: '', failed: false });
   const { confirm, dialog } = useConfirmDialog();
 
   function stamp(iso: string): string {
@@ -25,17 +25,14 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
 
   async function run(messageId: string, work: () => Promise<{ error: string } | { ok: boolean }>): Promise<void> {
     setBusyIds((current) => new Set(current).add(messageId));
-    setNotice('');
-    setNoticeFailed(false);
+    setNotice({ text: '', failed: false });
     try {
       const result = await work();
-      setNoticeFailed('error' in result);
-      if ('error' in result) setNotice('Something went wrong. Try again.');
-      else if (!result.ok) setNotice('Nothing changed — the inbox below is refreshed.');
+      if ('error' in result) setNotice({ text: 'Something went wrong. Try again.', failed: true });
+      else if (!result.ok) setNotice({ text: 'Nothing changed — the inbox below is refreshed.', failed: false });
       await router.invalidate();
     } catch {
-      setNotice('Something went wrong. Try again.');
-      setNoticeFailed(true);
+      setNotice({ text: 'Something went wrong. Try again.', failed: true });
     } finally {
       setBusyIds((current) => {
         const next = new Set(current);
@@ -48,35 +45,35 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
   const waiting = messages?.filter((entry) => entry.state !== 'handled').length ?? 0;
 
   return (
-    <section className="panel" aria-labelledby="inbox-heading" data-testid="inbox-panel">
-      <header>
+    <section className={styles.panel} aria-labelledby="inbox-heading" data-testid="inbox-panel">
+      <header className={styles.panelHead}>
         <h2 id="inbox-heading">Guest messages</h2>
         {messages && messages.length > 0 ? (
-          <span className="muted small">{waiting === 0 ? 'All handled' : `${waiting} waiting for you`}</span>
+          <span className={styles.count}>{waiting === 0 ? 'All handled' : `${waiting} waiting for you`}</span>
         ) : null}
       </header>
-      <Toast testId="inbox-notice" tone={noticeFailed ? 'error' : undefined}>
-        {notice}
+      <Toast testId="inbox-notice" tone={notice.failed ? 'error' : undefined}>
+        {notice.text}
       </Toast>
       {messages === null ? (
-        <p className="empty" data-testid="inbox-unavailable">
+        <p className={styles.empty} data-testid="inbox-unavailable">
           Inbox unavailable.
         </p>
       ) : messages.length === 0 ? (
-        <p className="empty" data-testid="inbox-empty">
+        <p className={styles.empty} data-testid="inbox-empty">
           No guest messages yet. Questions and issue reports from the guide's Help page land here.
         </p>
       ) : (
-        <ul className="rows" data-testid="inbox-list">
+        <ul className={styles.rows} data-testid="inbox-list">
           {messages.map((entry) => (
             <li
               key={entry.id}
-              className="message"
+              className={styles.message}
               data-testid="inbox-item"
               data-state={entry.state}
               data-kind={entry.kind}
             >
-              <p className="message-meta">
+              <p className={styles.meta}>
                 <Pill tone={entry.kind === 'question' ? 'accent' : 'attention'} testId="inbox-item-kind">
                   {entry.kind === 'question' ? 'Question' : 'Issue'}
                 </Pill>
@@ -88,18 +85,16 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
                 </Pill>
                 {entry.handledAt ? <span data-testid="inbox-item-handled"> {stamp(entry.handledAt)}</span> : null}
               </p>
-              <p className="message-body" data-testid="inbox-item-body">
+              <p className={styles.messageBody} data-testid="inbox-item-body">
                 {entry.body}
               </p>
               {entry.followUpEmail ? (
-                <p className="small" style={{ marginTop: 8 }} data-testid="inbox-item-email">
+                <p className={styles.email} data-testid="inbox-item-email">
                   Reply address: {entry.followUpEmail}{' '}
-                  <span className="muted" data-testid="inbox-item-email-unverified">
-                    (unverified — guest-supplied, not confirmed)
-                  </span>
+                  <span data-testid="inbox-item-email-unverified">(unverified — guest-supplied, not confirmed)</span>
                 </p>
               ) : null}
-              <div className="message-foot">
+              <div className={styles.messageFoot}>
                 {entry.kind === 'question' ? (
                   <label htmlFor={`inbox-answer-${entry.id}`}>
                     Answer was in the guide?

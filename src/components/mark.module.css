@@ -1,0 +1,15 @@
+.mark {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 17px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  color: var(--text);
+}
+
+.mark svg {
+  width: 28px;
+  height: 28px;
+  flex: none;
+}

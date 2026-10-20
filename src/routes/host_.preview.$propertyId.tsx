@@ -1,13 +1,14 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 import { z } from 'zod';
-import { HostBar } from '../components/app-shell';
+import { buttonClass } from '../components/button';
 import { Pill } from '../components/pill';
 import { getHostAuthState } from '../features/host/host-fns';
 import { getGuestPreview, recordPreviewOpened } from '../features/guide/guide-fns';
 import { guestCategoryLabel, guestLocaleName, guestUiText, languageNames } from '../features/guest/guest-ui';
 import type { GuestLocale } from '../features/guide/guide-validation';
 import styles from '../features/guest/guest.module.css';
+import previewStyles from '../features/host/preview.module.css';
 
 const previewSearchSchema = z.object({ lang: z.string().max(16).optional() }).catch({});
 
@@ -44,80 +45,83 @@ function PreviewPage() {
   }, [propertyId]);
 
   return (
-    <>
-      <HostBar />
-      <main className="canvas">
-        <div className="title-row">
-          <div>
-            <Link
-              to="/host/properties/$propertyId"
-              params={{ propertyId }}
-              className="crumb"
-              data-testid="preview-back"
-            >
-              Back to editor
-            </Link>
-            <h1 data-testid="preview-property-name">{guest.displayName}</h1>
-            <p className="sub" data-testid="preview-locale-status">
-              Guests read this guide in:{' '}
-              {guest.locales.map((code) => languageNames[code as GuestLocale] ?? code).join(', ')}. Showing{' '}
-              {languageNames[guest.locale as GuestLocale] ?? guest.locale}.
-            </p>
-          </div>
-          <Pill tone={guidePublished ? 'positive' : 'neutral'} testId="preview-guide-status">
-            {guidePublished ? 'Guide is live.' : 'Guide is offline: guests cannot open it yet.'}
-          </Pill>
+    <div className={previewStyles.page}>
+      <div role="region" aria-label="Preview controls" className={previewStyles.bar}>
+        <Link
+          to="/host/properties/$propertyId"
+          params={{ propertyId }}
+          className={buttonClass()}
+          data-testid="preview-back"
+        >
+          Back to editor
+        </Link>
+        <span className={previewStyles.chip}>Preview</span>
+        <div className={previewStyles.status}>
+          <h1 data-testid="preview-property-name">{guest.displayName}</h1>
+          <p data-testid="preview-locale-status">
+            Guests read this guide in:{' '}
+            {guest.locales.map((code) => languageNames[code as GuestLocale] ?? code).join(', ')}. Showing{' '}
+            {languageNames[guest.locale as GuestLocale] ?? guest.locale}.
+          </p>
         </div>
-        <div className={`${styles.shell} ${styles.preview}`}>
-          {guest.locales.length > 1 ? (
-            <ul className={styles.locales} data-testid="preview-locale-switch">
-              {guest.locales.map((code) => (
-                <li key={code}>
-                  <Link
-                    to="/host/preview/$propertyId"
-                    params={{ propertyId }}
-                    search={{ lang: code }}
-                    aria-current={code === guest.locale ? 'true' : undefined}
-                    data-testid={`preview-locale-${code}`}
-                  >
-                    {languageNames[code as GuestLocale] ?? code}
-                  </Link>
-                </li>
-              ))}
-            </ul>
-          ) : null}
-          {guest.sections.length === 0 ? (
-            <p className={`${styles.card} ${styles.empty}`} data-testid="preview-empty">
-              No published guest content yet.
-            </p>
-          ) : (
-            guest.sections.map((section, index) => (
-              <section
-                key={`${section.category}-${index}`}
-                className={`${styles.card} ${styles.prose}`}
-                data-testid="preview-section"
-              >
-                <h2 className={styles.category}>{guestCategoryLabel(guest.locale, section.category)}</h2>
-                <h3 lang={section.fallback ? guest.sourceLocale : undefined} data-testid="preview-section-title">
-                  {section.title}
-                </h3>
-                <p
-                  className={styles.body}
-                  lang={section.fallback ? guest.sourceLocale : undefined}
-                  data-testid="preview-section-body"
+        <Pill tone={guidePublished ? 'positive' : 'neutral'} testId="preview-guide-status">
+          {guidePublished ? 'Guide is live.' : 'Guide is offline: guests cannot open it yet.'}
+        </Pill>
+      </div>
+      <main className={previewStyles.stage}>
+        <div className={previewStyles.phone}>
+          <p className={previewStyles.banner}>Preview · not visible to guests</p>
+          <div className={`${styles.shell} ${styles.preview}`}>
+            {guest.locales.length > 1 ? (
+              <ul className={styles.locales} data-testid="preview-locale-switch">
+                {guest.locales.map((code) => (
+                  <li key={code}>
+                    <Link
+                      to="/host/preview/$propertyId"
+                      params={{ propertyId }}
+                      search={{ lang: code }}
+                      aria-current={code === guest.locale ? 'true' : undefined}
+                      data-testid={`preview-locale-${code}`}
+                    >
+                      {languageNames[code as GuestLocale] ?? code}
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            {guest.sections.length === 0 ? (
+              <p className={`${styles.card} ${styles.empty}`} data-testid="preview-empty">
+                No published guest content yet.
+              </p>
+            ) : (
+              guest.sections.map((section, index) => (
+                <section
+                  key={`${section.category}-${index}`}
+                  className={`${styles.card} ${styles.prose}`}
+                  data-testid="preview-section"
                 >
-                  {section.body}
-                </p>
-                {section.fallback ? (
-                  <p className={styles.fallback} data-testid="preview-fallback">
-                    {guestUiText(guest.locale, 'fallback.notice', { language: guestLocaleName(guest.sourceLocale) })}
+                  <h2 className={styles.category}>{guestCategoryLabel(guest.locale, section.category)}</h2>
+                  <h3 lang={section.fallback ? guest.sourceLocale : undefined} data-testid="preview-section-title">
+                    {section.title}
+                  </h3>
+                  <p
+                    className={styles.body}
+                    lang={section.fallback ? guest.sourceLocale : undefined}
+                    data-testid="preview-section-body"
+                  >
+                    {section.body}
                   </p>
-                ) : null}
-              </section>
-            ))
-          )}
+                  {section.fallback ? (
+                    <p className={styles.fallback} data-testid="preview-fallback">
+                      {guestUiText(guest.locale, 'fallback.notice', { language: guestLocaleName(guest.sourceLocale) })}
+                    </p>
+                  ) : null}
+                </section>
+              ))
+            )}
+          </div>
         </div>
       </main>
-    </>
+    </div>
   );
 }

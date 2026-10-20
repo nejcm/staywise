@@ -15,7 +15,7 @@ import {
 import { createGuestLink, disableGuestLink, getGuestLink, rotateGuestLink } from '../features/share/share-fns';
 import { getInbox } from '../features/messages/messages-fns';
 import { InboxPanel } from '../features/host/host-inbox';
-import { HostBar } from '../components/app-shell';
+import { HostShell } from '../components/app-shell';
 import { Button, buttonClass } from '../components/button';
 import { useConfirmDialog } from '../components/confirm-dialog';
 import { Field } from '../components/field';
@@ -41,6 +41,8 @@ import {
 } from '../features/guide/guide-validation';
 import { languageNames } from '../features/guest/guest-ui';
 import type { GuideEditorData, GuideTranslation } from '../features/guide/guide.server';
+import styles from '../features/host/host.module.css';
+import editorStyles from '../features/host/editor.module.css';
 
 export const Route = createFileRoute('/host_/properties/$propertyId')({
   loader: async ({ params }) => {
@@ -78,68 +80,66 @@ function localeName(code: string): string {
 function PropertyEditorPage() {
   const { editor, share, inbox } = Route.useLoaderData();
   return (
-    <>
-      <HostBar />
-      <main className="canvas" key={editor.property.id}>
-        <div className="title-row">
-          <div>
-            <Link to="/host" className="crumb" data-testid="editor-back">
-              Properties
-            </Link>
-            <h1 data-testid="editor-property-name">{editor.property.displayName}</h1>
-          </div>
-          <div className="actions">
-            <Link
-              to="/host/preview/$propertyId"
-              params={{ propertyId: editor.property.id }}
-              className={buttonClass()}
-              data-testid="editor-preview-link"
-            >
-              Open guest preview
-            </Link>
-            <GuidePublish propertyId={editor.property.id} published={editor.property.published} />
-          </div>
+    <HostShell key={editor.property.id}>
+      <nav aria-label="Breadcrumb" className={styles.crumb}>
+        <Link to="/host" data-testid="editor-back">
+          Properties
+        </Link>{' '}
+        / <span aria-current="page">{editor.property.displayName}</span>
+      </nav>
+      <div className={styles.head}>
+        <h1 data-testid="editor-property-name">{editor.property.displayName}</h1>
+        <div className="actions">
+          <Link
+            to="/host/preview/$propertyId"
+            params={{ propertyId: editor.property.id }}
+            className={buttonClass()}
+            data-testid="editor-preview-link"
+          >
+            Open guest preview
+          </Link>
+          <GuidePublish propertyId={editor.property.id} published={editor.property.published} />
         </div>
-        <div className="layout">
-          <div>
-            <InboxPanel propertyId={editor.property.id} messages={inbox} />
-            <section className="panel" aria-labelledby="sections-heading">
-              <header>
-                <h2 id="sections-heading">Guide</h2>
-                <span className="muted small">
-                  {editor.sections.length === 1 ? '1 section' : `${editor.sections.length} sections`}
-                </span>
-              </header>
-              {editor.sections.length === 0 ? (
-                <p className="empty" data-testid="editor-sections-empty">
-                  No sections yet. Add the first one below.
-                </p>
-              ) : (
-                <ul className="rows">
-                  {editor.sections.map((section, index) => (
-                    <li key={section.id}>
-                      <SectionForm
-                        propertyId={editor.property.id}
-                        section={section}
-                        first={index === 0}
-                        last={index === editor.sections.length - 1}
-                      />
-                    </li>
-                  ))}
-                </ul>
-              )}
-              <AddSectionForm propertyId={editor.property.id} />
-            </section>
-          </div>
-          <div>
-            <GuestLinkPanel propertyId={editor.property.id} share={share} />
-            <TranslationPanel property={editor.property} sections={editor.sections} />
-            <PropertyForm property={editor.property} />
-            <PropertyDangerZone propertyId={editor.property.id} />
-          </div>
+      </div>
+      <div className={styles.columns}>
+        <div className={`${styles.column} ${styles.wide}`}>
+          <InboxPanel propertyId={editor.property.id} messages={inbox} />
+          <section className={styles.panel} aria-labelledby="sections-heading">
+            <header className={styles.panelHead}>
+              <h2 id="sections-heading">Guide</h2>
+              <span className={styles.count}>
+                {editor.sections.length === 1 ? '1 section' : `${editor.sections.length} sections`}
+              </span>
+            </header>
+            {editor.sections.length === 0 ? (
+              <p className={styles.empty} data-testid="editor-sections-empty">
+                No sections yet. Add the first one below.
+              </p>
+            ) : (
+              <ul className={styles.rows}>
+                {editor.sections.map((section, index) => (
+                  <li key={section.id}>
+                    <SectionForm
+                      propertyId={editor.property.id}
+                      section={section}
+                      first={index === 0}
+                      last={index === editor.sections.length - 1}
+                    />
+                  </li>
+                ))}
+              </ul>
+            )}
+            <AddSectionForm propertyId={editor.property.id} />
+          </section>
         </div>
-      </main>
-    </>
+        <div className={`${styles.column} ${styles.side}`}>
+          <GuestLinkPanel propertyId={editor.property.id} share={share} />
+          <TranslationPanel property={editor.property} sections={editor.sections} />
+          <PropertyForm property={editor.property} />
+          <PropertyDangerZone propertyId={editor.property.id} />
+        </div>
+      </div>
+    </HostShell>
   );
 }
 
@@ -257,7 +257,7 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
   }
 
   return (
-    <section className="panel stack" aria-labelledby="guest-link-heading" data-testid="guest-link-panel">
+    <section className={`${styles.panel} stack`} aria-labelledby="guest-link-heading" data-testid="guest-link-panel">
       <h2 id="guest-link-heading">Guest link</h2>
       <p data-testid="guest-link-status">
         {share?.link
@@ -273,13 +273,13 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
         </p>
       ) : null}
       {url ? (
-        <div className="link-box stack" data-testid="guest-link-issued">
+        <div className={`${editorStyles.linkBox} stack`} data-testid="guest-link-issued">
           <input readOnly value={url} aria-label="Guest link" data-testid="guest-link-url" />
-          <Button type="button" variant="primary" onClick={() => void copy(url)} data-testid="guest-link-copy">
+          <Button type="button" onClick={() => void copy(url)} data-testid="guest-link-copy">
             Copy link
           </Button>
           <QrSvg value={url} />
-          <p className="small muted">
+          <p className="small">
             Rotating creates a new link and immediately stops the old one, including any guest who already opened it.
           </p>
         </div>
@@ -341,7 +341,7 @@ function QrSvg({ value }: { value: string }) {
   });
   return (
     <svg
-      className="guest-qr"
+      className={editorStyles.qr}
       viewBox={`0 0 ${size} ${size}`}
       role="img"
       aria-label="QR code for the guest link"
@@ -426,7 +426,7 @@ function PropertyForm({ property }: { property: EditorProperty }) {
   }
 
   return (
-    <form onSubmit={submit} noValidate className="panel stack" data-testid="property-form">
+    <form onSubmit={submit} noValidate className={`${styles.panel} stack`} data-testid="property-form">
       <h2>Property settings</h2>
       <Field
         label="Property name"
@@ -556,7 +556,7 @@ function PropertyDangerZone({ propertyId }: { propertyId: string }) {
   return (
     <section
       aria-labelledby="property-delete-heading"
-      className="panel panel-danger stack"
+      className={`${styles.panel} ${styles.danger} stack`}
       data-testid="property-danger-zone"
     >
       <h2 id="property-delete-heading">Delete property</h2>
@@ -672,9 +672,9 @@ function SectionForm({
         : { label: 'Draft', tone: 'neutral' as const };
 
   return (
-    <details className="section" data-testid="section-item">
+    <details className={editorStyles.section} data-testid="section-item">
       <summary>
-        <span className="section-name">
+        <span className={editorStyles.sectionName}>
           <strong>{section.title || sectionCategoryLabels[section.category]}</strong>
           <span>
             {[
@@ -689,9 +689,9 @@ function SectionForm({
         </span>
         <Pill tone={status.tone}>{status.label}</Pill>
       </summary>
-      <div className="section-body">
+      <div className={editorStyles.sectionBody}>
         <form onSubmit={submit} noValidate className="stack" data-testid="section-form">
-          <div className="field-row">
+          <div className={editorStyles.fieldRow}>
             <Field label="Category">
               <select name="category" defaultValue={section.category} data-testid="section-category">
                 {sectionCategories.map((category: SectionCategory) => (
@@ -886,7 +886,7 @@ function TranslationBlock({ propertyId, translation }: { propertyId: string; tra
   }
 
   return (
-    <fieldset className="translation stack" data-testid={`translation-${locale}`}>
+    <fieldset className={`${editorStyles.translation} stack`} data-testid={`translation-${locale}`}>
       <legend>
         {localeName(locale)}{' '}
         <Pill tone={translation.state === 'approved' ? 'positive' : 'neutral'}>
@@ -951,7 +951,7 @@ function TranslationBlock({ propertyId, translation }: { propertyId: string; tra
         <div className="stack">
           <div>
             <h4 data-testid={`translation-approved-title-${locale}`}>{translation.title}</h4>
-            <p className="translation-text" data-testid={`translation-approved-body-${locale}`}>
+            <p className={editorStyles.translationText} data-testid={`translation-approved-body-${locale}`}>
               {translation.body}
             </p>
           </div>
@@ -1029,7 +1029,7 @@ function TranslationPanel({ property, sections }: { property: EditorProperty; se
   }
 
   return (
-    <section className="panel stack" aria-labelledby="translation-heading" data-testid="translation-panel">
+    <section className={`${styles.panel} stack`} aria-labelledby="translation-heading" data-testid="translation-panel">
       <h2 id="translation-heading">Translations</h2>
       <p data-testid="translation-status">
         {targets.length === 0
@@ -1094,7 +1094,7 @@ function AddSectionForm({ propertyId }: { propertyId: string }) {
   }
 
   return (
-    <form onSubmit={submit} noValidate className="add-section" data-testid="section-new-form">
+    <form onSubmit={submit} noValidate className={editorStyles.addSection} data-testid="section-new-form">
       <h3>Add a section</h3>
       <div className="actions">
         <select

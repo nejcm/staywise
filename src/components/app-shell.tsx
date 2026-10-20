@@ -1,6 +1,7 @@
 import { Link, useRouter } from '@tanstack/react-router';
-import { useState } from 'react';
+import { useState, type ReactNode } from 'react';
 import { signOut } from '../features/host/host-fns';
+import styles from './app-shell.module.css';
 import { Button } from './button';
 import { Mark } from './mark';
 
@@ -25,19 +26,24 @@ export function SignOutButton({ variant }: { variant?: 'ghost' }) {
   );
 }
 
-export function HostBar() {
+export function HostShell({ children }: { children: ReactNode }) {
   return (
-    <header className="topbar">
-      <Link to="/host" className="mark">
-        <Mark />
-      </Link>
-      <nav aria-label="Workspace">
-        <Link to="/host" activeOptions={{ exact: true }}>
-          Properties
+    <div className={styles.shell}>
+      <header className={styles.side}>
+        <Link to="/host" className={styles.brand}>
+          <Mark />
         </Link>
-        <Link to="/privacy">Privacy</Link>
-      </nav>
-      <SignOutButton variant="ghost" />
-    </header>
+        <nav aria-label="Workspace" className={styles.nav}>
+          <Link to="/host" activeOptions={{ exact: true }}>
+            Properties
+          </Link>
+          <Link to="/privacy">Privacy notice</Link>
+        </nav>
+        <div className={styles.foot}>
+          <SignOutButton variant="ghost" />
+        </div>
+      </header>
+      <main className={styles.main}>{children}</main>
+    </div>
   );
 }
