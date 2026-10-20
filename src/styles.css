@@ -1,35 +1,42 @@
 /* One lake-teal hue: full strength on small marks (the primary button, focus, the live dot), its pale tints on areas. */
 :root {
   color-scheme: light;
-  --ground: #f6f8f8;
+  --ground: #f6f9f8;
   --surface: #ffffff;
-  --raised: #eef1f1;
-  --border: #e3e7e7;
-  --rule: #edf0f0;
-  --control: #cfd5d6;
-  --text: #121a1c;
-  --muted: #586366;
-  --accent: #1d6b74;
-  --accent-hover: #175961;
-  --accent-soft: #e9f4f5;
-  --accent-track: #cce4e7;
-  --accent-ink: #12464c;
+  --raised: #eef1f0;
+  --border: #e3e8e7;
+  --rule: #eef1f0;
+  --control: #8b9794;
+  --text: #13201f;
+  --muted: #4b5755;
+  --accent: #0f5e63;
+  --accent-hover: #0b4a4e;
+  --accent-soft: #e3f0ef;
+  --accent-track: #cfe5e3;
+  --accent-ink: #0b4a4e;
   --negative: #b42318;
-  --pill-positive-bg: #dcf3e6;
+  --pill-positive-bg: #e1f2e8;
   --pill-positive-ink: #14532d;
-  --pill-warning-bg: #fdf3dc;
-  --pill-warning-ink: #7a3e0b;
-  --pill-neutral-bg: #edf0f0;
-  --pill-neutral-ink: #374144;
-  --font: system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --pill-warning-bg: #fdf0e1;
+  --pill-warning-ink: #8a3a06;
+  --pill-neutral-bg: #eef1f0;
+  --pill-neutral-ink: #3f4a48;
+  --font: 'DM Sans Variable', system-ui, -apple-system, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
   --fs-title: 28px;
-  --fs-section: 17px;
+  --fs-section: 16px;
   --fs-body: 15px;
   --fs-small: 13px;
-  --radius-card: 8px;
-  --radius-control: 6px;
-  --control-height: 36px;
-  --gap: 24px;
+  --radius-card: 14px;
+  --radius-control: 8px;
+  --control-height: 44px;
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-12: 48px;
+  --gap: var(--space-6);
   --t-hover: 150ms;
 }
 
@@ -74,7 +81,7 @@ h1 {
 
 h2 {
   font-size: var(--fs-section);
-  line-height: 1.35;
+  line-height: 1.375;
   font-weight: 600;
 }
 
@@ -596,7 +603,8 @@ a.mark:hover {
 .translation {
   margin-top: 16px;
   padding: 16px;
-  background: var(--raised);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-card);
 }
 
@@ -815,7 +823,7 @@ a.mark:hover {
 
 .guest-card h3 {
   margin-bottom: 6px;
-  font-size: var(--fs-section);
+  font-size: 19px;
 }
 
 .guest-card p + p {
