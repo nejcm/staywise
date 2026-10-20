@@ -6,7 +6,7 @@ coverage/
 .env.*
 !.env.example
 supabase/.temp/
-tanstack/tmp/
+.tanstack/tmp/
 *.log
 .DS_Store
 
