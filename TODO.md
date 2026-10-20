@@ -1,9 +1,11 @@
 # TODO
 
-- redesign 
-  - https://claude.ai/cowork/cse_019tGBaQgHZTZpb2V75tcdK7?artifact=e3597f58-531d-40c3-b51b-c171613e721a
-  - https://styles.refero.design/
 - customer page customization (colors, fonts, styles...)
+- ui animations
+- make UI more rich
+  - wifi qr code
+  - property images, other images...
+  - 
 
 ## Code review follow-up (2026-10-20)
 
