@@ -1,9 +1,10 @@
+import { readFileSync } from 'node:fs';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { routeTree } from '../../routeTree.gen';
 import { getGuestPage } from './guest-fns';
-import { firstLine, guestUiText } from './guest-ui';
+import { firstLine, guestUiText, messageRetentionDays } from './guest-ui';
 
 vi.mock('./guest-fns', () => ({ getGuestPage: vi.fn() }));
 
@@ -183,5 +184,22 @@ describe('guest routes', () => {
 
   it('discloses the language cookie on the privacy page', async () => {
     expect(await render('/privacy', { state: 'denied' })).toContain('sw_lang');
+  });
+
+  it('shows the localized privacy panel on Help with the shared retention period', async () => {
+    const help = await render('/g/synthetic/help', guide);
+    for (const key of ['help.privacy.sent', 'help.privacy.seen', 'form.noReply'] as const) {
+      expect(help).toContain(guestUiText('de', key));
+    }
+    expect(help).toContain(`nach ${messageRetentionDays} Tagen automatisch gelöscht`);
+    expect(await render('/privacy', { state: 'denied' })).toContain(
+      `deleted <!-- -->${messageRetentionDays}<!-- --> days after receipt`,
+    );
+  });
+
+  it('keeps the retention SQL in step with the disclosed period', () => {
+    const sql = readFileSync('supabase/migrations/20261019170000_phase7d_auth_limits.sql', 'utf8');
+    expect(sql).toContain(`v_event_cutoff timestamptz := p_now - interval '${messageRetentionDays} days'`);
+    expect(sql).toContain('delete from app.guest_messages where created_at < v_event_cutoff');
   });
 });

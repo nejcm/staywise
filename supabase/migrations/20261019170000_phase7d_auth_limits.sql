@@ -76,13 +76,3 @@ end $$;
 revoke all on function app.retention_cleanup(timestamptz) from public;
 
 reset role;
-
--- Phase 7a skips the schedule silently outside the cron database; say so where a deploy can see it.
-do $$
-begin
-  if to_regclass('cron.job') is null then
-    raise warning 'pg_cron is not installed here: schedule app.retention_cleanup() another way';
-  elsif not exists (select 1 from cron.job where jobname = 'staywise-retention-cleanup') then
-    raise warning 'staywise-retention-cleanup is not scheduled in this database';
-  end if;
-end $$;

@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { AnswerHours, CallStrip } from '../features/guest/guest-essentials';
 import { GuestMessageForm } from '../features/guest/guest-message-form';
-import { guestLocaleName, guestUiText } from '../features/guest/guest-ui';
+import { guestLocaleName, guestUiText, messageRetentionDays } from '../features/guest/guest-ui';
 import styles from '../features/guest/guest.module.css';
 
 export const Route = createFileRoute('/g/$shareId/help')({
@@ -41,6 +41,12 @@ function GuestHelp() {
         <h3>{guestUiText(locale, 'help.contact.title')}</h3>
         <AnswerHours essentials={essentials} locale={locale} />
         <p>{guestUiText(locale, 'help.contact.body')}</p>
+        <ul className={styles.fallback} data-testid="guest-privacy-panel">
+          <li>{guestUiText(locale, 'help.privacy.sent')}</li>
+          <li>{guestUiText(locale, 'help.privacy.seen')}</li>
+          <li>{guestUiText(locale, 'help.privacy.retention', { days: String(messageRetentionDays) })}</li>
+          <li>{guestUiText(locale, 'form.noReply')}</li>
+        </ul>
         <p className={styles.fallback} data-testid="guest-privacy-summary">
           {guestUiText(locale, 'help.privacy.summary')}{' '}
           <a href="/privacy" data-testid="guest-privacy-link">

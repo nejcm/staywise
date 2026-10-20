@@ -111,8 +111,8 @@ const describeLocal = dbUp && backupTools() ? describe : describe.skip;
 
 describeLocal('phase 7a restore rehearsal (scratch databases)', () => {
   it('restores a real dump with ownership, guide content, approved translation, revoked sessions, RLS and overdue cleanup', async () => {
-    const sourceName = `staywise_restore_src_${Date.now()}`;
-    const restoreName = `staywise_restore_dst_${Date.now()}`;
+    const sourceName = `scratch_restore_src_${Date.now()}`;
+    const restoreName = `scratch_restore_dst_${Date.now()}`;
     const admin = localAdmin();
     let sourceCreated = false;
     let restoreCreated = false;

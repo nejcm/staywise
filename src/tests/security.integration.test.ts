@@ -221,7 +221,7 @@ describeLocal('host auth trust boundaries against the local stack', () => {
   it('preserves a pre-provisioned runtime password when the shared migrations run', async () => {
     const localPassword = new URL(parseServerEnv({ APP_ENV: 'local' }).appDbUrl).password;
     const preprovisioned = 'synthetic-preprovisioned-pw-1';
-    const scratchDb = `synthetic_role_probe_${Date.now()}`;
+    const scratchDb = `scratch_role_probe_${Date.now()}`;
     const admin = localAdmin();
     try {
       await admin.unsafe(`alter role app_runtime password ${quoteLiteral(preprovisioned)}`);

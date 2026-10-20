@@ -21,8 +21,8 @@ _Planned 20 Oct 2026 against master 82e145e; revised the same day after an exter
 | D1 | Store host phone + answering hours per property; shown only after exchange; on the privacy page | 7c | E.164; never on denied, opening or error pages |
 | D2 | Remembered language: preference cookie, `localStorage`, or none | 3b | `sw_lang` cookie, `Path=/g`, `SameSite=Lax`, `Secure`, `HttpOnly`, Max-Age 180 days; shared across properties, falls back to source if not enabled; disclosed in 3b |
 | D3 | May unreviewed machine translations reach guests? | 5b only | **Default no** — reviewed-only. 5a needs no decision |
-| D4 | Final copy: privacy panel, no-reply line, retention sentence | 2 (line), 8a | "Deleted by nightly cleanup after 90 days", only once deployment confirms the job is scheduled |
-| D5 | Help form without JS (first opening still needs JS) | optional 2b | Only if wanted; keep all endpoint checks and add a form-encoded parser with an Origin check |
+| D4 | Final copy: privacy panel, no-reply line, retention sentence | 2 (line), 8a | **Decided (G4):** bullets on Help (what is sent, who sees it, "Deleted automatically after 90 days", existing no-reply line); `messageRetentionDays` shared with `/privacy`; cron schedule now unconditional |
+| D5 | Help form without JS (first opening still needs JS) | optional 2b | **Dropped (G5):** first open needs JS anyway |
 | D6 | Show Wi-Fi password and key-box code to guests | 4b | Needs host rotation flow, editor warning "changing the code is the only way to revoke it from past guests", optional reveal window (needs stay dates). Not translated |
 
 ## Sequencing
@@ -83,7 +83,7 @@ Shared files: `guest-ui.ts`, `guest.module.css`, `g.$shareId.tsx`, `guide.server
 - **Scope:** section `provenance: 'source' | 'reviewed' | 'fallback'`. If any is `reviewed`, banner "Translated, reviewed by host · Show {source language name}" linking `?lang=<source>` (3b rule). Fallback sections keep their notice. Real source-language name, not "English".
 - **Tests:** DTO matrix approved / missing / stale; banner link carries `?lang`.
 
-## Phase 5b — Serve machine drafts (only if D3; not recommended)
+## Phase 5b — Serve machine drafts (dropped per G3)
 
 - **Migration:** guest-read policy `state in ('approved','draft')`, keeping revision, locale, visibility, published and same-property checks; match the query at `guide.server.ts:247`. Provenance `machine`, banner "Auto-translated".
 
@@ -112,7 +112,7 @@ Shared files: `guest-ui.ts`, `guest.module.css`, `g.$shareId.tsx`, `guide.server
 
 ## Phase 8a — Privacy bullet panel (Track B, after D4)
 
-- **Scope:** static bullets on Help: what is sent, who sees it, retention per D4; 90 days as one constant shared with `/privacy`. Before release check the deployed DB schedules cleanup (`select * from cron.job`); otherwise the text can't promise deletion.
+- **Scope:** static bullets on Help: what is sent, who sees it, retention per D4; 90 days as one constant shared with `/privacy`. Migration 7a now creates `pg_cron` and schedules the job unconditionally; pgTAP asserts it.
 
 ## Phase 8b — Text-first loading states (Track A)
 
@@ -131,9 +131,9 @@ All external-review findings were confirmed against the code:
 - **`readOnly` vs select/radio:** → disabled fieldset + snapshot (2).
 - **No-JS help form is conditional:** first exchange needs JS → D5.
 - **Errors mapped to denied:** `g.$shareId.tsx:16` → 7a; SSR also slow (`share.server.ts:218`) → 8b.
-- **Retention wording:** schedule conditional (`phase7a_retention.sql:3-12`, `phase7d_auth_limits.sql:80`) → D4, 8a.
+- **Retention wording:** schedule conditional (`phase7a_retention.sql:3-12`, `phase7d_auth_limits.sql:80`) → D4, 8a: schedule made unconditional.
 - **Independence overstated:** → tracks.
 - **Cookie disclosure:** `privacy.tsx:41` covers only the session cookie → D2, 3b.
 - **Oversized phases, timezone gap:** `guide-validation.ts:40` → split phases, 7b.
 
-Unverified: whether the deployed DB schedules cleanup (8a), and the sub-heading convention in seed data (1b).
+Unverified: the sub-heading convention in seed data (1b).

@@ -54,7 +54,9 @@ Decision IDs D1–D6 in [`guest_features_plan.md`](guest_features_plan.md) map t
 - **G3 — Translations stay host-reviewed.** Draft machine translations never reach guests (default; plan phase 5b not scheduled).
 - **G6 — Structured access credentials.** Host-entered static Wi-Fi password and key-box code shown to guests after exchange only; never translated, never in metadata or error pages; the editor warns that changing a code is the only way to revoke it from past guests. No reveal window. Narrows O2 for the pre-integration build.
 - **Guide layout.** One native `<details>` block per section on the guide page; no per-section routes.
-- G4 (privacy/retention copy) and G5 (no-JS help form) remain open.
+- **G4 — Help privacy panel.** Static bullets near the help form: what is sent (message, optional reply email), who sees it (only this property's host), "Deleted automatically after 90 days", plus the existing no-reply line. 90 is `messageRetentionDays` in `guest-ui.ts`, shared with `/privacy` and test-checked against the cleanup SQL; the pg_cron job is scheduled unconditionally.
+- **G5 — No-JS help form: dropped.** The first open needs JS anyway.
+- Plan phase 5b (serve machine drafts) is dropped per G3. No guest-feature decisions remain open.
 
 ## Open decisions
 

@@ -1,17 +1,13 @@
 -- Phase 7a: retention cleanup — one idempotent boundary function, retention delete policies for the
 -- role the definer function runs as, and the nightly pg_cron schedule.
+-- pg_cron only runs in cron.database_name (default postgres); only scratch_-prefixed test databases may skip.
 do $$
 begin
-  -- pg_cron only accepts jobs in the database named by cron.database_name, so migration and
-  -- restore scratch databases skip the schedule instead of failing.
-  if current_database() = current_setting('cron.database_name', true)
-    and exists (select 1 from pg_available_extensions where name = 'pg_cron')
-    and current_setting('shared_preload_libraries') like '%pg_cron%'
-  then
-    if not exists (select 1 from pg_extension where extname = 'pg_cron') then
-      execute 'create extension pg_cron';
-    end if;
+  if current_database() = coalesce(current_setting('cron.database_name', true), 'postgres') then
+    create extension if not exists pg_cron;
     perform cron.schedule('staywise-retention-cleanup', '17 3 * * *', 'select app.retention_cleanup()');
+  elsif current_database() not like 'scratch\_%' then
+    raise exception 'retention cleanup cannot be scheduled in %: not cron.database_name', current_database();
   end if;
 end $$;
 

@@ -1,5 +1,6 @@
 import { Link, createFileRoute } from '@tanstack/react-router';
 import { Mark } from '../components/mark';
+import { messageRetentionDays } from '../features/guest/guest-ui';
 import styles from '../features/host/public.module.css';
 
 export const Route = createFileRoute('/privacy')({
@@ -69,8 +70,9 @@ function PrivacyNotice() {
         <h2>Retention and deletion</h2>
         <ul>
           <li>
-            Guest messages and optional reply email are deleted 90 days after receipt, or earlier when the host deletes
-            the message. Guests can ask the host to delete a message; there is no guest self-service deletion.
+            Guest messages and optional reply email are deleted {messageRetentionDays} days after receipt, or earlier
+            when the host deletes the message. Guests can ask the host to delete a message; there is no guest
+            self-service deletion.
           </li>
           <li>
             Deleting a property immediately removes its guide sections, translations and provider metadata, share links,

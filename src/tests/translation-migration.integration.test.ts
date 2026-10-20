@@ -17,7 +17,7 @@ const PHASE5 = migrationFiles.find((path) => path.endsWith('20261019130000_phase
 
 describeLocal('phase 5 migration upgrade (scratch database)', () => {
   it('normalizes supported regional tags, rejects unsupported and colliding locales, and preserves data through the documented recovery', async () => {
-    const dbName = `phase5_upgrade_${Date.now()}`;
+    const dbName = `scratch_phase5_upgrade_${Date.now()}`;
     const admin = localAdmin();
     let created = false;
     try {

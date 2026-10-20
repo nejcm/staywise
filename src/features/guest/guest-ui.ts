@@ -3,6 +3,8 @@ import { guestLocales, type GuestLocale, type SectionCategory } from '../guide/g
 // Guest UI strings for the approved pilot languages. A flat key set keeps parity testable and
 // avoids an i18n dependency for a handful of labels; {placeholders} are substituted by
 // guestUiText. Host-facing UI stays English.
+export const messageRetentionDays = 90;
+
 export const guestUiKeys = [
   'label.guest',
   'nav.home',
@@ -32,6 +34,9 @@ export const guestUiKeys = [
   'help.form.title',
   'help.form.intro',
   'help.form.privacy',
+  'help.privacy.sent',
+  'help.privacy.seen',
+  'help.privacy.retention',
   'help.privacy.summary',
   'help.privacy.link',
   'form.kind',
@@ -122,8 +127,11 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'help.form.title': 'Message your host',
     'help.form.intro': "Your message goes straight to your host's inbox.",
     'help.form.privacy': 'Do not include door codes, passwords, or card numbers.',
+    'help.privacy.sent': 'What is sent: your message and the optional email you type.',
+    'help.privacy.seen': 'Who sees it: only the host of this property.',
+    'help.privacy.retention': 'Deleted automatically after {days} days, or earlier if your host deletes it.',
     'help.privacy.summary':
-      'Messages and an optional reply email are kept for 90 days or until your host deletes them. The link or QR code is a bearer pass: anyone who has it can open the published guide. Your host can revoke the link or delete the property.',
+      'The link or QR code is a bearer pass: anyone who has it can open the published guide. Your host can revoke the link or delete the property.',
     'help.privacy.link': 'Privacy and data handling',
     'form.kind': 'What do you need?',
     'form.kind.question': 'I have a question',
@@ -210,8 +218,12 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'help.form.title': 'Nachricht an Ihren Gastgeber',
     'help.form.intro': 'Ihre Nachricht geht direkt in den Posteingang Ihres Gastgebers.',
     'help.form.privacy': 'Schreiben Sie keine Türcodes, Passwörter oder Kartennummern hinein.',
+    'help.privacy.sent': 'Was gesendet wird: Ihre Nachricht und die freiwillige E-Mail-Adresse, die Sie eingeben.',
+    'help.privacy.seen': 'Wer sie sieht: nur der Gastgeber dieser Unterkunft.',
+    'help.privacy.retention':
+      'Wird nach {days} Tagen automatisch gelöscht, oder früher, wenn Ihr Gastgeber sie löscht.',
     'help.privacy.summary':
-      'Nachrichten und eine freiwillige Antwortadresse werden 90 Tage lang oder bis zur Löschung durch Ihren Gastgeber gespeichert. Der Link bzw. QR-Code ist ein Zugangsschlüssel: Wer ihn hat, kann den veröffentlichten Leitfaden öffnen. Ihr Gastgeber kann den Link widerrufen oder die Unterkunft löschen.',
+      'Der Link bzw. QR-Code ist ein Zugangsschlüssel: Wer ihn hat, kann den veröffentlichten Leitfaden öffnen. Ihr Gastgeber kann den Link widerrufen oder die Unterkunft löschen.',
     'help.privacy.link': 'Datenschutz und Datenverarbeitung',
     'form.kind': 'Was brauchen Sie?',
     'form.kind.question': 'Ich habe eine Frage',
@@ -300,8 +312,11 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'help.form.title': 'Sporočilo gostitelju',
     'help.form.intro': 'Vaše sporočilo gre naravnost v gostiteljev predal.',
     'help.form.privacy': 'Ne vpisujte kod za vrata, gesel ali številk kartic.',
+    'help.privacy.sent': 'Kaj se pošlje: vaše sporočilo in neobvezni e-poštni naslov, ki ga vpišete.',
+    'help.privacy.seen': 'Kdo ga vidi: samo gostitelj te nastanitve.',
+    'help.privacy.retention': 'Samodejno izbrisano po {days} dneh ali prej, če ga izbriše gostitelj.',
     'help.privacy.summary':
-      'Sporočila in neobvezni e-poštni naslov za odgovor se hranijo 90 dni ali do izbrisa s strani gostitelja. Povezava ali koda QR je prenosljiv ključ: vsak, ki jo ima, lahko odpre objavljeni vodič. Gostitelj lahko povezavo prekliče ali izbriše nastanitev.',
+      'Povezava ali koda QR je prenosljiv ključ: vsak, ki jo ima, lahko odpre objavljeni vodič. Gostitelj lahko povezavo prekliče ali izbriše nastanitev.',
     'help.privacy.link': 'Zasebnost in obdelava podatkov',
     'form.kind': 'Kaj potrebujete?',
     'form.kind.question': 'Imam vprašanje',
