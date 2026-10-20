@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Toast } from '../../components/toast';
 import { buttonClass } from '../../components/button';
 import type { PropertyEssentials } from '../guide/guide.server';
-import { guestUiText, mapSearchUrl, type GuestUiKey } from './guest-ui';
+import { answerHoursText, guestUiText, mapSearchUrl, type GuestUiKey } from './guest-ui';
 import styles from './guest.module.css';
 
 const rows: { key: keyof PropertyEssentials; label: GuestUiKey; copy: boolean }[] = [
@@ -21,6 +21,47 @@ export function AddressLine({ address, locale, testId }: { address: string; loca
         {guestUiText(locale, 'home.openMap')}
       </a>
     </p>
+  );
+}
+
+export function AnswerHours({ essentials, locale }: { essentials: PropertyEssentials; locale: string }) {
+  const { answerFrom, answerTo, timezone } = essentials;
+  if (!answerFrom || !answerTo) return null;
+  return <p data-testid="guest-answer-hours">{answerHoursText(locale, answerFrom, answerTo, timezone)}</p>;
+}
+
+export function CallStrip({
+  phone,
+  locale,
+  text,
+  variant,
+  emergency = false,
+  testId,
+}: {
+  phone: string | null;
+  locale: string;
+  text: GuestUiKey;
+  variant: 'primary' | 'secondary';
+  emergency?: boolean;
+  testId: string;
+}) {
+  return (
+    <div className={styles.urgent} data-testid={testId}>
+      <span>
+        {phone ? guestUiText(locale, text) : null}
+        {emergency ? (
+          <>
+            {phone ? ' ' : null}
+            {guestUiText(locale, 'help.emergencyNumber')} <a href="tel:112">112</a>
+          </>
+        ) : null}
+      </span>
+      {phone ? (
+        <a className={buttonClass(variant)} href={`tel:${phone}`} data-testid={`${testId}-call`}>
+          {guestUiText(locale, 'contact.call')}
+        </a>
+      ) : null}
+    </div>
   );
 }
 

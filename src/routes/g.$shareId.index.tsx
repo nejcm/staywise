@@ -3,7 +3,7 @@ import { avatarInitial, guestCategoryLabel, guestLink, guestLocaleName, guestUiT
 import type { SectionCategory } from '../features/guide/guide-validation';
 import styles from '../features/guest/guest.module.css';
 import { buttonClass } from '../components/button';
-import { AddressLine, EssentialsList, hasEssentials } from '../features/guest/guest-essentials';
+import { AddressLine, AnswerHours, EssentialsList, hasEssentials } from '../features/guest/guest-essentials';
 
 export const Route = createFileRoute('/g/$shareId/')({
   component: GuestHome,
@@ -16,7 +16,7 @@ function GuestHome() {
   const { guest, shareId, lang } = Route.useRouteContext();
   if (guest.state !== 'guide') return null;
   const { locale, sourceLocale } = guest.guest;
-  const { address } = guest.guest.essentials;
+  const { address, contactPhone } = guest.guest.essentials;
   const highlights = homeCategories
     .map((category) => guest.guest.sections.find((section) => section.category === category))
     .filter((section) => section !== undefined);
@@ -54,10 +54,22 @@ function GuestHome() {
           </span>
           <h3>{guestUiText(locale, 'home.help.title')}</h3>
         </div>
+        <AnswerHours essentials={guest.guest.essentials} locale={locale} />
         <p>{guestUiText(locale, 'home.help.body')}</p>
-        <a className={`${buttonClass('secondary')} ${styles.pill}`} href={guestLink(`/g/${shareId}/help`, lang)}>
-          {guestUiText(locale, 'home.help.open')}
-        </a>
+        <div className={styles.urgent}>
+          {contactPhone ? (
+            <a
+              className={`${buttonClass('primary')} ${styles.pill}`}
+              href={`tel:${contactPhone}`}
+              data-testid="guest-home-call"
+            >
+              {guestUiText(locale, 'contact.call')}
+            </a>
+          ) : null}
+          <a className={`${buttonClass('secondary')} ${styles.pill}`} href={guestLink(`/g/${shareId}/help`, lang)}>
+            {guestUiText(locale, 'home.help.open')}
+          </a>
+        </div>
       </section>
     </>
   );

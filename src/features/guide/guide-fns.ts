@@ -75,6 +75,9 @@ export const saveProperty = createServerFn({ method: 'POST' })
         checkinTime?: string;
         checkoutTime?: string;
         address?: string;
+        contactPhone?: string;
+        answerFrom?: string;
+        answerTo?: string;
         timezone?: string;
       },
   )

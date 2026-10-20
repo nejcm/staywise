@@ -46,6 +46,8 @@ const DRAFT_BODY = 'SYNTHETIC-DRAFT-BODY-NEVER';
 const NOTE_BODY = 'SYNTHETIC-NOTE-BODY-NEVER';
 const SECRET_VALUE = 'SYNTHETIC-SECRET-NEVER';
 const KEYBOX_CODE = 'SYNTHETIC-KEYBOX-4821';
+const CONTACT_PHONE = '+38640077123';
+const HOURS_MARKER = '03:17';
 const GUEST_COOKIE = 'sw_guest=';
 
 type ShareLink = { shareId: string; secret: string };
@@ -216,6 +218,10 @@ describeLocal('guest link trust boundaries against the local stack', () => {
     const admin = localAdmin();
     try {
       await admin`insert into app.property_credentials (property_id, keybox_code) values (${propertyId}, ${KEYBOX_CODE})`;
+      await admin`
+        update app.properties set contact_phone = ${CONTACT_PHONE}, answer_from = ${HOURS_MARKER}, answer_to = '04:41'
+        where id = ${propertyId}
+      `;
       const link = await createLink(host, propertyId);
       const exchanged = await exchange(link.shareId, link.secret);
       expect(exchanged.status).toBe(200);
@@ -241,6 +247,8 @@ describeLocal('guest link trust boundaries against the local stack', () => {
       expect(page.html).not.toContain(link.secret);
       expect(page.html).not.toContain(guestToken);
       expect(page.html).toContain(KEYBOX_CODE);
+      expect(page.html).toContain(`tel:${CONTACT_PHONE}`);
+      expect(page.html).toContain(HOURS_MARKER);
       expect(page.html).not.toContain('guest-copy-');
 
       const read = decode<GuestPage>(
@@ -257,13 +265,20 @@ describeLocal('guest link trust boundaries against the local stack', () => {
       expect(anonymousReply.body).not.toContain(KEYBOX_CODE);
       const opening = await document(link.shareId);
       expect(opening.html).not.toContain(KEYBOX_CODE);
+      for (const body of [anonymousReply.body, opening.html]) {
+        expect(body).not.toContain(CONTACT_PHONE);
+        expect(body).not.toContain(HOURS_MARKER);
+      }
 
       await shareFn('disableGuestLink', { jar: host.jar, data: { propertyId } });
       const revoked = await document(link.shareId, guestCookie);
       expect(revoked.html).not.toContain(KEYBOX_CODE);
+      expect(revoked.html).not.toContain(CONTACT_PHONE);
+      expect(revoked.html).not.toContain(HOURS_MARKER);
       const log = devServerLog();
       if (log === null) throw new Error('dev-server log capture is missing; cannot check credentials stay out of logs');
       expect(log).not.toContain(KEYBOX_CODE);
+      expect(log).not.toContain(CONTACT_PHONE);
     } finally {
       await admin.end({ timeout: 0 });
       await adminClient(local).deleteUser(host.userId);

@@ -47,6 +47,11 @@ function PrivacyNotice() {
             guide&apos;s original language when the host has not enabled it.
           </li>
           <li>
+            When the host adds a phone number and usual answering hours, guests see them on the guide&apos;s Home and
+            Help pages after opening their link, with a Call link. They are never shown on the opening, unavailable, or
+            error pages and are never sent for translation.
+          </li>
+          <li>
             When the host adds an address, the guide shows it with an &quot;Open in maps&quot; link to OpenStreetMap.
             Nothing is loaded from the maps provider until the guest clicks; only then does it receive the address.
           </li>

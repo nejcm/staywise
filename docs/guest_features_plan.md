@@ -106,8 +106,8 @@ Shared files: `guest-ui.ts`, `guest.module.css`, `g.$shareId.tsx`, `guide.server
 
 ## Phase 7c — Answering hours + Call (after D1, 7a, 7b)
 
-- **Migration:** `properties.contact_phone`, `answer_from time`, `answer_to time`; E.164 validation in the editor.
-- **Guest:** Help shows hours in the property timezone and a `tel:` link, only on authorised pages; on the 7a error page only if the session was confirmed before the failure.
+- **Migration:** `properties.contact_phone` (E.164 check), `answer_from time`, `answer_to time`; editor Contact fieldset, omitted = unchanged; Copy keeps them (same host). Guest-readable via `properties_guest_read`, never in the translation payload.
+- **Guest:** Help shows hours in the property timezone and a `tel:` link, only on authorised pages; never on the 7a error page (no confirmed session context there). Home host card: hours + Call; Help: urgent strip with 112; sent/failed form states offer Call.
 - **Tests:** phone absent from denied, opening and unconfirmed error pages; hours spanning midnight.
 
 ## Phase 8a — Privacy bullet panel (Track B, after D4)

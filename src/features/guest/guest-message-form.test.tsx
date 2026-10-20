@@ -66,3 +66,15 @@ describe('guest message form', () => {
     expect(html).toContain('Send message');
   });
 });
+
+describe('Call after sending', () => {
+  const snapshot = { kind: 'question' as const, category: 'wifi' as const, body: 'Hi', replyEmail: '' };
+  it('offers Call on the sent state only when the host has a phone', () => {
+    const withPhone = renderToString(
+      <SentRecap snapshot={snapshot} locale="en" onAgain={() => {}} phone="+38641234567" />,
+    );
+    expect(withPhone).toContain('If it gets urgent, call rather than wait.');
+    expect(withPhone).toMatch(/href="tel:\+38641234567"[^>]*data-testid="guest-sent-call-call"/);
+    expect(renderToString(<SentRecap snapshot={snapshot} locale="en" onAgain={() => {}} />)).not.toContain('tel:');
+  });
+});

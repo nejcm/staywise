@@ -32,6 +32,10 @@ const guide = {
       checkinTime: '15:00',
       checkoutTime: null,
       address: 'Cesta svobode 12 & 3/A, Bled',
+      contactPhone: '+38641234567',
+      answerFrom: '22:00',
+      answerTo: '02:00',
+      timezone: 'Europe/Ljubljana',
     },
   },
 };
@@ -106,6 +110,23 @@ describe('guest routes', () => {
     expect(html).toMatch(/<span[^>]*aria-hidden="true"[^>]*data-testid="guest-host-initial">S<\/span>/);
   });
 
+  it('offers Call and overnight answering hours on Home and an urgent strip on Help', async () => {
+    const home = await render('/g/synthetic', { ...guide, guest: { ...guide.guest, locale: 'en' } });
+    expect(home).toMatch(/href="tel:\+38641234567"[^>]*data-testid="guest-home-call"/);
+    expect(home).toContain('Usually answers from 22:00 to 02:00 the next day, Europe/Ljubljana time.');
+    const help = await render('/g/synthetic/help', { ...guide, guest: { ...guide.guest, locale: 'en' } });
+    expect(help).toContain('Locked out or urgent? Call instead.');
+    expect(help).toContain('href="tel:112"');
+    expect(help).toMatch(/href="tel:\+38641234567"[^>]*data-testid="guest-help-urgent-call"/);
+    const silent = await render('/g/synthetic/help', {
+      ...guide,
+      guest: { ...guide.guest, essentials: { ...guide.guest.essentials, contactPhone: null } },
+    });
+    expect(silent).toContain('href="tel:112"');
+    expect(silent).not.toContain('tel:+');
+    expect(silent).not.toContain('Locked out or urgent?');
+  });
+
   it('names the copied field in the announcement', () => {
     expect(guestUiText('en', 'essentials.copied', { field: guestUiText('en', 'essentials.wifiPassword') })).toBe(
       'Wi-Fi password copied.',
@@ -121,6 +142,8 @@ describe('guest routes', () => {
       const html = await render('/g/synthetic', result);
       expect(html).not.toContain('guest-essentials');
       expect(html).not.toContain('SYNTHETIC-PASS');
+      expect(html).not.toContain('38641234567');
+      expect(html).not.toContain('tel:');
     }
   });
 

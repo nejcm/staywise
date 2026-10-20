@@ -31,6 +31,8 @@ import {
   approveTranslationInput,
   collectFieldErrors,
   createSectionInput,
+  answerHoursPaired,
+  answerHoursPairedIssue,
   essentialsFields,
   guestLocales,
   propertyFields,
@@ -356,9 +358,9 @@ function QrSvg({ value }: { value: string }) {
 }
 
 const essentialInputs: {
-  name: keyof PropertyEssentials;
+  name: Exclude<keyof PropertyEssentials, 'timezone'>;
   label: string;
-  type: 'time' | 'text';
+  type: 'time' | 'text' | 'tel';
   maxLength?: number;
   credential: boolean;
 }[] = [
@@ -368,6 +370,17 @@ const essentialInputs: {
   { name: 'wifiPassword', label: 'Wi-Fi password', type: 'text', maxLength: 128, credential: true },
   { name: 'keyboxCode', label: 'Key-box code', type: 'text', maxLength: 32, credential: true },
   { name: 'address', label: 'Address', type: 'text', maxLength: 200, credential: false },
+];
+const contactInputs: typeof essentialInputs = [
+  {
+    name: 'contactPhone',
+    label: 'Phone (international format, e.g. +38641234567)',
+    type: 'tel',
+    maxLength: 16,
+    credential: false,
+  },
+  { name: 'answerFrom', label: 'Usually answers from', type: 'time', credential: false },
+  { name: 'answerTo', label: 'Usually answers until', type: 'time', credential: false },
 ];
 
 function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZones: string[] }) {
@@ -386,12 +399,17 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const parsed = propertyFields.extend(essentialsFields.shape).safeParse({
-      displayName: formData.get('displayName'),
-      sourceLocale: formData.get('sourceLocale'),
-      enabledLocales: formData.getAll('enabledLocales').map(String),
-      ...Object.fromEntries(essentialInputs.map(({ name }) => [name, formData.get(name) ?? ''])),
-    });
+    const parsed = propertyFields
+      .extend(essentialsFields.shape)
+      .refine(answerHoursPaired, answerHoursPairedIssue)
+      .safeParse({
+        displayName: formData.get('displayName'),
+        sourceLocale: formData.get('sourceLocale'),
+        enabledLocales: formData.getAll('enabledLocales').map(String),
+        ...Object.fromEntries(
+          [...essentialInputs, ...contactInputs].map(({ name }) => [name, formData.get(name) ?? '']),
+        ),
+      });
     const timezone = String(formData.get('timezone') ?? property.timezone);
     const timezoneError = timeZoneOptions.includes(timezone) ? null : { timezone: 'Choose a time zone from the list' };
     if (!parsed.success || timezoneError) {
@@ -563,6 +581,34 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
           Guests who already saw a Wi-Fi password or key-box code keep it. Changing the code is the only way to revoke
           it.
         </p>
+      </fieldset>
+      <fieldset className="stack" data-testid="property-contact">
+        <legend>Contact</legend>
+        <p className="small muted">
+          Guests see your phone and hours after opening their link, never on error pages; they are never sent for
+          translation. Hours use the property time zone.
+        </p>
+        {contactInputs.map(({ name, label, type, maxLength, credential }) => {
+          const errorId = `essentials-${name}-error`;
+          const describedBy = [credential ? 'essentials-credential-warning' : '', errors[name] ? errorId : '']
+            .filter(Boolean)
+            .join(' ');
+          return (
+            <Field key={name} label={label} error={errors[name]} errorId={errorId} errorTestId={errorId}>
+              <input
+                name={name}
+                type={type}
+                defaultValue={property[name] ?? ''}
+                maxLength={maxLength}
+                autoComplete="off"
+                spellCheck={false}
+                aria-invalid={Boolean(errors[name])}
+                aria-describedby={describedBy || undefined}
+                data-testid={`essentials-${name}`}
+              />
+            </Field>
+          );
+        })}
       </fieldset>
       <section aria-labelledby="alert-email-heading" className="stack">
         <h3 id="alert-email-heading">New-message alerts</h3>

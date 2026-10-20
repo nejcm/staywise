@@ -38,7 +38,6 @@ export type GuideEditorData = {
     displayName: string;
     sourceLocale: string;
     enabledLocales: string[];
-    timezone: string;
     published: boolean;
     alertEmail: string | null;
   } & PropertyEssentials;
@@ -65,6 +64,10 @@ export type PropertyEssentials = {
   checkinTime: string | null;
   checkoutTime: string | null;
   address: string | null;
+  contactPhone: string | null;
+  answerFrom: string | null;
+  answerTo: string | null;
+  timezone: string;
 };
 
 type GuestProvenance = 'source' | 'reviewed' | 'fallback';
@@ -156,12 +159,11 @@ export async function readGuideEditor(
       display_name: string;
       source_locale: string;
       enabled_locales: string[];
-      timezone: string;
       published: boolean;
       alert_email: string | null;
     }[]
   >`
-    select id, display_name, source_locale, enabled_locales, timezone, published, alert_email
+    select id, display_name, source_locale, enabled_locales, published, alert_email
     from app.properties where id = ${propertyId}
   `;
   if (!property) return null;
@@ -227,7 +229,6 @@ export async function readGuideEditor(
       displayName: property.display_name,
       sourceLocale: property.source_locale,
       enabledLocales: property.enabled_locales,
-      timezone: property.timezone,
       published: property.published,
       alertEmail: property.alert_email,
       ...essentials,
@@ -260,10 +261,15 @@ export async function readPropertyEssentials(
       checkin_time: string | null;
       checkout_time: string | null;
       address: string | null;
+      contact_phone: string | null;
+      answer_from: string | null;
+      answer_to: string | null;
+      timezone: string;
     }[]
   >`
-    select c.wifi_name, c.wifi_password, c.keybox_code, p.address,
-      to_char(p.checkin_time, 'HH24:MI') as checkin_time, to_char(p.checkout_time, 'HH24:MI') as checkout_time
+    select c.wifi_name, c.wifi_password, c.keybox_code, p.address, p.contact_phone, p.timezone,
+      to_char(p.checkin_time, 'HH24:MI') as checkin_time, to_char(p.checkout_time, 'HH24:MI') as checkout_time,
+      to_char(p.answer_from, 'HH24:MI') as answer_from, to_char(p.answer_to, 'HH24:MI') as answer_to
     from app.properties p
     left join app.property_credentials c on c.property_id = p.id
     where p.id = ${propertyId}
@@ -275,6 +281,10 @@ export async function readPropertyEssentials(
     checkinTime: row?.checkin_time ?? null,
     checkoutTime: row?.checkout_time ?? null,
     address: row?.address ?? null,
+    contactPhone: row?.contact_phone ?? null,
+    answerFrom: row?.answer_from ?? null,
+    answerTo: row?.answer_to ?? null,
+    timezone: row?.timezone ?? 'UTC',
   };
 }
 
@@ -340,12 +350,22 @@ export async function updateProperty(
     `;
     if (stored?.timezone !== parsed.timezone) return false;
   }
+  if ((parsed.answerFrom === undefined) !== (parsed.answerTo === undefined)) {
+    const [stored] = await tx<{ answer_from: string | null; answer_to: string | null }[]>`
+      select answer_from::text, answer_to::text from app.properties where id = ${parsed.propertyId}
+    `;
+    const from = parsed.answerFrom ?? stored?.answer_from ?? '';
+    const to = parsed.answerTo ?? stored?.answer_to ?? '';
+    if (!from !== !to) return false;
+  }
   const keep = (value: string | undefined, column: string) => (value === undefined ? tx(column) : value || null);
   const rows = await tx`
     update app.properties
     set display_name = ${parsed.displayName}, source_locale = ${parsed.sourceLocale},
       enabled_locales = ${parsed.enabledLocales}, checkin_time = ${keep(parsed.checkinTime, 'checkin_time')},
       checkout_time = ${keep(parsed.checkoutTime, 'checkout_time')}, address = ${keep(parsed.address, 'address')},
+      contact_phone = ${keep(parsed.contactPhone, 'contact_phone')}, answer_from = ${keep(parsed.answerFrom, 'answer_from')},
+      answer_to = ${keep(parsed.answerTo, 'answer_to')},
       timezone = ${parsed.timezone ?? tx('timezone')}, updated_at = now()
     where id = ${parsed.propertyId}
     returning id
@@ -406,8 +426,10 @@ export async function insertCopy(tx: postgres.TransactionSql, sourcePropertyId: 
   if (!source) return null;
   const name = `${source.display_name} (copy)`.slice(0, 120);
   const [created] = await tx<{ id: string }[]>`
-    insert into app.properties (owner_id, display_name, source_locale, timezone, enabled_locales, alert_email, checkin_time, checkout_time, address)
-    select owner_id, ${name}, source_locale, timezone, enabled_locales, alert_email, checkin_time, checkout_time, address
+    insert into app.properties (owner_id, display_name, source_locale, timezone, enabled_locales, alert_email, checkin_time, checkout_time, address,
+      contact_phone, answer_from, answer_to)
+    select owner_id, ${name}, source_locale, timezone, enabled_locales, alert_email, checkin_time, checkout_time, address,
+      contact_phone, answer_from, answer_to
     from app.properties where id = ${parsed.sourcePropertyId}
     returning id
   `;

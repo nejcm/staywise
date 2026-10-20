@@ -16,6 +16,12 @@ export const guestUiKeys = [
   'home.help.body',
   'home.help.open',
   'home.openMap',
+  'contact.call',
+  'contact.hours',
+  'contact.hoursOvernight',
+  'help.urgent',
+  'help.emergencyNumber',
+  'help.urgentAfterSend',
   'guide.heading',
   'guide.empty',
   'help.heading',
@@ -98,6 +104,12 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'home.help.body': 'Emergency contacts and how to reach your host.',
     'home.help.open': 'Open Help',
     'home.openMap': 'Open in maps',
+    'contact.call': 'Call',
+    'contact.hours': 'Usually answers {from}–{to}, {zone} time.',
+    'contact.hoursOvernight': 'Usually answers from {from} to {to} the next day, {zone} time.',
+    'help.urgent': 'Locked out or urgent? Call instead.',
+    'help.emergencyNumber': 'Emergency',
+    'help.urgentAfterSend': 'If it gets urgent, call rather than wait.',
     'guide.heading': 'Guide',
     'guide.empty': 'Your host has not published any guide content yet.',
     'help.heading': 'Help',
@@ -179,6 +191,12 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'home.help.body': 'Notfallkontakte und wie Sie Ihren Gastgeber erreichen.',
     'home.help.open': 'Hilfe öffnen',
     'home.openMap': 'In Karte öffnen',
+    'contact.call': 'Anrufen',
+    'contact.hours': 'Antwortet meist {from}–{to} Uhr, Zeitzone {zone}.',
+    'contact.hoursOvernight': 'Antwortet meist von {from} bis {to} Uhr am nächsten Tag, Zeitzone {zone}.',
+    'help.urgent': 'Ausgesperrt oder dringend? Rufen Sie lieber an.',
+    'help.emergencyNumber': 'Notruf',
+    'help.urgentAfterSend': 'Wenn es dringend wird, rufen Sie an, statt zu warten.',
     'guide.heading': 'Leitfaden',
     'guide.empty': 'Ihr Gastgeber hat noch keine Inhalte veröffentlicht.',
     'help.heading': 'Hilfe',
@@ -263,6 +281,12 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'home.help.body': 'Nujni kontakti in kako doseči gostitelja.',
     'home.help.open': 'Odpri pomoč',
     'home.openMap': 'Odpri na zemljevidu',
+    'contact.call': 'Pokliči',
+    'contact.hours': 'Običajno odgovarja {from}–{to}, časovni pas {zone}.',
+    'contact.hoursOvernight': 'Običajno odgovarja od {from} do {to} naslednjega dne, časovni pas {zone}.',
+    'help.urgent': 'Ste zaklenjeni zunaj ali je nujno? Raje pokličite.',
+    'help.emergencyNumber': 'Klic v sili',
+    'help.urgentAfterSend': 'Če postane nujno, raje pokličite, kot da čakate.',
     'guide.heading': 'Vodič',
     'guide.empty': 'Gostitelj še ni objavil vsebine vodnika.',
     'help.heading': 'Pomoč',
@@ -381,4 +405,9 @@ export function mapSearchUrl(address: string): string {
 export function avatarInitial(name: string, locale: string): string {
   const [first] = new Intl.Segmenter(locale, { granularity: 'grapheme' }).segment(name.trim());
   return first ? first.segment.toLocaleUpperCase(locale) : '';
+}
+
+// Times are the property's local HH:MM; an end at or before the start runs past midnight.
+export function answerHoursText(locale: string, from: string, to: string, zone: string): string {
+  return guestUiText(locale, to <= from ? 'contact.hoursOvernight' : 'contact.hours', { from, to, zone });
 }

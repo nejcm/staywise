@@ -86,8 +86,21 @@ const essentialsShape = {
   checkinTime: essentialTime,
   checkoutTime: essentialTime,
   address: essentialText(200, 'Address must be 200 characters or fewer'),
+  contactPhone: z
+    .string()
+    .trim()
+    .regex(/^$|^\+[1-9]\d{6,14}$/, 'Enter the number in international format, e.g. +38641234567')
+    .optional(),
+  answerFrom: essentialTime,
+  answerTo: essentialTime,
 };
 export const essentialsFields = z.object(essentialsShape);
+
+// Both answering times or neither; an omitted side is checked against the stored value by updateProperty.
+export function answerHoursPaired(value: { answerFrom?: string; answerTo?: string }): boolean {
+  return value.answerFrom === undefined || value.answerTo === undefined || !value.answerFrom === !value.answerTo;
+}
+export const answerHoursPairedIssue = { message: 'Enter both answering times or neither', path: ['answerTo'] };
 
 // The host's sign-in address for the minimal new-message alert; stored server-side and never shown
 // to guests.
@@ -124,7 +137,9 @@ export const saveSectionInput = z
     ...sectionFieldsShape,
   })
   .refine((value) => value.visibility === 'host' || value.secretValue === '', secretOnlyOnPrivateNote);
-export const savePropertyInput = propertyFields.extend({ propertyId: z.uuid(), ...essentialsShape });
+export const savePropertyInput = propertyFields
+  .extend({ propertyId: z.uuid(), ...essentialsShape })
+  .refine(answerHoursPaired, answerHoursPairedIssue);
 export const copyPropertyInput = z.object({ sourcePropertyId: z.uuid() });
 export const setGuidePublishedInput = z.object({ propertyId: z.uuid(), published: z.boolean() });
 export const moveSectionInput = z.object({

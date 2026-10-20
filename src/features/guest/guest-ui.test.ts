@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { guestLocales } from '../guide/guide-validation';
 import {
+  answerHoursText,
   avatarInitial,
   guestLink,
   guestLocaleName,
@@ -60,5 +61,17 @@ describe('avatarInitial', () => {
     expect(avatarInitial('👨‍👩‍👧 Family loft', 'en')).toBe('👨‍👩‍👧');
     expect(avatarInitial('e\u0301cole', 'en')).toBe('E\u0301');
     expect(avatarInitial('   ', 'en')).toBe('');
+  });
+});
+
+describe('answerHoursText', () => {
+  it('uses 24-hour property times and flags spans past midnight', () => {
+    expect(answerHoursText('en', '08:00', '21:00', 'Europe/Ljubljana')).toBe(
+      'Usually answers 08:00–21:00, Europe/Ljubljana time.',
+    );
+    expect(answerHoursText('en', '22:00', '02:00', 'UTC')).toBe(
+      'Usually answers from 22:00 to 02:00 the next day, UTC time.',
+    );
+    expect(answerHoursText('de', '20:00', '20:00', 'UTC')).toContain('am nächsten Tag');
   });
 });

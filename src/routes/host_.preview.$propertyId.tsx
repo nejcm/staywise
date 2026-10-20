@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { z } from 'zod';
 import { buttonClass } from '../components/button';
 import { Pill } from '../components/pill';
-import { AddressLine, EssentialsList, hasEssentials } from '../features/guest/guest-essentials';
+import { AddressLine, AnswerHours, CallStrip, EssentialsList, hasEssentials } from '../features/guest/guest-essentials';
 import { getHostAuthState } from '../features/host/host-fns';
 import { getGuestPreview, recordPreviewOpened } from '../features/guide/guide-fns';
 import { guestCategoryLabel, guestLocaleName, guestUiText, languageNames } from '../features/guest/guest-ui';
@@ -92,6 +92,19 @@ function PreviewPage() {
             ) : null}
             {essentials.address ? (
               <AddressLine address={essentials.address} locale={guest.locale} testId="preview-address" />
+            ) : null}
+            {essentials.contactPhone ? (
+              <section className={`${styles.card} ${styles.callout}`} data-testid="preview-contact">
+                <AnswerHours essentials={essentials} locale={guest.locale} />
+                <CallStrip
+                  phone={essentials.contactPhone}
+                  locale={guest.locale}
+                  text="help.urgent"
+                  variant="primary"
+                  emergency
+                  testId="preview-urgent"
+                />
+              </section>
             ) : null}
             {hasEssentials(essentials) ? (
               <section className={`${styles.card} ${styles.arrival}`} data-testid="preview-essentials">

@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from '../../components/button';
+import { CallStrip } from './guest-essentials';
 import { Field } from '../../components/field';
 import { sectionCategories, type SectionCategory } from '../guide/guide-validation';
 import { guestCategoryLabel, guestUiText } from './guest-ui';
@@ -32,7 +33,17 @@ export function messageExcerpt(body: string, max = 120): string {
   return text.length > max ? `${text.slice(0, max).trimEnd()}…` : text;
 }
 
-export function SentRecap({ snapshot, locale, onAgain }: { snapshot: Snapshot; locale: string; onAgain: () => void }) {
+export function SentRecap({
+  snapshot,
+  locale,
+  onAgain,
+  phone = null,
+}: {
+  snapshot: Snapshot;
+  locale: string;
+  onAgain: () => void;
+  phone?: string | null;
+}) {
   return (
     <div data-testid="guest-message-sent">
       <p className={styles.sent}>{guestUiText(locale, 'form.sent')}</p>
@@ -49,6 +60,15 @@ export function SentRecap({ snapshot, locale, onAgain }: { snapshot: Snapshot; l
       <p className={styles.fallback} data-testid="guest-message-reply-note">
         {guestUiText(locale, 'form.noReply')}
       </p>
+      {phone ? (
+        <CallStrip
+          phone={phone}
+          locale={locale}
+          text="help.urgentAfterSend"
+          variant="secondary"
+          testId="guest-sent-call"
+        />
+      ) : null}
       <p>
         <Button type="button" variant="secondary" onClick={onAgain} data-testid="guest-message-again">
           {guestUiText(locale, 'form.sendAnother')}
@@ -60,7 +80,15 @@ export function SentRecap({ snapshot, locale, onAgain }: { snapshot: Snapshot; l
 
 // Guest question/report form: one bounded same-origin POST; every failure keeps the guest's text in
 // the form and shows a localized reason. It never promises a reply or a response time.
-export function GuestMessageForm({ shareId, locale }: { shareId: string; locale: string }) {
+export function GuestMessageForm({
+  shareId,
+  locale,
+  phone = null,
+}: {
+  shareId: string;
+  locale: string;
+  phone?: string | null;
+}) {
   const [kind, setKind] = useState<MessageKind>('question');
   const [category, setCategory] = useState('');
   const [body, setBody] = useState('');
@@ -159,7 +187,7 @@ export function GuestMessageForm({ shareId, locale }: { shareId: string; locale:
     <section className={styles.card} data-testid="guest-message-form">
       <h3>{guestUiText(locale, 'help.form.title')}</h3>
       {sent ? (
-        <SentRecap snapshot={sent} locale={locale} onAgain={sendAnother} />
+        <SentRecap snapshot={sent} locale={locale} onAgain={sendAnother} phone={phone} />
       ) : (
         <>
           <p>{guestUiText(locale, 'help.form.intro')}</p>
@@ -293,6 +321,15 @@ export function GuestMessageForm({ shareId, locale }: { shareId: string; locale:
               <p role="alert" className={styles.alert} data-testid="guest-message-error">
                 {notice}
               </p>
+            ) : null}
+            {notice && phone ? (
+              <CallStrip
+                phone={phone}
+                locale={locale}
+                text="help.urgentAfterSend"
+                variant="secondary"
+                testId="guest-failed-call"
+              />
             ) : null}
           </form>
         </>

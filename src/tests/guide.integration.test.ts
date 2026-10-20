@@ -879,6 +879,9 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
           checkoutTime: '10:30',
           address: 'Synthetic street 1',
           timezone: 'Europe/Ljubljana',
+          contactPhone: '+38641234567',
+          answerFrom: '22:00',
+          answerTo: '02:00',
         },
       });
       expect(decode<{ ok?: boolean }>(saved)?.result).toEqual({ ok: true });
@@ -903,6 +906,8 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
         checkinTime: '15:00',
         address: 'Synthetic street 1',
         timezone: 'Europe/Ljubljana',
+        contactPhone: '+38641234567',
+        answerTo: '02:00',
       });
 
       const foreign = await withOwnerContext(intruder.userId, (tx) =>
@@ -944,6 +949,9 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
         checkinTime: '15:00',
         checkoutTime: '10:30',
         address: 'Synthetic street 1',
+        contactPhone: '+38641234567',
+        answerFrom: '22:00',
+        answerTo: '02:00',
       });
 
       await admin`update app.properties set timezone = 'Legacy/Synthetic' where id = ${propertyId}`;
@@ -954,6 +962,9 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
         )?.result;
       expect(await resave({ timezone: 'Legacy/Synthetic', address: '' })).toEqual({ ok: true });
       expect(await resave({ timezone: 'Mars/Olympus' })).toEqual({ error: 'invalid_input' });
+      expect(await resave({ contactPhone: '041 234 567' })).toEqual({ error: 'invalid_input' });
+      expect(await resave({ answerTo: '' })).toEqual({ error: 'invalid_input' });
+      expect(await resave({ answerFrom: '07:00' })).toEqual({ ok: true });
       expect(await resave({})).toEqual({ ok: true });
       const legacy = await withOwnerContext(owner.userId, (tx) => readGuideEditor(tx, propertyId));
       expect(legacy?.property).toMatchObject({ timezone: 'Legacy/Synthetic', address: null });

@@ -357,6 +357,17 @@
   border-radius: 999px;
 }
 
+.urgent {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.urgent span {
+  flex: 1 1 12rem;
+}
+
 .address {
   color: var(--muted);
 }

@@ -172,3 +172,20 @@ describe('property timezone', () => {
     expect(essentialsFields.safeParse({ address: '  ' }).success).toBe(false);
   });
 });
+
+describe('contact phone', () => {
+  it('accepts E.164 and empty, rejects local or formatted numbers', () => {
+    for (const phone of ['+38641234567', '+12025550123', ' +4930123456 ', '']) {
+      expect(essentialsFields.safeParse({ contactPhone: phone }).success).toBe(true);
+    }
+    for (const phone of ['041234567', '+386 41 234 567', '+0123456789', '+1234567890123456', 'tel:+38641234567']) {
+      expect(essentialsFields.safeParse({ contactPhone: phone }).success).toBe(false);
+    }
+    expect(essentialsFields.safeParse({ answerFrom: '22:00', answerTo: '02:00' }).success).toBe(true);
+    expect(essentialsFields.safeParse({ answerFrom: '24:00' }).success).toBe(false);
+    const base = { propertyId: '00000000-0000-4000-8000-000000000001', displayName: 'Villa', sourceLocale: 'en' };
+    expect(savePropertyInput.safeParse({ ...base, answerFrom: '08:00', answerTo: '' }).success).toBe(false);
+    expect(savePropertyInput.safeParse({ ...base, answerFrom: '', answerTo: '' }).success).toBe(true);
+    expect(savePropertyInput.safeParse({ ...base, answerFrom: '09:00' }).success).toBe(true);
+  });
+});
