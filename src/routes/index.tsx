@@ -11,7 +11,7 @@ function HomePage() {
   return (
     <div className={styles.page}>
       <header className={styles.top}>
-        <Mark name="" />
+        <Mark />
       </header>
       <main className={styles.split}>
         <section className={styles.hero}>
