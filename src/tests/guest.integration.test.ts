@@ -45,6 +45,7 @@ const PUBLISHED_BODY = 'SYNTHETIC-PUBLISHED-BODY-OK';
 const DRAFT_BODY = 'SYNTHETIC-DRAFT-BODY-NEVER';
 const NOTE_BODY = 'SYNTHETIC-NOTE-BODY-NEVER';
 const SECRET_VALUE = 'SYNTHETIC-SECRET-NEVER';
+const KEYBOX_CODE = 'SYNTHETIC-KEYBOX-4821';
 const GUEST_COOKIE = 'sw_guest=';
 
 type ShareLink = { shareId: string; secret: string };
@@ -212,7 +213,9 @@ describeLocal('guest link trust boundaries against the local stack', () => {
   it('exchanges the fragment secret for a bounded session that reads only published guest prose', async () => {
     const local = localStack as LocalStack;
     const { host, propertyId } = await publishedGuide();
+    const admin = localAdmin();
     try {
+      await admin`insert into app.property_credentials (property_id, keybox_code) values (${propertyId}, ${KEYBOX_CODE})`;
       const link = await createLink(host, propertyId);
       const exchanged = await exchange(link.shareId, link.secret);
       expect(exchanged.status).toBe(200);
@@ -237,6 +240,8 @@ describeLocal('guest link trust boundaries against the local stack', () => {
       expect(page.html).not.toContain(SECRET_VALUE);
       expect(page.html).not.toContain(link.secret);
       expect(page.html).not.toContain(guestToken);
+      expect(page.html).toContain(KEYBOX_CODE);
+      expect(page.html).not.toContain('guest-copy-');
 
       const read = decode<GuestPage>(
         await guestFn('getGuestPage', { data: { shareId: link.shareId }, jar: jarFor(guestCookie) }),
@@ -245,10 +250,22 @@ describeLocal('guest link trust boundaries against the local stack', () => {
       const sections = read?.result?.state === 'guide' ? read.result.guest.sections : [];
       expect(sections.map((section) => section.title)).toEqual(['Guest Wi-Fi']);
       expect(sections[0]?.body).toBe(PUBLISHED_BODY);
+      expect(read?.result?.state === 'guide' && read.result.guest.essentials.keyboxCode).toBe(KEYBOX_CODE);
 
-      const anonymous = decode<GuestPage>(await guestFn('getGuestPage', { data: { shareId: link.shareId } }));
-      expect(anonymous?.result?.state).toBe('denied');
+      const anonymousReply = await guestFn('getGuestPage', { data: { shareId: link.shareId } });
+      expect(decode<GuestPage>(anonymousReply)?.result?.state).toBe('denied');
+      expect(anonymousReply.body).not.toContain(KEYBOX_CODE);
+      const opening = await document(link.shareId);
+      expect(opening.html).not.toContain(KEYBOX_CODE);
+
+      await shareFn('disableGuestLink', { jar: host.jar, data: { propertyId } });
+      const revoked = await document(link.shareId, guestCookie);
+      expect(revoked.html).not.toContain(KEYBOX_CODE);
+      const log = devServerLog();
+      if (log === null) throw new Error('dev-server log capture is missing; cannot check credentials stay out of logs');
+      expect(log).not.toContain(KEYBOX_CODE);
     } finally {
+      await admin.end({ timeout: 0 });
       await adminClient(local).deleteUser(host.userId);
     }
   }, 90_000);

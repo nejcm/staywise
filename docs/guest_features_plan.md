@@ -74,7 +74,7 @@ Shared files: `guest-ui.ts`, `guest.module.css`, `g.$shareId.tsx`, `guide.server
 
 ## Phase 4b — Guest exposure + Copy (after D6, 4a)
 
-- **Scope:** DTO `essentials` object, only via the post-exchange read. Home `<dl>` of selectable text; Copy after hydration (`navigator.clipboard`, fallback "select the text") with toast feedback. Reveal window if D6 sets one.
+- **Scope:** DTO `essentials` object, only via the post-exchange read (`readGuestPage`; `property_credentials_guest_read` rechecks the live link row). Home `<dl>` of selectable text; Copy after hydration (`navigator.clipboard`, fallback "select the text") with toast feedback. Reveal window if D6 sets one.
 - **Tests:** absent on denied path and metadata; no-JS shows text without Copy; reveal window edges.
 - **Risk:** credential exposure. No-store already in place (`start.ts:25`); confirm request logging doesn't capture responses.
 

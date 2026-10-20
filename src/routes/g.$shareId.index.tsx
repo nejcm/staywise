@@ -3,6 +3,7 @@ import { guestCategoryLabel, guestLink, guestLocaleName, guestUiText } from '../
 import type { SectionCategory } from '../features/guide/guide-validation';
 import styles from '../features/guest/guest.module.css';
 import { buttonClass } from '../components/button';
+import { EssentialsList, hasEssentials } from '../features/guest/guest-essentials';
 
 export const Route = createFileRoute('/g/$shareId/')({
   component: GuestHome,
@@ -21,7 +22,13 @@ function GuestHome() {
   return (
     <>
       <h2>{guestUiText(locale, 'home.heading')}</h2>
-      {highlights.length === 0 ? (
+      {hasEssentials(guest.guest.essentials) ? (
+        <section className={`${styles.card} ${styles.arrival}`} data-testid="guest-home-essentials">
+          <h3>{guestUiText(locale, 'essentials.title')}</h3>
+          <EssentialsList essentials={guest.guest.essentials} locale={locale} />
+        </section>
+      ) : null}
+      {highlights.length === 0 && !hasEssentials(guest.guest.essentials) ? (
         <p data-testid="guest-home-empty">{guestUiText(locale, 'home.empty')}</p>
       ) : (
         highlights.map((section) => (

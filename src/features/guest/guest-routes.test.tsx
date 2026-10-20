@@ -3,7 +3,7 @@ import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { routeTree } from '../../routeTree.gen';
 import { getGuestPage } from './guest-fns';
-import { firstLine } from './guest-ui';
+import { firstLine, guestUiText } from './guest-ui';
 
 vi.mock('./guest-fns', () => ({ getGuestPage: vi.fn() }));
 
@@ -25,6 +25,13 @@ const guide = {
       { category: 'wifi', title: 'WLAN', body: '\n  Netz: Villa\nPasswort am Router', provenance: 'reviewed' },
       { category: 'parking', title: 'Parking', body: 'Behind the house', provenance: 'fallback' },
     ],
+    essentials: {
+      wifiName: 'SyntheticNet',
+      wifiPassword: 'SYNTHETIC-PASS',
+      keyboxCode: '4821',
+      checkinTime: '15:00',
+      checkoutTime: null,
+    },
   },
 };
 
@@ -66,6 +73,34 @@ describe('guest routes', () => {
     expect(html).toMatch(/<h3>WLAN<\/h3><details><summary><span[^>]*>Netz: Villa<\/span><\/summary>/);
     expect(html).toMatch(/<h3 lang="en">Parking<\/h3>/);
     expect(html).toMatch(/<p[^>]*lang="en">Behind the house<\/p>/);
+  });
+
+  it('server-renders essentials as selectable text with no Copy button before hydration', async () => {
+    const html = await render('/g/synthetic?lang=de', guide);
+    expect(html).toMatch(/<dl[^>]*data-testid="guest-essentials"/);
+    expect(html).toContain('SYNTHETIC-PASS');
+    expect(html).toContain('4821');
+    expect(html).toContain('15:00');
+    expect(html).not.toContain('guest-copy-');
+    expect(html).not.toContain('Check-out');
+  });
+
+  it('names the copied field in the announcement', () => {
+    expect(guestUiText('en', 'essentials.copied', { field: guestUiText('en', 'essentials.wifiPassword') })).toBe(
+      'Wi-Fi password copied.',
+    );
+    expect(guestUiText('de', 'essentials.copied', { field: 'WLAN-Passwort' })).toBe('WLAN-Passwort kopiert.');
+  });
+
+  it('never renders essentials on denied or error pages', async () => {
+    for (const result of [
+      { state: 'denied', locale: 'en' },
+      { state: 'error', locale: 'en' },
+    ]) {
+      const html = await render('/g/synthetic', result);
+      expect(html).not.toContain('guest-essentials');
+      expect(html).not.toContain('SYNTHETIC-PASS');
+    }
   });
 
   it('takes the first non-empty body line as the preview', () => {

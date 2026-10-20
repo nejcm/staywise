@@ -497,3 +497,31 @@
     grid-column: 1 / -1;
   }
 }
+
+.essentials {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 0;
+}
+
+.essentials dt {
+  font-size: 14px;
+}
+
+.essentials dd {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin: 0;
+  font-size: 17px;
+  font-weight: 600;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+
+.arrival .essentials dt {
+  color: var(--accent-track);
+}

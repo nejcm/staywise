@@ -6,7 +6,12 @@ import { canonicalInput } from '../../lib/canonical-input.server';
 import { withLinkContext } from '../../lib/db.server';
 import { serverEnv } from '../../lib/env.server';
 import { bumpGuestCounter, bumpRate, utcWindow } from '../guest/guest-counters.server';
-import { readGuestGuide, type GuestGuideDto } from '../guide/guide.server';
+import {
+  readGuestGuide,
+  readPropertyEssentials,
+  type GuestGuideDto,
+  type PropertyEssentials,
+} from '../guide/guide.server';
 import { isGuestLocale } from '../guest/guest-ui';
 import { propertyIdInput } from '../guide/guide-validation';
 
@@ -32,7 +37,10 @@ export type ShareLinkState = {
   guidePublished: boolean;
 };
 
-export type GuestPage = { state: 'guide'; guest: GuestGuideDto } | { state: 'denied' } | { state: 'error' };
+export type GuestPage =
+  | { state: 'guide'; guest: GuestGuideDto & { essentials: PropertyEssentials } }
+  | { state: 'denied' }
+  | { state: 'error' };
 
 const denied = { state: 'denied' } as const;
 
@@ -242,7 +250,10 @@ export async function readGuestPage(input: {
     { shareId: parsed.shareId, sessionToken: input.sessionToken },
     async (tx, link) => {
       const guide = await readGuestGuide(tx, link.propertyId, parsed.locale ?? null);
-      return guide ? { propertyId: link.propertyId, guest: guide.guest } : null;
+      if (!guide) return null;
+      // Credentials join in only here, after the session check, under the link-scoped RLS policy.
+      const essentials = await readPropertyEssentials(tx, link.propertyId);
+      return { propertyId: link.propertyId, guest: { ...guide.guest, essentials } };
     },
   );
   if (!read) return denied;

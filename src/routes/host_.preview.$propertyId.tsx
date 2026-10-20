@@ -3,6 +3,7 @@ import { useEffect, useRef } from 'react';
 import { z } from 'zod';
 import { buttonClass } from '../components/button';
 import { Pill } from '../components/pill';
+import { EssentialsList, hasEssentials } from '../features/guest/guest-essentials';
 import { getHostAuthState } from '../features/host/host-fns';
 import { getGuestPreview, recordPreviewOpened } from '../features/guide/guide-fns';
 import { guestCategoryLabel, guestLocaleName, guestUiText, languageNames } from '../features/guest/guest-ui';
@@ -34,15 +35,6 @@ export const Route = createFileRoute('/host_/preview/$propertyId')({
 
 function PreviewPage() {
   const { guest, guidePublished, essentials } = Route.useLoaderData();
-  const essentialRows = (
-    [
-      ['Check-in', essentials.checkinTime],
-      ['Checkout', essentials.checkoutTime],
-      ['Wi-Fi network', essentials.wifiName],
-      ['Wi-Fi password', essentials.wifiPassword],
-      ['Key-box code', essentials.keyboxCode],
-    ] satisfies [string, string | null][]
-  ).filter((row): row is [string, string] => Boolean(row[1]));
   const { propertyId } = Route.useParams();
   const recorded = useRef(false);
 
@@ -98,17 +90,10 @@ function PreviewPage() {
                 ))}
               </ul>
             ) : null}
-            {essentialRows.length > 0 ? (
-              <section className={styles.card} data-testid="preview-essentials">
-                <h2 className={styles.category}>Essentials · host only until guest access ships</h2>
-                <dl>
-                  {essentialRows.map(([label, value]) => (
-                    <div key={label}>
-                      <dt>{label}</dt>
-                      <dd data-testid="preview-essential-value">{value}</dd>
-                    </div>
-                  ))}
-                </dl>
+            {hasEssentials(essentials) ? (
+              <section className={`${styles.card} ${styles.arrival}`} data-testid="preview-essentials">
+                <h2 className={styles.category}>Essentials · shown to guests after they open the link</h2>
+                <EssentialsList essentials={essentials} locale={guest.locale} />
               </section>
             ) : null}
             {guest.sections.length === 0 ? (

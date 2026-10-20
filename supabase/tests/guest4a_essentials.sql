@@ -51,7 +51,7 @@ select is((select keybox_code from app.property_credentials where property_id = 
 select is((select n from probe_foreign), 0, 'another host reads no credentials');
 select is((select updated from probe_foreign), 0, 'another host cannot change the code');
 select is((select properties from probe_guest), 1, 'the guest link context sees its published property');
-select is((select n from probe_guest), 0, 'the guest link context reads no credentials');
+select is((select n from probe_guest), 0, 'a guest context without a live link reads no credentials');
 
 select * from finish();
 rollback;
