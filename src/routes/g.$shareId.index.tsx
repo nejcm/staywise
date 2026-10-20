@@ -27,10 +27,10 @@ function GuestHome() {
         highlights.map((section) => (
           <section className={`${styles.card} ${styles.arrival}`} key={section.category} data-testid="guest-highlight">
             <h3>{guestCategoryLabel(locale, section.category)}</h3>
-            <p className={styles.body} lang={section.fallback ? sourceLocale : undefined}>
+            <p className={styles.body} lang={section.provenance === 'fallback' ? sourceLocale : undefined}>
               {section.body}
             </p>
-            {section.fallback ? (
+            {section.provenance === 'fallback' ? (
               <p className={styles.fallback} data-testid="guest-fallback">
                 {guestUiText(locale, 'fallback.notice', { language: guestLocaleName(sourceLocale) })}
               </p>

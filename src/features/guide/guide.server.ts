@@ -52,12 +52,14 @@ export type GuideEditorData = {
   }[];
 };
 
+type GuestProvenance = 'source' | 'reviewed' | 'fallback';
+
 export type GuestGuideDto = {
   displayName: string;
   sourceLocale: string;
   locale: string;
   locales: string[];
-  sections: { category: SectionCategory; title: string; body: string; fallback: boolean }[];
+  sections: { category: SectionCategory; title: string; body: string; provenance: GuestProvenance }[];
 };
 
 export type GuestGuideRow = {
@@ -87,7 +89,7 @@ export type SectionWrite = {
 // Explicit allowlist for everything guests receive: published guest prose in display order; host
 // notes, drafts, and secret values are dropped even if a caller passes rows that carry them.
 // A translated title/body is used only for a non-source locale; otherwise the row falls back to
-// the source text and is flagged so the page can label the fallback. The locale is normalized
+// the source text and marked 'fallback' so the page can label it. The locale is normalized
 // against the property's available locales here, so a caller cannot request an unapproved one.
 export function toGuestGuideDto(
   property: { display_name: string; source_locale: string; enabled_locales: string[] },
@@ -112,13 +114,13 @@ export function toGuestGuideDto(
               category: row.category as SectionCategory,
               title: row.translated_title!,
               body: row.translated_body!,
-              fallback: false,
+              provenance: 'reviewed',
             }
           : {
               category: row.category as SectionCategory,
               title: row.title,
               body: row.body,
-              fallback: served !== sourceLocale,
+              provenance: served === sourceLocale ? 'source' : 'fallback',
             };
       }),
   };
@@ -238,7 +240,7 @@ export async function readGuestGuide(
   `;
   if (!property) return null;
   // Approved translations bound to the live revision and source language join in; anything else
-  // stays null and the section is served in the source language with a fallback flag. The query
+  // stays null and the section is served in the source language as 'fallback'. The query
   // repeats the guest RLS conditions so the host preview shows exactly what guests would see.
   const rows = await tx<GuestGuideRow[]>`
     select s.id, s.category, s.title, s.body, s.visibility, s.published, s.display_order,

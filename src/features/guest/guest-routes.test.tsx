@@ -22,8 +22,8 @@ const guide = {
     locale: 'de',
     locales: ['de', 'en'],
     sections: [
-      { category: 'wifi', title: 'WLAN', body: '\n  Netz: Villa\nPasswort am Router', fallback: false },
-      { category: 'parking', title: 'Parking', body: 'Behind the house', fallback: true },
+      { category: 'wifi', title: 'WLAN', body: '\n  Netz: Villa\nPasswort am Router', provenance: 'reviewed' },
+      { category: 'parking', title: 'Parking', body: 'Behind the house', provenance: 'fallback' },
     ],
   },
 };
@@ -32,8 +32,7 @@ describe('guest routes', () => {
   it('renders identical denied markup for every denial cause', async () => {
     const causes = [
       { state: 'denied', locale: 'en' },
-      { error: 'unexpected', locale: 'en' },
-      { error: 'invalid_input', locale: 'en' },
+      { state: 'denied', locale: 'en', cause: 'invalid-session' },
     ];
     const pages = await Promise.all(causes.map((cause) => render('/g/synthetic', cause)));
     expect(new Set(pages).size).toBe(1);
@@ -80,6 +79,27 @@ describe('guest routes', () => {
     expect(html).toContain('href="/g/synthetic/help?lang=de"');
     const plain = await render('/g/synthetic/guide', guide);
     expect(plain).toContain('href="/g/synthetic/help"');
+  });
+
+  it('shows the reviewed-translation banner linking to the source language with ?lang', async () => {
+    const html = await render('/g/synthetic/guide?lang=de', guide);
+    expect(html).toContain('Übersetzt, vom Gastgeber geprüft');
+    expect(html).toMatch(
+      /data-testid="guest-reviewed"[^]*href="\/g\/synthetic\/guide\?lang=en"[^>]*>English anzeigen</,
+    );
+    const untranslated = { ...guide, guest: { ...guide.guest, sections: [guide.guest.sections[1]] } };
+    expect(await render('/g/synthetic/guide?lang=de', untranslated)).not.toContain('guest-reviewed');
+  });
+
+  it('renders a localized retry page for server errors without property data', async () => {
+    const html = await render('/g/synthetic/guide?lang=de', { state: 'error', locale: 'de' });
+    expect(html).toMatch(/<main[^>]*lang="de"/);
+    expect(html).toContain('data-testid="guest-error"');
+    expect(html).toMatch(/href="\/g\/synthetic\/guide\?lang=de"[^>]*>Erneut versuchen</);
+    expect(html).not.toContain('guest-denied');
+    expect(html).not.toContain('guest-opening');
+    expect(html).not.toContain('Synthetic villa');
+    expect(html).not.toMatch(/mailto:|tel:/);
   });
 
   it('discloses the language cookie on the privacy page', async () => {

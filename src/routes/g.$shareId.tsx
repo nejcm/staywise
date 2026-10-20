@@ -14,7 +14,7 @@ export const Route = createFileRoute('/g/$shareId')({
   validateSearch: (search) => guestSearchSchema.parse(search),
   beforeLoad: async ({ params, search }) => {
     const result = await getGuestPage({ data: { shareId: params.shareId, locale: search.lang } });
-    const guest: GuestPage = 'error' in result ? { state: 'denied' } : result;
+    const guest: GuestPage = result.state === 'guide' ? result : { state: result.state };
     return {
       guest,
       deniedLocale: 'locale' in result ? result.locale : 'en',
@@ -28,6 +28,7 @@ export const Route = createFileRoute('/g/$shareId')({
 function GuestLayout() {
   const { guest, deniedLocale, shareId, lang } = Route.useRouteContext();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
+  const searchStr = useRouterState({ select: (state) => state.location.searchStr });
 
   useEffect(() => {
     // A full reload keeps the /g-scoped cookie; a client-side replace would re-run this route
@@ -48,7 +49,21 @@ function GuestLayout() {
       </main>
     );
   }
-  const { locale, locales } = guest.guest;
+  if (guest.state === 'error') {
+    return (
+      <main className={styles.shell} lang={deniedLocale}>
+        <section className={`${styles.card} ${styles.unavailable}`} data-testid="guest-error">
+          <h1>{guestUiText(deniedLocale, 'error.title')}</h1>
+          <p>{guestUiText(deniedLocale, 'error.body')}</p>
+          <a href={pathname + searchStr} data-testid="guest-retry">
+            {guestUiText(deniedLocale, 'error.retry')}
+          </a>
+        </section>
+      </main>
+    );
+  }
+  const { locale, locales, sourceLocale, sections } = guest.guest;
+  const reviewed = sections.some((section) => section.provenance === 'reviewed');
   return (
     <main className={styles.shell} lang={locale}>
       <a
@@ -72,6 +87,14 @@ function GuestLayout() {
         <GuestNav shareId={shareId} locale={locale} lang={lang} pathname={pathname} />
       </header>
       <div id="guest-content" className={styles.content} tabIndex={-1} data-testid="guest-content">
+        {reviewed ? (
+          <p className={styles.reviewed} data-testid="guest-reviewed">
+            {guestUiText(locale, 'translated.notice')} ·{' '}
+            <a href={guestLink(pathname, sourceLocale)} hrefLang={sourceLocale}>
+              {guestUiText(locale, 'translated.showSource', { language: guestLocaleName(sourceLocale) })}
+            </a>
+          </p>
+        ) : null}
         <Outlet />
       </div>
     </main>

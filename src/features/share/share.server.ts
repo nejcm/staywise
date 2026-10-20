@@ -32,9 +32,14 @@ export type ShareLinkState = {
   guidePublished: boolean;
 };
 
-export type GuestPage = { state: 'guide'; guest: GuestGuideDto } | { state: 'denied' };
+export type GuestPage = { state: 'guide'; guest: GuestGuideDto } | { state: 'denied' } | { state: 'error' };
 
 const denied = { state: 'denied' } as const;
+
+// A thrown read is retryable; only a link or session check yields denied.
+export function guestFailure(result: Exclude<GuestPage, { state: 'guide' }> | { error: string }, locale: string) {
+  return { state: 'state' in result && result.state === 'denied' ? 'denied' : 'error', locale } as const;
+}
 
 export function newShareLink(): { id: string; secret: string; hmac: Buffer } {
   const secret = randomBytes(32).toString('base64url');

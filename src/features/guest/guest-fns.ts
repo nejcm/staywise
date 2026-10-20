@@ -3,6 +3,7 @@ import { appendResponseHeader, getRequest } from '@tanstack/react-start/server';
 import { serverEnv } from '../../lib/env.server';
 import { runGuarded } from '../../lib/fn-guards.server';
 import {
+  guestFailure,
   guestPageInput,
   guestSessionToken,
   readGuestPage,
@@ -10,8 +11,7 @@ import {
   serializeLanguageCookie,
 } from '../share/share.server';
 
-// The single guest read: no identity, no input beyond the link id in the route, and a uniform
-// denial for unknown, disabled, rotated, expired, or unpublished states.
+// One guest read: uniform denial for every invalid link or session; server failures are retryable.
 export const getGuestPage = createServerFn({ method: 'POST' })
   .validator((value: unknown) => value as { shareId: string; locale?: string })
   .handler(async ({ data }) => {
@@ -23,11 +23,10 @@ export const getGuestPage = createServerFn({ method: 'POST' })
       if (remember) appendResponseHeader('set-cookie', serializeLanguageCookie(remember, serverEnv.appEnv !== 'local'));
       return readGuestPage({ shareId: input.data.shareId, locale, sessionToken: guestSessionToken(cookieHeader) });
     });
-    if ('state' in result && result.state === 'guide') return result;
-    return { ...result, locale: deniedLocale(data.locale) };
+    return 'state' in result && result.state === 'guide' ? result : guestFailure(result, deniedLocale(data.locale));
   });
 
-// Fixed UI languages only, so every denial cause renders the same page for the same request.
+// Fixed UI languages only, so every denial or error cause renders the same page for the same request.
 function deniedLocale(query: unknown): string {
   try {
     const header = getRequest().headers.get('cookie');

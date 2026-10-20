@@ -101,17 +101,20 @@ function PreviewPage() {
                   data-testid="preview-section"
                 >
                   <h2 className={styles.category}>{guestCategoryLabel(guest.locale, section.category)}</h2>
-                  <h3 lang={section.fallback ? guest.sourceLocale : undefined} data-testid="preview-section-title">
+                  <h3
+                    lang={section.provenance === 'fallback' ? guest.sourceLocale : undefined}
+                    data-testid="preview-section-title"
+                  >
                     {section.title}
                   </h3>
                   <p
                     className={styles.body}
-                    lang={section.fallback ? guest.sourceLocale : undefined}
+                    lang={section.provenance === 'fallback' ? guest.sourceLocale : undefined}
                     data-testid="preview-section-body"
                   >
                     {section.body}
                   </p>
-                  {section.fallback ? (
+                  {section.provenance === 'fallback' ? (
                     <p className={styles.fallback} data-testid="preview-fallback">
                       {guestUiText(guest.locale, 'fallback.notice', { language: guestLocaleName(guest.sourceLocale) })}
                     </p>

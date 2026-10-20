@@ -398,20 +398,20 @@ describeLocal('stored guide localization (synthetic provider double)', () => {
     expect(german?.guest).toMatchObject({
       locale: 'de',
       locales: ['de', 'en', 'sl'],
-      sections: [{ title: 'Gast-WLAN', body: 'Synthetischer Gasttext', fallback: false }],
+      sections: [{ title: 'Gast-WLAN', body: 'Synthetischer Gasttext', provenance: 'reviewed' }],
     });
     const slovenian = await guestRead(shareId, propertyId, 'sl');
     expect(slovenian?.guest.sections).toEqual([
-      { category: 'wifi', title: 'Guest Wi-Fi', body: PUBLISHED_BODY, fallback: true },
+      { category: 'wifi', title: 'Guest Wi-Fi', body: PUBLISHED_BODY, provenance: 'fallback' },
     ]);
     const source = await guestRead(shareId, propertyId, 'en');
     expect(source?.guest).toMatchObject({
       locale: 'en',
-      sections: [{ title: 'Guest Wi-Fi', body: PUBLISHED_BODY, fallback: false }],
+      sections: [{ title: 'Guest Wi-Fi', body: PUBLISHED_BODY, provenance: 'source' }],
     });
     const unknown = await guestRead(shareId, propertyId, 'fr');
     expect(unknown?.guest.locale).toBe('en');
-    expect(unknown?.guest.sections.at(0)?.fallback).toBe(false);
+    expect(unknown?.guest.sections.at(0)?.provenance).toBe('source');
     expect(requests.length).toBe(callsBefore);
 
     const editor = await withOwnerContext(host.userId, (tx) => readGuideEditor(tx, propertyId));
@@ -455,7 +455,7 @@ describeLocal('stored guide localization (synthetic provider double)', () => {
     )?.result;
     expect(withdrawn?.ok).toBe(true);
     expect((await guestRead(shareId, propertyId, 'de'))?.guest.sections).toEqual([
-      { category: 'wifi', title: 'Guest Wi-Fi', body: PUBLISHED_BODY, fallback: true },
+      { category: 'wifi', title: 'Guest Wi-Fi', body: PUBLISHED_BODY, provenance: 'fallback' },
     ]);
     expect(
       await admin`select id from app.audit_events where actor_id = ${host.userId} and action = 'translation_rejected'`,
@@ -512,7 +512,7 @@ describeLocal('stored guide localization (synthetic provider double)', () => {
       where id = ${wifi}`;
     expect(edited?.source_revision).toBe(baseline!.source_revision + 1);
     expect(await guestRead(shareId, propertyId, 'de')).toMatchObject({
-      guest: { sections: [{ title: 'Guest Wi-Fi', fallback: true }] },
+      guest: { sections: [{ title: 'Guest Wi-Fi', provenance: 'fallback' }] },
     });
     const afterEdit = await withOwnerContext(host.userId, (tx) => readGuideEditor(tx, propertyId));
     expect(afterEdit?.sections[0]?.translations[0]).toMatchObject({ state: 'approved', stale: true });
@@ -555,7 +555,7 @@ describeLocal('stored guide localization (synthetic provider double)', () => {
       where id = ${wifi}`;
     expect(categorised?.source_revision).toBe(baseline!.source_revision + 2);
     expect(await guestRead(shareId, propertyId, 'de')).toMatchObject({
-      guest: { sections: [{ fallback: true }] },
+      guest: { sections: [{ provenance: 'fallback' }] },
     });
 
     await saveSection(host, { ...section, body: `${PUBLISHED_BODY} edited`, category: 'rules', visibility: 'host' });

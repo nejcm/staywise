@@ -34,12 +34,12 @@ describe('toGuestGuideDto', () => {
       locale: 'en',
       locales: ['en'],
       sections: [
-        { category: 'wifi', title: 'First', body: 'Synthetic body', fallback: false },
-        { category: 'wifi', title: 'Second', body: 'Synthetic body', fallback: false },
+        { category: 'wifi', title: 'First', body: 'Synthetic body', provenance: 'source' },
+        { category: 'wifi', title: 'Second', body: 'Synthetic body', provenance: 'source' },
       ],
     });
     for (const section of dto.sections) {
-      expect(Object.keys(section)).toEqual(['category', 'title', 'body', 'fallback']);
+      expect(Object.keys(section)).toEqual(['category', 'title', 'body', 'provenance']);
     }
   });
 
@@ -71,8 +71,28 @@ describe('toGuestGuideDto', () => {
     expect(dto.locale).toBe('de');
     expect(dto.locales).toEqual(['de', 'en']);
     expect(dto.sections).toEqual([
-      { category: 'wifi', title: 'Übersetzt', body: 'Übersetzter Text', fallback: false },
-      { category: 'wifi', title: 'Missing', body: 'Synthetic body', fallback: true },
+      { category: 'wifi', title: 'Übersetzt', body: 'Übersetzter Text', provenance: 'reviewed' },
+      { category: 'wifi', title: 'Missing', body: 'Synthetic body', provenance: 'fallback' },
+    ]);
+  });
+
+  it('marks provenance per section: source, reviewed, and fallback for missing or stale', () => {
+    const multilingual = { ...property, enabled_locales: ['de'] };
+    const rows = [
+      row({ translated_title: 'Geprüft', translated_body: 'Geprüfter Text' }),
+      row({ translated_title: null, translated_body: null }),
+      // The query nulls translations bound to an older source revision, so stale arrives like missing.
+      row({ translated_title: 'Veraltet', translated_body: null }),
+    ];
+    expect(toGuestGuideDto(multilingual, rows, 'de').sections.map((s) => s.provenance)).toEqual([
+      'reviewed',
+      'fallback',
+      'fallback',
+    ]);
+    expect(toGuestGuideDto(multilingual, rows, 'en').sections.map((s) => s.provenance)).toEqual([
+      'source',
+      'source',
+      'source',
     ]);
   });
 
@@ -85,7 +105,7 @@ describe('toGuestGuideDto', () => {
     expect(dto.locale).toBe('en');
     expect(dto.locales).toEqual(['en']);
     expect(dto.sections).toEqual([
-      { category: 'wifi', title: 'Synthetic title', body: 'Synthetic body', fallback: false },
+      { category: 'wifi', title: 'Synthetic title', body: 'Synthetic body', provenance: 'source' },
     ]);
   });
 

@@ -363,6 +363,20 @@
   overflow-wrap: break-word;
 }
 
+.reviewed {
+  padding: 10px 14px;
+  border-radius: 14px;
+  font-size: 15px;
+  line-height: 22px;
+  color: var(--pill-warning-ink);
+  background: var(--pill-warning-bg);
+}
+
+.reviewed a {
+  font-weight: 600;
+  color: inherit;
+}
+
 .fallback {
   font-size: 14px;
   line-height: 20px;

@@ -16,13 +16,13 @@ function GuestHelp() {
     <>
       <h2>{guestUiText(locale, 'help.heading')}</h2>
       <section className={`${styles.card} ${styles.callout}`} data-testid="guest-emergency">
-        <h3 lang={emergency?.fallback ? sourceLocale : undefined}>
+        <h3 lang={emergency?.provenance === 'fallback' ? sourceLocale : undefined}>
           {emergency?.title ?? guestUiText(locale, 'help.emergency.title')}
         </h3>
-        <p className={styles.body} lang={emergency?.fallback ? sourceLocale : undefined}>
+        <p className={styles.body} lang={emergency?.provenance === 'fallback' ? sourceLocale : undefined}>
           {emergency?.body ?? guestUiText(locale, 'help.emergency.fallback')}
         </p>
-        {emergency?.fallback ? (
+        {emergency?.provenance === 'fallback' ? (
           <p className={styles.fallback} data-testid="guest-fallback">
             {guestUiText(locale, 'fallback.notice', { language: guestLocaleName(sourceLocale) })}
           </p>

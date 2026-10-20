@@ -15,6 +15,7 @@ vi.mock('node:crypto', async (importOriginal) => {
 
 import {
   GUEST_SESSION_SECONDS,
+  guestFailure,
   guestSessionToken,
   newShareLink,
   resolveGuestLocale,
@@ -95,5 +96,12 @@ describe('share link secrets', () => {
       'sw_lang=de; Max-Age=15552000; Path=/g; HttpOnly; Secure; SameSite=Lax',
     );
     expect(serializeLanguageCookie('de', false)).not.toContain('Secure');
+  });
+});
+
+describe('guestFailure', () => {
+  it('maps server failures to a retryable error and invalid links or sessions to denied', () => {
+    expect(guestFailure({ error: 'unexpected' }, 'de')).toEqual({ state: 'error', locale: 'de' });
+    expect(guestFailure({ state: 'denied' }, 'sl')).toEqual({ state: 'denied', locale: 'sl' });
   });
 });
