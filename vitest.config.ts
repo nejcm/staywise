@@ -10,7 +10,7 @@ export default defineConfig({
     coverage: {
       provider: 'v8',
       include: ['src/**/*.{ts,tsx}'],
-      thresholds: { lines: 25, statements: 25, functions: 25, branches: 25 },
+      thresholds: { lines: 33, statements: 32, functions: 37, branches: 33 },
       exclude: ['src/**/*.test.{ts,tsx}', 'src/tests/**', 'src/routeTree.gen.ts', 'src/vite-env.d.ts'],
     },
   },
