@@ -23,10 +23,10 @@ function GuestGuide() {
             data-testid="guest-section"
           >
             <p className={styles.category}>{guestCategoryLabel(locale, section.category)}</p>
-            <h3 lang={section.provenance === 'fallback' ? sourceLocale : undefined}>{section.title}</h3>
             <details>
               <summary>
-                <span className={styles.preview} lang={section.provenance === 'fallback' ? sourceLocale : undefined}>
+                <h3 lang={section.provenance === 'fallback' ? sourceLocale : undefined}>{section.title}</h3>
+                <span className={styles.excerpt} lang={section.provenance === 'fallback' ? sourceLocale : undefined}>
                   {firstLine(section.body)}
                 </span>
               </summary>

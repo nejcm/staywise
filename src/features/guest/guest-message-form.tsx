@@ -130,6 +130,7 @@ export function GuestMessageForm({
     if (code === 'message_too_long') return guestUiText(locale, 'form.bodyTooLong');
     if (code === 'message_invalid') return guestUiText(locale, 'form.bodyInvalid');
     if (code === 'email_invalid') return guestUiText(locale, 'form.emailInvalid');
+    if (code === 'email_required') return guestUiText(locale, 'form.emailRequired');
     if (code === 'category_invalid') return guestUiText(locale, 'form.categoryRequired');
     return guestUiText(locale, 'form.error');
   }
@@ -137,6 +138,11 @@ export function GuestMessageForm({
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     if (busy) return;
+    if (wantReply && !replyEmail.trim()) {
+      setNotice('');
+      setSendErrors({ replyEmail: 'email_required' });
+      return;
+    }
     setBusy(true);
     setSendErrors({});
     setNotice('');
@@ -251,12 +257,14 @@ export function GuestMessageForm({
                 label={guestUiText(locale, 'form.category')}
                 error={sendErrors.category ? fieldError(sendErrors.category) : null}
                 errorTestId="guest-message-category-error"
+                errorId="guest-message-category-error"
               >
                 <select
                   id="guest-message-category"
                   value={category}
                   onChange={(event) => setCategory(event.target.value)}
                   aria-invalid={Boolean(sendErrors.category)}
+                  aria-describedby={sendErrors.category ? 'guest-message-category-error' : undefined}
                   data-testid="guest-message-category"
                 >
                   <option value="">{guestUiText(locale, 'form.category.choose')}</option>
@@ -271,6 +279,7 @@ export function GuestMessageForm({
                 label={guestUiText(locale, 'form.body')}
                 error={sendErrors.body ? fieldError(sendErrors.body) : null}
                 errorTestId="guest-message-body-error"
+                errorId="guest-message-body-error"
               >
                 <textarea
                   id="guest-message-body"
@@ -278,6 +287,7 @@ export function GuestMessageForm({
                   value={body}
                   onChange={(event) => setBody(event.target.value)}
                   aria-invalid={Boolean(sendErrors.body)}
+                  aria-describedby={sendErrors.body ? 'guest-message-body-error' : undefined}
                   data-testid="guest-message-body"
                 />
               </Field>
@@ -300,6 +310,7 @@ export function GuestMessageForm({
                   label={guestUiText(locale, 'form.replyEmail')}
                   error={sendErrors.replyEmail ? fieldError(sendErrors.replyEmail) : null}
                   errorTestId="guest-message-email-error"
+                  errorId="guest-message-email-error"
                 >
                   <input
                     id="guest-message-email"
@@ -307,6 +318,7 @@ export function GuestMessageForm({
                     value={replyEmail}
                     onChange={(event) => setReplyEmail(event.target.value)}
                     aria-invalid={Boolean(sendErrors.replyEmail)}
+                    aria-describedby={sendErrors.replyEmail ? 'guest-message-email-error' : undefined}
                     data-testid="guest-message-email"
                   />
                 </Field>

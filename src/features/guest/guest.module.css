@@ -147,9 +147,11 @@
 }
 
 .section summary {
-  display: flex;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
   align-items: center;
-  gap: 10px;
+  column-gap: 10px;
+  row-gap: var(--space-2);
   min-height: 44px;
   font-size: 15px;
   line-height: 21px;
@@ -174,6 +176,11 @@
   margin-left: 10px;
 }
 
+.section summary::after {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
 .languages[open] summary::after,
 .section details[open] summary::after {
   transform: translateY(2px) rotate(-135deg);
@@ -189,7 +196,18 @@
   display: none;
 }
 
-.section details:not([open]) .preview {
+.section summary h3 {
+  grid-column: 1;
+  margin: 0;
+  color: var(--text);
+}
+
+.section details[open] .excerpt {
+  display: none;
+}
+
+.section .excerpt {
+  grid-column: 1;
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -325,7 +343,8 @@
   font-weight: 600;
 }
 
-.arrival .fallback {
+.arrival .fallback,
+.arrival .category {
   color: var(--accent-track);
 }
 
@@ -335,7 +354,7 @@
   background: var(--accent-soft);
 }
 
-.callout a {
+.callout a:not([class]) {
   color: var(--accent-ink);
 }
 
@@ -439,8 +458,7 @@
 
 .recap {
   display: grid;
-  grid-template-columns: auto 1fr;
-  gap: var(--space-2) var(--space-4);
+  grid-template-columns: minmax(0, 1fr);
   margin: var(--space-4) 0;
   overflow-wrap: anywhere;
 }
@@ -450,7 +468,18 @@
 }
 
 .recap dd {
-  margin: 0;
+  margin: 0 0 var(--space-2);
+}
+
+@media (min-width: 560px) {
+  .recap {
+    grid-template-columns: minmax(0, 14rem) minmax(0, 1fr);
+    gap: var(--space-2) var(--space-4);
+  }
+
+  .recap dd {
+    margin: 0;
+  }
 }
 
 .form legend {
