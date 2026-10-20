@@ -4,7 +4,7 @@ _Planned 20 Oct 2026 against master 82e145e; revised the same day after an exter
 
 ## Current state
 
-- **Data:** `app.properties` has `display_name`, `timezone` (defaults to `'UTC'`; not in `propertyFields`, so hosts can't edit it), `source_locale`, `published`, `enabled_locales`. `app.guide_sections` has `category` (9 fixed values), `title`, free-text `body`, `visibility` guest/host, `secret_value` (host-only; nulled for guest sections, `guide.server.ts:380`), `display_order`, `published`, `source_revision`. `app.guide_translations` holds per-locale title/body with `state` draft/approved and `provider`.
+- **Data:** `app.properties` has `display_name`, `timezone` (defaults to `'UTC'`; host-editable since 7b), `address` (nullable, since 6), `source_locale`, `published`, `enabled_locales`. `app.guide_sections` has `category` (9 fixed values), `title`, free-text `body`, `visibility` guest/host, `secret_value` (host-only; nulled for guest sections, `guide.server.ts:380`), `display_order`, `published`, `source_revision`. `app.guide_translations` holds per-locale title/body with `state` draft/approved and `provider`.
 - **Guest DTO:** `GuestGuideDto {displayName, sourceLocale, locale, locales, sections[{category, title, body, fallback}]}`. Only published, guest-visible rows. A translation is used only if approved: both the guest-read policy (`phase5_translations.sql:116`) and the guide query (`guide.server.ts:247`) check this. Each section falls back to source on its own (`fallback: true`).
 - **Access:** the bearer secret travels in the URL fragment; JS posts it to `/g/$shareId/exchange`, which sets an HttpOnly `Path=/g` session cookie for up to 12 hours (rate-limited via `app.rate_limits`). **Share links have no stay or validity expiry** — usable until disabled, so a former guest can open one again. With the cookie, guest pages are SSR in `beforeLoad`; nav and language links are full-document `<a>` loads that work without JS. The first exchange needs JS.
 - **Errors:** `beforeLoad` maps every `{error}`, including server failures, to `denied` (`g.$shareId.tsx:16`).
@@ -89,7 +89,7 @@ Shared files: `guest-ui.ts`, `guest.module.css`, `g.$shareId.tsx`, `guide.server
 
 ## Phase 6 — Address + "Open in maps"; host avatar initial (Track C)
 
-- **Migration:** `properties.address text` (nullable); editor field.
+- **Migration:** `properties.address text` (nullable, 1–200 chars); editor field in Essentials, omitted = unchanged, copied by Copy. Guest-readable via `properties_guest_read` (not a credential); never in the translation payload.
 - **Guest:** address text + outbound `https://www.openstreetmap.org/search?query=<encoded>`, nothing embedded. Avatar initial from `display_name`. Privacy page: the provider sees the address only on click.
 - **Tests:** link encoding; block hidden without address.
 
@@ -101,7 +101,7 @@ Shared files: `guest-ui.ts`, `guest.module.css`, `g.$shareId.tsx`, `guide.server
 
 ## Phase 7b — Property timezone editing (Track C)
 
-- **Scope:** `timezone` in `propertyFields`, validated with `Intl.supportedValuesOf('timeZone')`, editor select. Required before local times are shown.
+- **Scope:** `timezone` in `propertyFields` (optional = unchanged), validated with `Intl.supportedValuesOf('timeZone')` plus `UTC`, editor select fed from the server's list (avoids SSR/browser ICU mismatch). Required before local times are shown.
 - **Tests:** validation; existing rows default to UTC.
 
 ## Phase 7c — Answering hours + Call (after D1, 7a, 7b)

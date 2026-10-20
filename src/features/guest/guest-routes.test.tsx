@@ -31,6 +31,7 @@ const guide = {
       keyboxCode: '4821',
       checkinTime: '15:00',
       checkoutTime: null,
+      address: 'Cesta svobode 12 & 3/A, Bled',
     },
   },
 };
@@ -83,6 +84,26 @@ describe('guest routes', () => {
     expect(html).toContain('15:00');
     expect(html).not.toContain('guest-copy-');
     expect(html).not.toContain('Check-out');
+  });
+
+  it('shows the address with an outbound OpenStreetMap link and hides it when absent', async () => {
+    const html = await render('/g/synthetic?lang=de', guide);
+    expect(html).toContain('Cesta svobode 12 &amp; 3/A, Bled');
+    expect(html).toContain(
+      'href="https://www.openstreetmap.org/search?query=Cesta%20svobode%2012%20%26%203%2FA%2C%20Bled" target="_blank" rel="noopener noreferrer"',
+    );
+    expect(html).not.toMatch(/<iframe|<img/);
+    const bare = await render('/g/synthetic?lang=de', {
+      ...guide,
+      guest: { ...guide.guest, essentials: { ...guide.guest.essentials, address: null } },
+    });
+    expect(bare).not.toContain('guest-home-address');
+    expect(bare).not.toContain('openstreetmap');
+  });
+
+  it('shows a decorative host initial from the property name', async () => {
+    const html = await render('/g/synthetic?lang=de', guide);
+    expect(html).toMatch(/<span[^>]*aria-hidden="true"[^>]*data-testid="guest-host-initial">S<\/span>/);
   });
 
   it('names the copied field in the announcement', () => {

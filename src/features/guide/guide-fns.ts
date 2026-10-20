@@ -74,6 +74,8 @@ export const saveProperty = createServerFn({ method: 'POST' })
         keyboxCode?: string;
         checkinTime?: string;
         checkoutTime?: string;
+        address?: string;
+        timezone?: string;
       },
   )
   .handler(async ({ data }) =>

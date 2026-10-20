@@ -47,6 +47,10 @@ function PrivacyNotice() {
             guide&apos;s original language when the host has not enabled it.
           </li>
           <li>
+            When the host adds an address, the guide shows it with an &quot;Open in maps&quot; link to OpenStreetMap.
+            Nothing is loaded from the maps provider until the guest clicks; only then does it receive the address.
+          </li>
+          <li>
             A guest message stores the message text, question/issue choice, topic, locale, optional reply email,
             submitted time, new/handled state, and the host&apos;s optional &quot;answer was in the guide&quot; tag. The
             reply email is guest-supplied and unverified.

@@ -1,9 +1,9 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { guestCategoryLabel, guestLink, guestLocaleName, guestUiText } from '../features/guest/guest-ui';
+import { avatarInitial, guestCategoryLabel, guestLink, guestLocaleName, guestUiText } from '../features/guest/guest-ui';
 import type { SectionCategory } from '../features/guide/guide-validation';
 import styles from '../features/guest/guest.module.css';
 import { buttonClass } from '../components/button';
-import { EssentialsList, hasEssentials } from '../features/guest/guest-essentials';
+import { AddressLine, EssentialsList, hasEssentials } from '../features/guest/guest-essentials';
 
 export const Route = createFileRoute('/g/$shareId/')({
   component: GuestHome,
@@ -16,12 +16,14 @@ function GuestHome() {
   const { guest, shareId, lang } = Route.useRouteContext();
   if (guest.state !== 'guide') return null;
   const { locale, sourceLocale } = guest.guest;
+  const { address } = guest.guest.essentials;
   const highlights = homeCategories
     .map((category) => guest.guest.sections.find((section) => section.category === category))
     .filter((section) => section !== undefined);
   return (
     <>
       <h2>{guestUiText(locale, 'home.heading')}</h2>
+      {address ? <AddressLine address={address} locale={locale} testId="guest-home-address" /> : null}
       {hasEssentials(guest.guest.essentials) ? (
         <section className={`${styles.card} ${styles.arrival}`} data-testid="guest-home-essentials">
           <h3>{guestUiText(locale, 'essentials.title')}</h3>
@@ -46,7 +48,12 @@ function GuestHome() {
         ))
       )}
       <section className={`${styles.card} ${styles.callout}`} data-testid="guest-home-help">
-        <h3>{guestUiText(locale, 'home.help.title')}</h3>
+        <div className={styles.host}>
+          <span className={styles.avatar} aria-hidden="true" data-testid="guest-host-initial">
+            {avatarInitial(guest.guest.displayName, locale)}
+          </span>
+          <h3>{guestUiText(locale, 'home.help.title')}</h3>
+        </div>
         <p>{guestUiText(locale, 'home.help.body')}</p>
         <a className={`${buttonClass('secondary')} ${styles.pill}`} href={guestLink(`/g/${shareId}/help`, lang)}>
           {guestUiText(locale, 'home.help.open')}

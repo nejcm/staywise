@@ -4,6 +4,7 @@ import {
   collectFieldErrors,
   createSectionInput,
   essentialsFields,
+  isTimeZone,
   savePropertyInput,
   propertyFields,
   saveSectionInput,
@@ -149,5 +150,25 @@ describe('essentialsFields', () => {
       wifiPassword: 'synthetic-pass',
     });
     expect(parsed.success && parsed.data.wifiPassword).toBe('synthetic-pass');
+  });
+});
+
+describe('property timezone', () => {
+  it('accepts IANA zones, aliases either engine lists, and UTC; rejects anything else', () => {
+    for (const zone of ['Europe/Ljubljana', 'UTC', 'Europe/Kiev', 'Europe/Kyiv', 'Asia/Calcutta']) {
+      expect(isTimeZone(zone)).toBe(true);
+    }
+    for (const zone of ['Mars/Olympus', 'europe/ljubljana', '', '+02:00']) expect(isTimeZone(zone)).toBe(false);
+    const base = { propertyId: '00000000-0000-4000-8000-000000000001', displayName: 'Villa', sourceLocale: 'en' };
+    const parsed = savePropertyInput.parse(base);
+    expect('timezone' in parsed).toBe(false);
+  });
+
+  it('caps the address and refuses a blank-looking one', () => {
+    expect(essentialsFields.parse({ address: 'Cesta svobode 12, Bled' })).toEqual({
+      address: 'Cesta svobode 12, Bled',
+    });
+    expect(essentialsFields.safeParse({ address: 'x'.repeat(201) }).success).toBe(false);
+    expect(essentialsFields.safeParse({ address: '  ' }).success).toBe(false);
   });
 });

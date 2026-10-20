@@ -1,6 +1,15 @@
 import { describe, expect, it } from 'vitest';
 import { guestLocales } from '../guide/guide-validation';
-import { guestLink, guestLocaleName, guestUi, guestUiKeys, guestUiText, languageNames } from './guest-ui';
+import {
+  avatarInitial,
+  guestLink,
+  guestLocaleName,
+  guestUi,
+  guestUiKeys,
+  guestUiText,
+  languageNames,
+  mapSearchUrl,
+} from './guest-ui';
 
 describe('guest UI resources', () => {
   it('covers exactly the approved languages with identical key sets', () => {
@@ -31,5 +40,25 @@ describe('guest UI resources', () => {
     expect(guestLink('/g/synthetic/guide', 'en')).toBe('/g/synthetic/guide?lang=en');
     expect(guestLink('/g/synthetic/help', 'sl')).toBe('/g/synthetic/help?lang=sl');
     expect(guestLink('/g/synthetic')).toBe('/g/synthetic');
+  });
+});
+
+describe('mapSearchUrl', () => {
+  it('encodes the whole address into the query parameter', () => {
+    expect(mapSearchUrl('Trg 1 #2?a=b&c, Ljubljana')).toBe(
+      'https://www.openstreetmap.org/search?query=Trg%201%20%232%3Fa%3Db%26c%2C%20Ljubljana',
+    );
+    expect(mapSearchUrl('Šmarna gora')).toBe('https://www.openstreetmap.org/search?query=%C5%A0marna%20gora');
+  });
+});
+
+describe('avatarInitial', () => {
+  it('takes the first grapheme, uppercased', () => {
+    expect(avatarInitial('  villa Jezero', 'en')).toBe('V');
+    expect(avatarInitial('čebelica', 'sl')).toBe('Č');
+    expect(avatarInitial('東京ハウス', 'en')).toBe('東');
+    expect(avatarInitial('👨‍👩‍👧 Family loft', 'en')).toBe('👨‍👩‍👧');
+    expect(avatarInitial('e\u0301cole', 'en')).toBe('E\u0301');
+    expect(avatarInitial('   ', 'en')).toBe('');
   });
 });

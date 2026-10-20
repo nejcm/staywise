@@ -136,7 +136,7 @@ function PropertyEditorPage() {
         <div className={`${styles.column} ${styles.side}`}>
           <GuestLinkPanel propertyId={editor.property.id} share={share} />
           <TranslationPanel property={editor.property} sections={editor.sections} />
-          <PropertyForm property={editor.property} />
+          <PropertyForm property={editor.property} timeZones={editor.timeZones} />
           <PropertyDangerZone propertyId={editor.property.id} />
         </div>
       </div>
@@ -367,9 +367,10 @@ const essentialInputs: {
   { name: 'wifiName', label: 'Wi-Fi network name', type: 'text', maxLength: 64, credential: false },
   { name: 'wifiPassword', label: 'Wi-Fi password', type: 'text', maxLength: 128, credential: true },
   { name: 'keyboxCode', label: 'Key-box code', type: 'text', maxLength: 32, credential: true },
+  { name: 'address', label: 'Address', type: 'text', maxLength: 200, credential: false },
 ];
 
-function PropertyForm({ property }: { property: EditorProperty }) {
+function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZones: string[] }) {
   const router = useRouter();
   const [sourceLocale, setSourceLocale] = useState(property.sourceLocale);
   const [alertEmail, setAlertEmail] = useState(property.alertEmail);
@@ -380,6 +381,7 @@ function PropertyForm({ property }: { property: EditorProperty }) {
   const [alertMessageFailed, setAlertMessageFailed] = useState(false);
   const [alertBusy, setAlertBusy] = useState(false);
   const [busy, setBusy] = useState(false);
+  const timeZoneOptions = timeZones.includes(property.timezone) ? timeZones : [property.timezone, ...timeZones];
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -390,8 +392,10 @@ function PropertyForm({ property }: { property: EditorProperty }) {
       enabledLocales: formData.getAll('enabledLocales').map(String),
       ...Object.fromEntries(essentialInputs.map(({ name }) => [name, formData.get(name) ?? ''])),
     });
-    if (!parsed.success) {
-      setErrors(collectFieldErrors(parsed.error));
+    const timezone = String(formData.get('timezone') ?? property.timezone);
+    const timezoneError = timeZoneOptions.includes(timezone) ? null : { timezone: 'Choose a time zone from the list' };
+    if (!parsed.success || timezoneError) {
+      setErrors({ ...(parsed.success ? {} : collectFieldErrors(parsed.error)), ...timezoneError });
       setMessage('Check the highlighted fields.');
       setMessageFailed(true);
       return;
@@ -401,7 +405,13 @@ function PropertyForm({ property }: { property: EditorProperty }) {
     setMessage('');
     setMessageFailed(false);
     try {
-      const result = await saveProperty({ data: { propertyId: property.id, ...parsed.data } });
+      const result = await saveProperty({
+        data: {
+          propertyId: property.id,
+          ...parsed.data,
+          ...(timezone === property.timezone ? {} : { timezone }),
+        },
+      });
       if ('error' in result) {
         setMessage('Something went wrong. Try again.');
         setMessageFailed(true);
@@ -481,6 +491,26 @@ function PropertyForm({ property }: { property: EditorProperty }) {
           ))}
         </select>
       </Field>
+      <Field
+        label="Time zone"
+        error={errors.timezone}
+        errorId="property-timezone-error"
+        errorTestId="property-timezone-error"
+      >
+        <select
+          name="timezone"
+          defaultValue={property.timezone}
+          aria-invalid={Boolean(errors.timezone)}
+          aria-describedby={errors.timezone ? 'property-timezone-error' : undefined}
+          data-testid="property-timezone"
+        >
+          {timeZoneOptions.map((zone) => (
+            <option key={zone} value={zone}>
+              {zone}
+            </option>
+          ))}
+        </select>
+      </Field>
       <fieldset key={sourceLocale} data-testid="property-locales">
         <legend>Guest languages</legend>
         <p className="small muted">
@@ -507,7 +537,7 @@ function PropertyForm({ property }: { property: EditorProperty }) {
       </fieldset>
       <fieldset className="stack" data-testid="property-essentials">
         <legend>Essentials</legend>
-        <p className="small muted">Only you see these for now; they are never sent for translation.</p>
+        <p className="small muted">Guests see these after opening their link; they are never sent for translation.</p>
         {essentialInputs.map(({ name, label, type, maxLength, credential }) => {
           const errorId = `essentials-${name}-error`;
           const describedBy = [credential ? 'essentials-credential-warning' : '', errors[name] ? errorId : '']

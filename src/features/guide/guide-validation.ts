@@ -37,6 +37,22 @@ const enabledLocalesSchema = z
   .max(3, 'Enable at most three guest languages')
   .transform((values) => [...new Set(values)].sort());
 
+const supportedTimeZones = typeof Intl.supportedValuesOf === 'function' ? Intl.supportedValuesOf('timeZone') : [];
+// V8 omits 'UTC' from supportedValuesOf, and every existing row defaults to it.
+export const timeZones = [...new Set(['UTC', ...supportedTimeZones])].sort();
+
+// Engines list different spellings (Europe/Kiev vs Europe/Kyiv), so any zone the engine resolves is
+// accepted except offsets and mis-cased names.
+export function isTimeZone(value: string): boolean {
+  if (timeZones.includes(value)) return true;
+  try {
+    const resolved = new Intl.DateTimeFormat('en-US', { timeZone: value }).resolvedOptions().timeZone;
+    return /^[A-Za-z]/.test(value) && (resolved === value || resolved.toLowerCase() !== value.toLowerCase());
+  } catch {
+    return false;
+  }
+}
+
 export const propertyFields = z.object({
   displayName: z
     .string()
@@ -45,6 +61,7 @@ export const propertyFields = z.object({
     .max(120, 'Property name must be 120 characters or fewer'),
   sourceLocale: guestLocaleSchema,
   enabledLocales: enabledLocalesSchema.default([]),
+  timezone: z.string().max(64).optional(),
 });
 
 // Credentials are stored verbatim; whitespace-only is refused so a blank-looking value is never stored.
@@ -68,6 +85,7 @@ const essentialsShape = {
   keyboxCode: essentialText(32, 'Key-box code must be 32 characters or fewer'),
   checkinTime: essentialTime,
   checkoutTime: essentialTime,
+  address: essentialText(200, 'Address must be 200 characters or fewer'),
 };
 export const essentialsFields = z.object(essentialsShape);
 

@@ -13,6 +13,8 @@ import {
   setGuidePublishedInput,
   type SectionCategory,
   type SectionVisibility,
+  isTimeZone,
+  timeZones,
 } from './guide-validation';
 
 // Canonical guide write/read layer for any trusted caller (host server functions now, the token
@@ -36,9 +38,11 @@ export type GuideEditorData = {
     displayName: string;
     sourceLocale: string;
     enabledLocales: string[];
+    timezone: string;
     published: boolean;
     alertEmail: string | null;
   } & PropertyEssentials;
+  timeZones: string[];
   sections: {
     id: string;
     category: SectionCategory;
@@ -60,6 +64,7 @@ export type PropertyEssentials = {
   keyboxCode: string | null;
   checkinTime: string | null;
   checkoutTime: string | null;
+  address: string | null;
 };
 
 type GuestProvenance = 'source' | 'reviewed' | 'fallback';
@@ -151,11 +156,12 @@ export async function readGuideEditor(
       display_name: string;
       source_locale: string;
       enabled_locales: string[];
+      timezone: string;
       published: boolean;
       alert_email: string | null;
     }[]
   >`
-    select id, display_name, source_locale, enabled_locales, published, alert_email
+    select id, display_name, source_locale, enabled_locales, timezone, published, alert_email
     from app.properties where id = ${propertyId}
   `;
   if (!property) return null;
@@ -221,6 +227,7 @@ export async function readGuideEditor(
       displayName: property.display_name,
       sourceLocale: property.source_locale,
       enabledLocales: property.enabled_locales,
+      timezone: property.timezone,
       published: property.published,
       alertEmail: property.alert_email,
       ...essentials,
@@ -237,6 +244,7 @@ export async function readGuideEditor(
       published: section.published,
       translations: bySection.get(section.id) ?? [],
     })),
+    timeZones,
   };
 }
 
@@ -251,9 +259,10 @@ export async function readPropertyEssentials(
       keybox_code: string | null;
       checkin_time: string | null;
       checkout_time: string | null;
+      address: string | null;
     }[]
   >`
-    select c.wifi_name, c.wifi_password, c.keybox_code,
+    select c.wifi_name, c.wifi_password, c.keybox_code, p.address,
       to_char(p.checkin_time, 'HH24:MI') as checkin_time, to_char(p.checkout_time, 'HH24:MI') as checkout_time
     from app.properties p
     left join app.property_credentials c on c.property_id = p.id
@@ -265,6 +274,7 @@ export async function readPropertyEssentials(
     keyboxCode: row?.keybox_code ?? null,
     checkinTime: row?.checkin_time ?? null,
     checkoutTime: row?.checkout_time ?? null,
+    address: row?.address ?? null,
   };
 }
 
@@ -324,12 +334,19 @@ export async function updateProperty(
   input: z.input<typeof savePropertyInput>,
 ): Promise<boolean> {
   const parsed = canonicalInput(savePropertyInput, input);
+  if (parsed.timezone !== undefined && !isTimeZone(parsed.timezone)) {
+    const [stored] = await tx<{ timezone: string }[]>`
+      select timezone from app.properties where id = ${parsed.propertyId}
+    `;
+    if (stored?.timezone !== parsed.timezone) return false;
+  }
   const keep = (value: string | undefined, column: string) => (value === undefined ? tx(column) : value || null);
   const rows = await tx`
     update app.properties
     set display_name = ${parsed.displayName}, source_locale = ${parsed.sourceLocale},
       enabled_locales = ${parsed.enabledLocales}, checkin_time = ${keep(parsed.checkinTime, 'checkin_time')},
-      checkout_time = ${keep(parsed.checkoutTime, 'checkout_time')}, updated_at = now()
+      checkout_time = ${keep(parsed.checkoutTime, 'checkout_time')}, address = ${keep(parsed.address, 'address')},
+      timezone = ${parsed.timezone ?? tx('timezone')}, updated_at = now()
     where id = ${parsed.propertyId}
     returning id
   `;
@@ -389,8 +406,8 @@ export async function insertCopy(tx: postgres.TransactionSql, sourcePropertyId: 
   if (!source) return null;
   const name = `${source.display_name} (copy)`.slice(0, 120);
   const [created] = await tx<{ id: string }[]>`
-    insert into app.properties (owner_id, display_name, source_locale, timezone, enabled_locales, alert_email, checkin_time, checkout_time)
-    select owner_id, ${name}, source_locale, timezone, enabled_locales, alert_email, checkin_time, checkout_time
+    insert into app.properties (owner_id, display_name, source_locale, timezone, enabled_locales, alert_email, checkin_time, checkout_time, address)
+    select owner_id, ${name}, source_locale, timezone, enabled_locales, alert_email, checkin_time, checkout_time, address
     from app.properties where id = ${parsed.sourcePropertyId}
     returning id
   `;

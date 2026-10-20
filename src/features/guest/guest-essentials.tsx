@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Toast } from '../../components/toast';
 import { buttonClass } from '../../components/button';
 import type { PropertyEssentials } from '../guide/guide.server';
-import { guestUiText, type GuestUiKey } from './guest-ui';
+import { guestUiText, mapSearchUrl, type GuestUiKey } from './guest-ui';
 import styles from './guest.module.css';
 
 const rows: { key: keyof PropertyEssentials; label: GuestUiKey; copy: boolean }[] = [
@@ -12,6 +12,17 @@ const rows: { key: keyof PropertyEssentials; label: GuestUiKey; copy: boolean }[
   { key: 'wifiPassword', label: 'essentials.wifiPassword', copy: true },
   { key: 'keyboxCode', label: 'essentials.keyboxCode', copy: true },
 ];
+
+export function AddressLine({ address, locale, testId }: { address: string; locale: string; testId: string }) {
+  return (
+    <p className={styles.address} data-testid={testId}>
+      {address} ·{' '}
+      <a href={mapSearchUrl(address)} target="_blank" rel="noopener noreferrer" data-testid={`${testId}-map`}>
+        {guestUiText(locale, 'home.openMap')}
+      </a>
+    </p>
+  );
+}
 
 export function hasEssentials(essentials: PropertyEssentials): boolean {
   return rows.some((row) => essentials[row.key]);

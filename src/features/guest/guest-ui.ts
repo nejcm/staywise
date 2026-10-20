@@ -15,6 +15,7 @@ export const guestUiKeys = [
   'home.help.title',
   'home.help.body',
   'home.help.open',
+  'home.openMap',
   'guide.heading',
   'guide.empty',
   'help.heading',
@@ -96,6 +97,7 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'home.help.title': 'Need help?',
     'home.help.body': 'Emergency contacts and how to reach your host.',
     'home.help.open': 'Open Help',
+    'home.openMap': 'Open in maps',
     'guide.heading': 'Guide',
     'guide.empty': 'Your host has not published any guide content yet.',
     'help.heading': 'Help',
@@ -176,6 +178,7 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'home.help.title': 'Brauchen Sie Hilfe?',
     'home.help.body': 'Notfallkontakte und wie Sie Ihren Gastgeber erreichen.',
     'home.help.open': 'Hilfe öffnen',
+    'home.openMap': 'In Karte öffnen',
     'guide.heading': 'Leitfaden',
     'guide.empty': 'Ihr Gastgeber hat noch keine Inhalte veröffentlicht.',
     'help.heading': 'Hilfe',
@@ -259,6 +262,7 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'home.help.title': 'Potrebujete pomoč?',
     'home.help.body': 'Nujni kontakti in kako doseči gostitelja.',
     'home.help.open': 'Odpri pomoč',
+    'home.openMap': 'Odpri na zemljevidu',
     'guide.heading': 'Vodič',
     'guide.empty': 'Gostitelj še ni objavil vsebine vodnika.',
     'help.heading': 'Pomoč',
@@ -368,4 +372,13 @@ export function firstLine(body: string): string {
       .find((line) => line.trim())
       ?.trim() ?? ''
   );
+}
+
+export function mapSearchUrl(address: string): string {
+  return `https://www.openstreetmap.org/search?query=${encodeURIComponent(address)}`;
+}
+
+export function avatarInitial(name: string, locale: string): string {
+  const [first] = new Intl.Segmenter(locale, { granularity: 'grapheme' }).segment(name.trim());
+  return first ? first.segment.toLocaleUpperCase(locale) : '';
 }

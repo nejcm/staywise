@@ -125,7 +125,14 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
           sections: [],
         },
         guidePublished: false,
-        essentials: { wifiName: null, wifiPassword: null, keyboxCode: null, checkinTime: null, checkoutTime: null },
+        essentials: {
+          wifiName: null,
+          wifiPassword: null,
+          keyboxCode: null,
+          checkinTime: null,
+          checkoutTime: null,
+          address: null,
+        },
       });
 
       await guideFn('saveSection', {
@@ -156,7 +163,14 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
           ],
         },
         guidePublished: false,
-        essentials: { wifiName: null, wifiPassword: null, keyboxCode: null, checkinTime: null, checkoutTime: null },
+        essentials: {
+          wifiName: null,
+          wifiPassword: null,
+          keyboxCode: null,
+          checkinTime: null,
+          checkoutTime: null,
+          address: null,
+        },
       });
       for (const leak of ['SYNTHETIC-NOTE-BODY', 'SYNTHETIC-SECRET-CODE']) {
         expect(preview.body).not.toContain(leak);
@@ -863,6 +877,8 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
           keyboxCode: keybox,
           checkinTime: '15:00',
           checkoutTime: '10:30',
+          address: 'Synthetic street 1',
+          timezone: 'Europe/Ljubljana',
         },
       });
       expect(decode<{ ok?: boolean }>(saved)?.result).toEqual({ ok: true });
@@ -881,7 +897,13 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
       });
       expect(decode<{ ok?: boolean }>(renamed)?.result).toEqual({ ok: true });
       const kept = await withOwnerContext(owner.userId, (tx) => readGuideEditor(tx, propertyId));
-      expect(kept?.property).toMatchObject({ wifiName: ' Spaced net ', wifiPassword: password, checkinTime: '15:00' });
+      expect(kept?.property).toMatchObject({
+        wifiName: ' Spaced net ',
+        wifiPassword: password,
+        checkinTime: '15:00',
+        address: 'Synthetic street 1',
+        timezone: 'Europe/Ljubljana',
+      });
 
       const foreign = await withOwnerContext(intruder.userId, (tx) =>
         tx`select 1 from app.property_credentials where property_id = ${propertyId}`.then((rows) => rows.length),
@@ -921,7 +943,20 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
         keyboxCode: null,
         checkinTime: '15:00',
         checkoutTime: '10:30',
+        address: 'Synthetic street 1',
       });
+
+      await admin`update app.properties set timezone = 'Legacy/Synthetic' where id = ${propertyId}`;
+      const base = { propertyId, displayName: 'Renamed villa (synthetic)', sourceLocale: 'en' };
+      const resave = async (extra: Record<string, string>) =>
+        decode<{ ok?: boolean; error?: string }>(
+          await guideFn('saveProperty', { jar: owner.jar, data: { ...base, ...extra } }),
+        )?.result;
+      expect(await resave({ timezone: 'Legacy/Synthetic', address: '' })).toEqual({ ok: true });
+      expect(await resave({ timezone: 'Mars/Olympus' })).toEqual({ error: 'invalid_input' });
+      expect(await resave({})).toEqual({ ok: true });
+      const legacy = await withOwnerContext(owner.userId, (tx) => readGuideEditor(tx, propertyId));
+      expect(legacy?.property).toMatchObject({ timezone: 'Legacy/Synthetic', address: null });
     } finally {
       await admin.end({ timeout: 0 });
       await adminClient(local).deleteUser(owner.userId);
