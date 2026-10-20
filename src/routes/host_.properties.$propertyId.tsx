@@ -60,6 +60,7 @@ export const Route = createFileRoute('/host_/properties/$propertyId')({
     if ('error' in result) {
       throw redirect({ to: '/host' });
     }
+    // Sequential on purpose: parallel auth-backed calls race the near-expiry session refresh.
     const share = await getGuestLink({ data: { propertyId: params.propertyId } });
     const inbox = await getInbox({ data: { propertyId: params.propertyId } });
     return {
@@ -384,6 +385,7 @@ const contactInputs: typeof essentialInputs = [
 function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZones: string[] }) {
   const router = useRouter();
   const [sourceLocale, setSourceLocale] = useState(property.sourceLocale);
+  const [enabledLocales, setEnabledLocales] = useState<readonly string[]>(property.enabledLocales);
   const [alertEmail, setAlertEmail] = useState(property.alertEmail);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
@@ -527,7 +529,7 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
           ))}
         </select>
       </Field>
-      <fieldset key={sourceLocale} data-testid="property-locales">
+      <fieldset data-testid="property-locales">
         <legend>Guest languages</legend>
         <p className="small muted">
           Guests always read the guide in {languageNames[sourceLocale as GuestLocaleOption]} (the source language). Tick
@@ -543,7 +545,12 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
                   type="checkbox"
                   name="enabledLocales"
                   value={code}
-                  defaultChecked={property.enabledLocales.includes(code)}
+                  checked={enabledLocales.includes(code)}
+                  onChange={(event) =>
+                    setEnabledLocales((current) =>
+                      event.target.checked ? [...current, code] : current.filter((entry) => entry !== code),
+                    )
+                  }
                   data-testid={`property-enabled-${code}`}
                 />
                 {languageNames[code]}
