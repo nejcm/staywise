@@ -31,6 +31,7 @@ import {
   approveTranslationInput,
   collectFieldErrors,
   createSectionInput,
+  essentialsFields,
   guestLocales,
   propertyFields,
   sectionCategories,
@@ -40,7 +41,7 @@ import {
   type SectionVisibility,
 } from '../features/guide/guide-validation';
 import { languageNames } from '../features/guest/guest-ui';
-import type { GuideEditorData, GuideTranslation } from '../features/guide/guide.server';
+import type { GuideEditorData, GuideTranslation, PropertyEssentials } from '../features/guide/guide.server';
 import styles from '../features/host/host.module.css';
 import editorStyles from '../features/host/editor.module.css';
 
@@ -354,6 +355,20 @@ function QrSvg({ value }: { value: string }) {
   );
 }
 
+const essentialInputs: {
+  name: keyof PropertyEssentials;
+  label: string;
+  type: 'time' | 'text';
+  maxLength?: number;
+  credential: boolean;
+}[] = [
+  { name: 'checkinTime', label: 'Check-in time', type: 'time', credential: false },
+  { name: 'checkoutTime', label: 'Checkout time', type: 'time', credential: false },
+  { name: 'wifiName', label: 'Wi-Fi network name', type: 'text', maxLength: 64, credential: false },
+  { name: 'wifiPassword', label: 'Wi-Fi password', type: 'text', maxLength: 128, credential: true },
+  { name: 'keyboxCode', label: 'Key-box code', type: 'text', maxLength: 32, credential: true },
+];
+
 function PropertyForm({ property }: { property: EditorProperty }) {
   const router = useRouter();
   const [sourceLocale, setSourceLocale] = useState(property.sourceLocale);
@@ -369,10 +384,11 @@ function PropertyForm({ property }: { property: EditorProperty }) {
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
     const formData = new FormData(event.currentTarget);
-    const parsed = propertyFields.safeParse({
+    const parsed = propertyFields.extend(essentialsFields.shape).safeParse({
       displayName: formData.get('displayName'),
       sourceLocale: formData.get('sourceLocale'),
       enabledLocales: formData.getAll('enabledLocales').map(String),
+      ...Object.fromEntries(essentialInputs.map(({ name }) => [name, formData.get(name) ?? ''])),
     });
     if (!parsed.success) {
       setErrors(collectFieldErrors(parsed.error));
@@ -488,6 +504,35 @@ function PropertyForm({ property }: { property: EditorProperty }) {
               </label>
             </p>
           ))}
+      </fieldset>
+      <fieldset className="stack" data-testid="property-essentials">
+        <legend>Essentials</legend>
+        <p className="small muted">Only you see these for now; they are never sent for translation.</p>
+        {essentialInputs.map(({ name, label, type, maxLength, credential }) => {
+          const errorId = `essentials-${name}-error`;
+          const describedBy = [credential ? 'essentials-credential-warning' : '', errors[name] ? errorId : '']
+            .filter(Boolean)
+            .join(' ');
+          return (
+            <Field key={name} label={label} error={errors[name]} errorId={errorId} errorTestId={errorId}>
+              <input
+                name={name}
+                type={type}
+                defaultValue={property[name] ?? ''}
+                maxLength={maxLength}
+                autoComplete="off"
+                spellCheck={false}
+                aria-invalid={Boolean(errors[name])}
+                aria-describedby={describedBy || undefined}
+                data-testid={`essentials-${name}`}
+              />
+            </Field>
+          );
+        })}
+        <p className="small" id="essentials-credential-warning" data-testid="essentials-credential-warning">
+          Guests who already saw a Wi-Fi password or key-box code keep it. Changing the code is the only way to revoke
+          it.
+        </p>
       </fieldset>
       <section aria-labelledby="alert-email-heading" className="stack">
         <h3 id="alert-email-heading">New-message alerts</h3>

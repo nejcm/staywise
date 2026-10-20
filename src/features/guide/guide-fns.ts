@@ -23,6 +23,7 @@ import {
   ownsProperty,
   readGuideEditor,
   readGuestGuide,
+  readPropertyEssentials,
   setPropertyPublished,
   updateAlertEmail as updateOwnedAlertEmail,
   updateProperty,
@@ -63,7 +64,17 @@ export const copyProperty = createServerFn({ method: 'POST' })
 export const saveProperty = createServerFn({ method: 'POST' })
   .validator(
     (value: unknown) =>
-      value as { propertyId: string; displayName: string; sourceLocale: string; enabledLocales?: string[] },
+      value as {
+        propertyId: string;
+        displayName: string;
+        sourceLocale: string;
+        enabledLocales?: string[];
+        wifiName?: string;
+        wifiPassword?: string;
+        keyboxCode?: string;
+        checkinTime?: string;
+        checkoutTime?: string;
+      },
   )
   .handler(async ({ data }) =>
     runGuarded(async () => {
@@ -228,9 +239,10 @@ export const getGuestPreview = createServerFn({ method: 'POST' })
       if (!input.success) return { error: 'invalid_input' } satisfies FnError;
       const host = await aal2Host();
       if ('error' in host) return host;
-      const preview = await withOwnerContext(host.userId, (tx) =>
-        readGuestGuide(tx, input.data.propertyId, input.data.locale ?? null),
-      );
+      const preview = await withOwnerContext(host.userId, async (tx) => {
+        const guide = await readGuestGuide(tx, input.data.propertyId, input.data.locale ?? null);
+        return guide && { ...guide, essentials: await readPropertyEssentials(tx, input.data.propertyId) };
+      });
       if (!preview) return { error: 'invalid_input' } satisfies FnError;
       return preview;
     }),

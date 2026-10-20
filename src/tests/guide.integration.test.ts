@@ -6,7 +6,7 @@ import { existsSync, readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { createServerClient } from '@supabase/ssr';
 import { afterAll, describe, expect, it } from 'vitest';
-import { sql, withOwnerContext } from '../lib/db.server';
+import { sql, withLinkContext, withOwnerContext } from '../lib/db.server';
 import {
   insertProperty,
   insertSection,
@@ -125,6 +125,7 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
           sections: [],
         },
         guidePublished: false,
+        essentials: { wifiName: null, wifiPassword: null, keyboxCode: null, checkinTime: null, checkoutTime: null },
       });
 
       await guideFn('saveSection', {
@@ -155,6 +156,7 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
           ],
         },
         guidePublished: false,
+        essentials: { wifiName: null, wifiPassword: null, keyboxCode: null, checkinTime: null, checkoutTime: null },
       });
       for (const leak of ['SYNTHETIC-NOTE-BODY', 'SYNTHETIC-SECRET-CODE']) {
         expect(preview.body).not.toContain(leak);
@@ -840,4 +842,90 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
       await adminClient(local).deleteUser(host.userId);
     }
   }, 60_000);
+
+  it('keeps property credentials owner-only and out of copies, guest reads, and the guest DTO', async () => {
+    const local = localStack as LocalStack;
+    const owner = await verifiedHost(local, 'essentials-owner');
+    const intruder = await verifiedHost(local, 'essentials-intruder');
+    const admin = localAdmin();
+    const password = `SYNTHETIC-WIFI-PASS-${Date.now()}`;
+    const keybox = `KB${Date.now() % 100000}`;
+    try {
+      const propertyId = await createProperty(owner);
+      const saved = await guideFn('saveProperty', {
+        jar: owner.jar,
+        data: {
+          propertyId,
+          displayName: 'Guide integration villa (synthetic)',
+          sourceLocale: 'en',
+          wifiName: 'Synthetic net',
+          wifiPassword: password,
+          keyboxCode: keybox,
+          checkinTime: '15:00',
+          checkoutTime: '10:30',
+        },
+      });
+      expect(decode<{ ok?: boolean }>(saved)?.result).toEqual({ ok: true });
+      const editor = await withOwnerContext(owner.userId, (tx) => readGuideEditor(tx, propertyId));
+      expect(editor?.property).toMatchObject({
+        wifiName: 'Synthetic net',
+        wifiPassword: password,
+        keyboxCode: keybox,
+        checkinTime: '15:00',
+        checkoutTime: '10:30',
+      });
+
+      const renamed = await guideFn('saveProperty', {
+        jar: owner.jar,
+        data: { propertyId, displayName: 'Renamed villa (synthetic)', sourceLocale: 'en', wifiName: ' Spaced net ' },
+      });
+      expect(decode<{ ok?: boolean }>(renamed)?.result).toEqual({ ok: true });
+      const kept = await withOwnerContext(owner.userId, (tx) => readGuideEditor(tx, propertyId));
+      expect(kept?.property).toMatchObject({ wifiName: ' Spaced net ', wifiPassword: password, checkinTime: '15:00' });
+
+      const foreign = await withOwnerContext(intruder.userId, (tx) =>
+        tx`select 1 from app.property_credentials where property_id = ${propertyId}`.then((rows) => rows.length),
+      );
+      expect(foreign).toBe(0);
+      const crossWrite = await guideFn('saveProperty', {
+        jar: intruder.jar,
+        data: { propertyId, displayName: 'Hijack', sourceLocale: 'en', wifiPassword: 'hijack' },
+      });
+      expect(decode<{ error?: string }>(crossWrite)?.result?.error).toBe('invalid_input');
+
+      await admin`update app.properties set published = true where id = ${propertyId}`;
+      const guestRows = await withLinkContext(`itess${Date.now()}`, async (tx) => {
+        await tx`select set_config('app.link_property_id', ${propertyId}, true)`;
+        return tx`select wifi_password from app.property_credentials`;
+      });
+      expect(guestRows).toHaveLength(0);
+      const [privileges] = await admin<{ anon: boolean; authenticated: boolean }[]>`
+        select has_table_privilege('anon', 'app.property_credentials', 'select') as anon,
+          has_table_privilege('authenticated', 'app.property_credentials', 'select') as authenticated
+      `;
+      expect(privileges).toEqual({ anon: false, authenticated: false });
+
+      const preview = await guideFn('getGuestPreview', { jar: owner.jar, data: { propertyId } });
+      const previewResult = decode<{ guest: unknown; essentials: { keyboxCode: string | null } }>(preview)?.result;
+      expect(previewResult?.essentials.keyboxCode).toBe(keybox);
+      expect(JSON.stringify(previewResult?.guest)).not.toContain(password);
+
+      const copied = decode<{ propertyId?: string }>(
+        await guideFn('copyProperty', { jar: owner.jar, data: { sourcePropertyId: propertyId } }),
+      )?.result;
+      if (!copied?.propertyId) throw new Error('synthetic copy failed');
+      const copy = await withOwnerContext(owner.userId, (tx) => readGuideEditor(tx, copied.propertyId as string));
+      expect(copy?.property).toMatchObject({
+        wifiName: 'Synthetic net',
+        wifiPassword: null,
+        keyboxCode: null,
+        checkinTime: '15:00',
+        checkoutTime: '10:30',
+      });
+    } finally {
+      await admin.end({ timeout: 0 });
+      await adminClient(local).deleteUser(owner.userId);
+      await adminClient(local).deleteUser(intruder.userId);
+    }
+  }, 90_000);
 });

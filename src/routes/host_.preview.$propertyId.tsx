@@ -27,13 +27,22 @@ export const Route = createFileRoute('/host_/preview/$propertyId')({
     if ('error' in result) {
       throw redirect({ to: '/host' });
     }
-    return { guest: result.guest, guidePublished: result.guidePublished };
+    return { guest: result.guest, guidePublished: result.guidePublished, essentials: result.essentials };
   },
   component: PreviewPage,
 });
 
 function PreviewPage() {
-  const { guest, guidePublished } = Route.useLoaderData();
+  const { guest, guidePublished, essentials } = Route.useLoaderData();
+  const essentialRows = (
+    [
+      ['Check-in', essentials.checkinTime],
+      ['Checkout', essentials.checkoutTime],
+      ['Wi-Fi network', essentials.wifiName],
+      ['Wi-Fi password', essentials.wifiPassword],
+      ['Key-box code', essentials.keyboxCode],
+    ] satisfies [string, string | null][]
+  ).filter((row): row is [string, string] => Boolean(row[1]));
   const { propertyId } = Route.useParams();
   const recorded = useRef(false);
 
@@ -88,6 +97,19 @@ function PreviewPage() {
                   </li>
                 ))}
               </ul>
+            ) : null}
+            {essentialRows.length > 0 ? (
+              <section className={styles.card} data-testid="preview-essentials">
+                <h2 className={styles.category}>Essentials · host only until guest access ships</h2>
+                <dl>
+                  {essentialRows.map(([label, value]) => (
+                    <div key={label}>
+                      <dt>{label}</dt>
+                      <dd data-testid="preview-essential-value">{value}</dd>
+                    </div>
+                  ))}
+                </dl>
+              </section>
             ) : null}
             {guest.sections.length === 0 ? (
               <p className={`${styles.card} ${styles.empty}`} data-testid="preview-empty">

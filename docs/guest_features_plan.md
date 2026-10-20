@@ -67,7 +67,7 @@ Shared files: `guest-ui.ts`, `guest.module.css`, `g.$shareId.tsx`, `guide.server
 
 ## Phase 4a — Essentials schema + host editor (Track C)
 
-- **Migration:** `properties.wifi_name`, `wifi_password`, `keybox_code` (nullable, length checks), `checkin_time time`, `checkout_time time`. RLS/grants as phase2/7c. Not translated, not yet sent to guests.
+- **Migration:** `properties.checkin_time`, `checkout_time` (`time`); `wifi_name`, `wifi_password`, `keybox_code` (nullable, length checks) in owner-only `app.property_credentials`, because `properties_guest_read` exposes whole property rows. Copy keeps times and network name, never password or code. Not translated, not yet sent to guests; 4b adds a link-scoped guest policy.
 - **Editor:** "Essentials" fieldset in `host_.properties.$propertyId.tsx`, zod in `guide-validation.ts` / `guide-fns.ts`. Warning beside credential fields: past guests keep a code they saw; rotating it is the only revocation.
 - **Host preview:** shows essentials (host's own view). "Never" covers share/QR metadata, logs, and denied/opening/error pages.
 - **Tests:** RLS (no anonymous or guest-role read), validation.

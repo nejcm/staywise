@@ -1,4 +1,5 @@
 import type postgres from 'postgres';
+import type { z } from 'zod';
 import { canonicalInput } from '../../lib/canonical-input.server';
 import {
   alertEmailSchema,
@@ -37,7 +38,7 @@ export type GuideEditorData = {
     enabledLocales: string[];
     published: boolean;
     alertEmail: string | null;
-  };
+  } & PropertyEssentials;
   sections: {
     id: string;
     category: SectionCategory;
@@ -50,6 +51,15 @@ export type GuideEditorData = {
     published: boolean;
     translations: GuideTranslation[];
   }[];
+};
+
+// Host-only until guest phase 4b; times are HH:MM in the property's local time.
+export type PropertyEssentials = {
+  wifiName: string | null;
+  wifiPassword: string | null;
+  keyboxCode: string | null;
+  checkinTime: string | null;
+  checkoutTime: string | null;
 };
 
 type GuestProvenance = 'source' | 'reviewed' | 'fallback';
@@ -149,6 +159,7 @@ export async function readGuideEditor(
     from app.properties where id = ${propertyId}
   `;
   if (!property) return null;
+  const essentials = await readPropertyEssentials(tx, propertyId);
   const sections = await tx<
     {
       id: string;
@@ -212,6 +223,7 @@ export async function readGuideEditor(
       enabledLocales: property.enabled_locales,
       published: property.published,
       alertEmail: property.alert_email,
+      ...essentials,
     },
     sections: sections.map((section) => ({
       id: section.id,
@@ -225,6 +237,34 @@ export async function readGuideEditor(
       published: section.published,
       translations: bySection.get(section.id) ?? [],
     })),
+  };
+}
+
+export async function readPropertyEssentials(
+  tx: postgres.TransactionSql,
+  propertyId: string,
+): Promise<PropertyEssentials> {
+  const [row] = await tx<
+    {
+      wifi_name: string | null;
+      wifi_password: string | null;
+      keybox_code: string | null;
+      checkin_time: string | null;
+      checkout_time: string | null;
+    }[]
+  >`
+    select c.wifi_name, c.wifi_password, c.keybox_code,
+      to_char(p.checkin_time, 'HH24:MI') as checkin_time, to_char(p.checkout_time, 'HH24:MI') as checkout_time
+    from app.properties p
+    left join app.property_credentials c on c.property_id = p.id
+    where p.id = ${propertyId}
+  `;
+  return {
+    wifiName: row?.wifi_name ?? null,
+    wifiPassword: row?.wifi_password ?? null,
+    keyboxCode: row?.keybox_code ?? null,
+    checkinTime: row?.checkin_time ?? null,
+    checkoutTime: row?.checkout_time ?? null,
   };
 }
 
@@ -281,17 +321,29 @@ export async function insertProperty(
 
 export async function updateProperty(
   tx: postgres.TransactionSql,
-  input: { propertyId: string; displayName: string; sourceLocale: string; enabledLocales: string[] },
+  input: z.input<typeof savePropertyInput>,
 ): Promise<boolean> {
   const parsed = canonicalInput(savePropertyInput, input);
+  const keep = (value: string | undefined, column: string) => (value === undefined ? tx(column) : value || null);
   const rows = await tx`
     update app.properties
     set display_name = ${parsed.displayName}, source_locale = ${parsed.sourceLocale},
-      enabled_locales = ${parsed.enabledLocales}, updated_at = now()
+      enabled_locales = ${parsed.enabledLocales}, checkin_time = ${keep(parsed.checkinTime, 'checkin_time')},
+      checkout_time = ${keep(parsed.checkoutTime, 'checkout_time')}, updated_at = now()
     where id = ${parsed.propertyId}
     returning id
   `;
-  return rows.length === 1;
+  if (rows.length !== 1) return false;
+  const { wifiName, wifiPassword, keyboxCode } = parsed;
+  if (wifiName === undefined && wifiPassword === undefined && keyboxCode === undefined) return true;
+  await tx`
+    insert into app.property_credentials as c (property_id, wifi_name, wifi_password, keybox_code)
+    values (${parsed.propertyId}, ${wifiName || null}, ${wifiPassword || null}, ${keyboxCode || null})
+    on conflict (property_id) do update set
+      wifi_name = ${keep(wifiName, 'c.wifi_name')}, wifi_password = ${keep(wifiPassword, 'c.wifi_password')},
+      keybox_code = ${keep(keyboxCode, 'c.keybox_code')}, updated_at = now()
+  `;
+  return true;
 }
 
 export async function setPropertyPublished(
@@ -327,8 +379,8 @@ export async function updateAlertEmail(
   return rows.length === 1;
 }
 
-// Independent copy: sections arrive as drafts and secret values are never duplicated, so a second
-// property can never inherit the first one's credentials.
+// Independent copy: sections arrive as drafts and secret values, the Wi-Fi password and the key-box
+// code are never duplicated, so a second property can never inherit the first one's credentials.
 export async function insertCopy(tx: postgres.TransactionSql, sourcePropertyId: string): Promise<string | null> {
   const parsed = canonicalInput(copyPropertyInput, { sourcePropertyId });
   const [source] = await tx<{ display_name: string }[]>`
@@ -337,12 +389,17 @@ export async function insertCopy(tx: postgres.TransactionSql, sourcePropertyId: 
   if (!source) return null;
   const name = `${source.display_name} (copy)`.slice(0, 120);
   const [created] = await tx<{ id: string }[]>`
-    insert into app.properties (owner_id, display_name, source_locale, timezone, enabled_locales, alert_email)
-    select owner_id, ${name}, source_locale, timezone, enabled_locales, alert_email
+    insert into app.properties (owner_id, display_name, source_locale, timezone, enabled_locales, alert_email, checkin_time, checkout_time)
+    select owner_id, ${name}, source_locale, timezone, enabled_locales, alert_email, checkin_time, checkout_time
     from app.properties where id = ${parsed.sourcePropertyId}
     returning id
   `;
   if (!created) return null;
+  await tx`
+    insert into app.property_credentials (property_id, wifi_name)
+    select ${created.id}, wifi_name from app.property_credentials
+    where property_id = ${parsed.sourcePropertyId} and wifi_name is not null
+  `;
   await tx`
     insert into app.guide_sections (property_id, category, title, body, visibility, display_order)
     select ${created.id}, category, title, body, visibility, display_order

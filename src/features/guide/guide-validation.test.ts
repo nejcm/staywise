@@ -3,6 +3,8 @@ import {
   approveTranslationInput,
   collectFieldErrors,
   createSectionInput,
+  essentialsFields,
+  savePropertyInput,
   propertyFields,
   saveSectionInput,
   sectionFields,
@@ -104,5 +106,48 @@ describe('section ids and categories', () => {
     expect(
       saveSectionInput.safeParse({ ...validSection, propertyId: 'not-a-uuid', sectionId: 'also-not' }).success,
     ).toBe(false);
+  });
+});
+
+describe('essentialsFields', () => {
+  it('leaves omitted essentials undefined so a save keeps the stored values', () => {
+    expect(essentialsFields.parse({})).toEqual({});
+    expect(essentialsFields.parse({ keyboxCode: '' })).toEqual({ keyboxCode: '' });
+  });
+
+  it('stores credentials verbatim, including surrounding whitespace, and accepts HH:MM times', () => {
+    const input = {
+      wifiName: ' Synthetic net ',
+      wifiPassword: '  pass word ',
+      keyboxCode: ' 1234',
+      checkinTime: '15:00',
+    };
+    expect(essentialsFields.parse(input)).toEqual(input);
+  });
+
+  it('refuses whitespace-only credentials', () => {
+    for (const field of ['wifiName', 'wifiPassword', 'keyboxCode']) {
+      expect(essentialsFields.safeParse({ [field]: '   ' }).success).toBe(false);
+    }
+  });
+
+  it('rejects oversized credentials, control characters, and malformed times', () => {
+    expect(essentialsFields.safeParse({ wifiName: 'x'.repeat(65) }).success).toBe(false);
+    expect(essentialsFields.safeParse({ wifiPassword: 'x'.repeat(129) }).success).toBe(false);
+    expect(essentialsFields.safeParse({ keyboxCode: 'x'.repeat(33) }).success).toBe(false);
+    expect(essentialsFields.safeParse({ wifiPassword: 'pass\u0000word' }).success).toBe(false);
+    for (const time of ['24:00', '9:00', '12:60', '12:00:00', 'noon']) {
+      expect(essentialsFields.safeParse({ checkinTime: time }).success).toBe(false);
+    }
+  });
+
+  it('is part of the property save input', () => {
+    const parsed = savePropertyInput.safeParse({
+      propertyId: '7b7b0000-0000-4000-8000-0000000000a2',
+      displayName: 'Villa',
+      sourceLocale: 'en',
+      wifiPassword: 'synthetic-pass',
+    });
+    expect(parsed.success && parsed.data.wifiPassword).toBe('synthetic-pass');
   });
 });

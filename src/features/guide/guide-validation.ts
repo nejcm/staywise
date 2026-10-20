@@ -47,6 +47,30 @@ export const propertyFields = z.object({
   enabledLocales: enabledLocalesSchema.default([]),
 });
 
+// Credentials are stored verbatim; whitespace-only is refused so a blank-looking value is never stored.
+const essentialText = (max: number, message: string) =>
+  z
+    .string()
+    .max(max, message)
+    .refine((value) => value === '' || value.trim() !== '', 'Enter a value or leave the field empty')
+    .refine((value) => !hasControlCharacters(value), 'Remove control characters')
+    .optional();
+const essentialTime = z
+  .string()
+  .trim()
+  .regex(/^$|^([01]\d|2[0-3]):[0-5]\d$/, 'Enter a time as HH:MM')
+  .optional();
+
+// Omitted means "leave unchanged"; an empty string clears the stored value.
+const essentialsShape = {
+  wifiName: essentialText(64, 'Network name must be 64 characters or fewer'),
+  wifiPassword: essentialText(128, 'Wi-Fi password must be 128 characters or fewer'),
+  keyboxCode: essentialText(32, 'Key-box code must be 32 characters or fewer'),
+  checkinTime: essentialTime,
+  checkoutTime: essentialTime,
+};
+export const essentialsFields = z.object(essentialsShape);
+
 // The host's sign-in address for the minimal new-message alert; stored server-side and never shown
 // to guests.
 export const alertEmailSchema = z.string().trim().max(254).pipe(z.email());
@@ -82,7 +106,7 @@ export const saveSectionInput = z
     ...sectionFieldsShape,
   })
   .refine((value) => value.visibility === 'host' || value.secretValue === '', secretOnlyOnPrivateNote);
-export const savePropertyInput = propertyFields.extend({ propertyId: z.uuid() });
+export const savePropertyInput = propertyFields.extend({ propertyId: z.uuid(), ...essentialsShape });
 export const copyPropertyInput = z.object({ sourcePropertyId: z.uuid() });
 export const setGuidePublishedInput = z.object({ propertyId: z.uuid(), published: z.boolean() });
 export const moveSectionInput = z.object({

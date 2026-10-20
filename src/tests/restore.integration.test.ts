@@ -21,6 +21,8 @@ insert into auth.users (id, email) values
 insert into app.properties (id, owner_id, display_name, published, enabled_locales) values
   ('${PROPERTY_A}', '${USER_A}', 'Restore A', true, '{de}'),
   ('${PROPERTY_B}', '${USER_B}', 'Restore B', true, '{}');
+insert into app.property_credentials (property_id, wifi_name, keybox_code) values
+  ('${PROPERTY_A}', 'Restore net', '4321');
 insert into app.guide_sections (id, property_id, category, title, body, published) values
   ('7b7b0000-0000-4000-8000-0000000000a4', '${PROPERTY_A}', 'wifi', 'Wi-Fi', 'Password is on the router', true),
   ('7b7b0000-0000-4000-8000-0000000000b4', '${PROPERTY_B}', 'parking', 'Parking', 'Behind the gate', true);
@@ -66,7 +68,8 @@ select
   (select count(*)::integer from app.audit_events) as audit_events,
   (select count(*)::integer from app.setup_events) as setup_events,
   (select count(*)::integer from app.reservations) as reservations,
-  (select count(*)::integer from app.guest_counters) as counters
+  (select count(*)::integer from app.guest_counters) as counters,
+  (select count(*)::integer from app.property_credentials) as credentials
 `;
 
 type Counts = Record<
@@ -79,7 +82,8 @@ type Counts = Record<
   | 'audit_events'
   | 'setup_events'
   | 'reservations'
-  | 'counters',
+  | 'counters'
+  | 'credentials',
   number
 >;
 
@@ -187,7 +191,7 @@ describeLocal('phase 7a restore rehearsal (scratch databases)', () => {
             select count(*)::integer as n from pg_class
             where relnamespace = 'app'::regnamespace and relkind = 'r'
               and relrowsecurity and relforcerowsecurity`;
-          expect(rls).toEqual({ n: 13 });
+          expect(rls).toEqual({ n: 14 });
           expect(
             await restored<{ n: number }[]>`
               select count(*)::integer as n from pg_policies where schemaname = 'app' and policyname like '%\\_retention\\_%'`,
@@ -252,6 +256,7 @@ describeLocal('phase 7a restore rehearsal (scratch databases)', () => {
               setup_events: 1,
               reservations: 1,
               counters: 1,
+              credentials: 1,
             },
           ]);
           expect(await restored<{ body: string }[]>`select body from app.guest_messages order by body`).toEqual([
