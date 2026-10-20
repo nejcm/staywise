@@ -45,6 +45,17 @@
 - **P7 — Retention.** 90 days for guest messages, audit events, and setup events; 30 days for disabled-link metadata; property deletion removes everything.
 - **P8 — Commercial.** Price experiment $5–9/property/month; "Staywise" stays provisional until name/domain clearance.
 
+## Guest features (G1–G6, recorded 20 October 2026)
+
+Decision IDs D1–D6 in [`guest_features_plan.md`](guest_features_plan.md) map to G1–G6 here.
+
+- **G1 — Host contact.** Store an E.164 phone and answering hours per property; shown only on authorised guest pages, never on denied/opening/error pages; disclosed on the privacy page.
+- **G2 — Remembered language.** `sw_lang` cookie (`Path=/g`, HttpOnly, Secure, SameSite=Lax, 180 days), shared across properties, falls back to source when not enabled; disclosed on the privacy page.
+- **G3 — Translations stay host-reviewed.** Draft machine translations never reach guests (default; plan phase 5b not scheduled).
+- **G6 — Structured access credentials.** Host-entered static Wi-Fi password and key-box code shown to guests after exchange only; never translated, never in metadata or error pages; the editor warns that changing a code is the only way to revoke it from past guests. No reveal window. Narrows O2 for the pre-integration build.
+- **Guide layout.** One native `<details>` block per section on the guide page; no per-section routes.
+- G4 (privacy/retention copy) and G5 (no-JS help form) remain open.
+
 ## Open decisions
 
 - **O1 — First PMS integration target.** Selected post-pilot from pilot hosts' tooling (candidates in D20).
