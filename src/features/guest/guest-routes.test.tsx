@@ -76,7 +76,7 @@ describe('guest routes', () => {
     const html = await render('/g/synthetic/guide?lang=de', guide);
     expect(html.match(/data-testid="guest-section"/g)).toHaveLength(2);
     expect(html.match(/<details>/g)).toHaveLength(2);
-    expect(html).toMatch(/<h3>WLAN<\/h3><details><summary><span[^>]*>Netz: Villa<\/span><\/summary>/);
+    expect(html).toMatch(/<details><summary><h3>WLAN<\/h3><span[^>]*>Netz: Villa<\/span><\/summary>/);
     expect(html).toMatch(/<h3 lang="en">Parking<\/h3>/);
     expect(html).toMatch(/<p[^>]*lang="en">Behind the house<\/p>/);
   });

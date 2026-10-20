@@ -264,7 +264,7 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
       <h2 id="guest-link-heading">Guest link</h2>
       <p data-testid="guest-link-status">
         {share?.link
-          ? `Active link issued ${new Date(share.link.createdAt).toLocaleDateString()}.`
+          ? `Active link issued ${share.link.createdAt.slice(0, 10)}.`
           : 'No active guest link.'}
       </p>
       {share?.link && !url ? (

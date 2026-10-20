@@ -176,6 +176,12 @@ function GuestOpen({ shareId, locale }: { shareId: string; locale: string }) {
   }, []);
 
   useEffect(() => {
+    const reload = () => window.location.reload();
+    window.addEventListener('hashchange', reload);
+    return () => window.removeEventListener('hashchange', reload);
+  }, []);
+
+  useEffect(() => {
     let active = true;
     const secret = bearerSecretFromFragment(window.location.hash);
     if (!secret) {

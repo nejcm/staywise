@@ -141,7 +141,6 @@
 
 @media (max-width: 700px) {
   .hero {
-    order: 1;
     min-height: 0;
   }
 }
