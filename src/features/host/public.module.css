@@ -140,6 +140,10 @@
 }
 
 @media (max-width: 700px) {
+  .split {
+    align-content: flex-start;
+  }
+
   .hero {
     min-height: 0;
   }
