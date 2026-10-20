@@ -3,7 +3,8 @@ import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { bearerSecretFromFragment } from '../features/guest/guest-fragment';
 import { getGuestPage } from '../features/guest/guest-fns';
-import { guestLink, guestLocaleName, guestUiText, languageNames } from '../features/guest/guest-ui';
+import { guestLink, guestLocaleName, guestUiText, isGuestLocale, languageNames } from '../features/guest/guest-ui';
+import { guestLocales } from '../features/guide/guide-validation';
 import type { GuestPage } from '../features/share/share.server';
 import styles from '../features/guest/guest.module.css';
 
@@ -21,6 +22,7 @@ export const Route = createFileRoute('/g/$shareId')({
 
 function GuestLayout() {
   const { guest, shareId } = Route.useRouteContext();
+  const { lang } = Route.useSearch();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   useEffect(() => {
@@ -32,9 +34,14 @@ function GuestLayout() {
   }, [guest.state]);
 
   if (guest.state === 'denied') {
+    // Only the fixed UI languages: a denied page must not reveal anything about the property.
+    const uiLocale = lang && isGuestLocale(lang) ? lang : 'en';
     return (
-      <main className={styles.shell}>
-        <GuestOpen shareId={shareId} />
+      <main className={styles.shell} lang={uiLocale}>
+        <div className={styles.top}>
+          <LocaleSwitch locale={uiLocale} locales={guestLocales} sourceLocale="en" pathname={pathname} />
+        </div>
+        <GuestOpen shareId={shareId} locale={uiLocale} />
       </main>
     );
   }
@@ -100,8 +107,6 @@ function GuestNav({
   );
 }
 
-// Only enabled languages appear; a non-source link carries ?lang= (the current language therefore
-// links to itself) and the source language keeps the plain path.
 function LocaleSwitch({
   locale,
   locales,
@@ -109,31 +114,38 @@ function LocaleSwitch({
   pathname,
 }: {
   locale: string;
-  locales: string[];
+  locales: readonly string[];
   sourceLocale: string;
   pathname: string;
 }) {
   if (locales.length < 2) return null;
+  const label = guestUiText(locale, 'nav.languages');
+  const name = (code: string) => languageNames[code as keyof typeof languageNames] ?? guestLocaleName(code);
   return (
-    <ul className={styles.locales} aria-label={guestUiText(locale, 'nav.languages')} data-testid="guest-locale-switch">
-      {locales.map((code) => (
-        <li key={code}>
-          <a
-            href={guestLink(pathname, code, sourceLocale)}
-            aria-current={code === locale ? 'true' : undefined}
-            data-testid={`guest-locale-${code}`}
-          >
-            {languageNames[code as keyof typeof languageNames] ?? guestLocaleName(code)}
-          </a>
-        </li>
-      ))}
-    </ul>
+    <details className={styles.languages} data-testid="guest-locale-switch">
+      <summary aria-label={`${label}: ${name(locale)}`}>{name(locale)}</summary>
+      <ul aria-label={label}>
+        {locales.map((code) => (
+          <li key={code}>
+            <a
+              href={guestLink(pathname, code, sourceLocale)}
+              lang={code}
+              hrefLang={code}
+              aria-current={code === locale ? 'true' : undefined}
+              data-testid={`guest-locale-${code}`}
+            >
+              {name(code)}
+            </a>
+          </li>
+        ))}
+      </ul>
+    </details>
   );
 }
 
 // Identical markup for every denied state; the link's secret, if any, is read from the fragment
 // client-side and exchanged for the host-checked session cookie.
-function GuestOpen({ shareId }: { shareId: string }) {
+function GuestOpen({ shareId, locale }: { shareId: string; locale: string }) {
   const [denied, setDenied] = useState(false);
 
   useEffect(() => {
@@ -167,17 +179,17 @@ function GuestOpen({ shareId }: { shareId: string }) {
   if (denied) {
     return (
       <section className={`${styles.card} ${styles.unavailable}`} data-testid="guest-denied">
-        <h1>This link can&apos;t be opened</h1>
-        <p>Ask your host to send you a new link.</p>
+        <h1>{guestUiText(locale, 'denied.title')}</h1>
+        <p>{guestUiText(locale, 'denied.body')}</p>
       </section>
     );
   }
   return (
     <section className={`${styles.card} ${styles.unavailable}`} data-testid="guest-opening">
-      <h1>Opening your guide…</h1>
-      <p>Stay on this page while we check your link.</p>
+      <h1>{guestUiText(locale, 'open.title')}</h1>
+      <p>{guestUiText(locale, 'open.body')}</p>
       <noscript>
-        <p>This guide needs JavaScript to open the link. Ask your host to resend it.</p>
+        <p>{guestUiText(locale, 'open.noscript')}</p>
       </noscript>
     </section>
   );

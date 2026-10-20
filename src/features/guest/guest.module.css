@@ -81,6 +81,132 @@
   border-color: var(--accent-soft);
 }
 
+.languages {
+  position: relative;
+  margin-left: auto;
+}
+
+.languages summary,
+.section summary {
+  cursor: pointer;
+}
+
+.languages summary {
+  display: inline-flex;
+  align-items: center;
+  min-height: var(--control-height);
+  padding: 0 14px;
+  font-size: var(--fs-body);
+  font-weight: 600;
+  background: var(--surface);
+  border: 1px solid var(--secondary-edge);
+  border-radius: 999px;
+}
+
+.languages ul {
+  position: absolute;
+  right: 0;
+  z-index: 10;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 200px;
+  margin-top: var(--space-2);
+  padding: var(--space-2);
+  list-style: none;
+  background: var(--surface);
+  border: 1px solid var(--secondary-edge);
+  border-radius: 16px;
+}
+
+.languages a {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  padding: 0 14px;
+  color: var(--text);
+  text-decoration: none;
+  border-radius: 11px;
+}
+
+.languages a[aria-current='true'] {
+  font-weight: 600;
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+}
+
+.languages summary:focus-visible,
+.section summary:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
+.section {
+  gap: 2px;
+  padding: 14px var(--space-4);
+}
+
+.section summary {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  font-size: 15px;
+  line-height: 21px;
+  color: var(--muted);
+  border-radius: 11px;
+}
+
+.languages summary::after,
+.section summary::after {
+  content: '';
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-left: auto;
+  border-right: 2px solid currentColor;
+  border-bottom: 2px solid currentColor;
+  transform: translateY(-2px) rotate(45deg);
+  transition: transform 150ms ease;
+}
+
+.languages summary::after {
+  margin-left: 10px;
+}
+
+.languages[open] summary::after,
+.section details[open] summary::after {
+  transform: translateY(2px) rotate(-135deg);
+}
+
+.languages summary,
+.section summary {
+  list-style: none;
+}
+
+.languages summary::-webkit-details-marker,
+.section summary::-webkit-details-marker {
+  display: none;
+}
+
+.section details:not([open]) .preview {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.section .prose {
+  padding: var(--space-2) 0 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .languages summary::after,
+  .section summary::after {
+    transition: none;
+  }
+}
+
 .nav,
 .segments {
   display: flex;

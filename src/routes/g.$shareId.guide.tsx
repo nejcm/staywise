@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { guestCategoryLabel, guestLocaleName, guestUiText } from '../features/guest/guest-ui';
+import { firstLine, guestCategoryLabel, guestLocaleName, guestUiText } from '../features/guest/guest-ui';
 import styles from '../features/guest/guest.module.css';
 
 export const Route = createFileRoute('/g/$shareId/guide')({
@@ -18,20 +18,29 @@ function GuestGuide() {
       ) : (
         sections.map((section, index) => (
           <section
-            className={`${styles.card} ${styles.prose}`}
+            className={`${styles.card} ${styles.section}`}
             key={`${section.category}-${index}`}
             data-testid="guest-section"
           >
             <p className={styles.category}>{guestCategoryLabel(locale, section.category)}</p>
             <h3 lang={section.fallback ? sourceLocale : undefined}>{section.title}</h3>
-            <p className={styles.body} lang={section.fallback ? sourceLocale : undefined}>
-              {section.body}
-            </p>
-            {section.fallback ? (
-              <p className={styles.fallback} data-testid="guest-fallback">
-                {guestUiText(locale, 'fallback.notice', { language: guestLocaleName(sourceLocale) })}
-              </p>
-            ) : null}
+            <details>
+              <summary>
+                <span className={styles.preview} lang={section.fallback ? sourceLocale : undefined}>
+                  {firstLine(section.body)}
+                </span>
+              </summary>
+              <div className={styles.prose}>
+                <p className={styles.body} lang={section.fallback ? sourceLocale : undefined}>
+                  {section.body}
+                </p>
+                {section.fallback ? (
+                  <p className={styles.fallback} data-testid="guest-fallback">
+                    {guestUiText(locale, 'fallback.notice', { language: guestLocaleName(sourceLocale) })}
+                  </p>
+                ) : null}
+              </div>
+            </details>
           </section>
         ))
       )}

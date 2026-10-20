@@ -46,6 +46,11 @@ export const guestUiKeys = [
   'form.rateLimited',
   'form.denied',
   'fallback.notice',
+  'open.title',
+  'open.body',
+  'open.noscript',
+  'denied.title',
+  'denied.body',
   'category.arrival',
   'category.wifi',
   'category.parking',
@@ -104,6 +109,11 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'form.rateLimited': 'Too many messages right now. Please try again later.',
     'form.denied': 'This page cannot send messages. Ask your host for a new link.',
     'fallback.notice': 'Showing the original text in {language}.',
+    'open.title': 'Opening your guide…',
+    'open.body': 'Stay on this page while we check your link.',
+    'open.noscript': 'This guide needs JavaScript to open the link. Ask your host to resend it.',
+    'denied.title': "This link can't be opened",
+    'denied.body': 'Ask your host to send you a new link.',
     'category.arrival': 'Arrival and access',
     'category.wifi': 'Wi-Fi',
     'category.parking': 'Parking',
@@ -160,6 +170,12 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'form.denied':
       'Auf dieser Seite können keine Nachrichten gesendet werden. Bitten Sie Ihren Gastgeber um einen neuen Link.',
     'fallback.notice': 'Der Originaltext wird auf {language} angezeigt.',
+    'open.title': 'Ihr Gästeführer wird geöffnet…',
+    'open.body': 'Bleiben Sie auf dieser Seite, während wir Ihren Link prüfen.',
+    'open.noscript':
+      'Dieser Gästeführer braucht JavaScript, um den Link zu öffnen. Bitten Sie Ihren Gastgeber, ihn erneut zu senden.',
+    'denied.title': 'Dieser Link kann nicht geöffnet werden',
+    'denied.body': 'Bitten Sie Ihren Gastgeber um einen neuen Link.',
     'category.arrival': 'Anreise und Zugang',
     'category.wifi': 'WLAN',
     'category.parking': 'Parken',
@@ -214,6 +230,11 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'form.rateLimited': 'Trenutno je preveč sporočil. Poskusite pozneje.',
     'form.denied': 'S te strani ni mogoče pošiljati sporočil. Prosite gostitelja za novo povezavo.',
     'fallback.notice': 'Prikazano je izvirno besedilo v jeziku {language}.',
+    'open.title': 'Odpiramo vaš vodič…',
+    'open.body': 'Ostanite na tej strani, medtem ko preverjamo povezavo.',
+    'open.noscript': 'Ta vodič za odpiranje povezave potrebuje JavaScript. Prosite gostitelja, naj jo pošlje znova.',
+    'denied.title': 'Te povezave ni mogoče odpreti',
+    'denied.body': 'Prosite gostitelja za novo povezavo.',
     'category.arrival': 'Prihod in dostop',
     'category.wifi': 'Wi-Fi',
     'category.parking': 'Parkirišče',
@@ -232,7 +253,7 @@ export const languageNames: Record<GuestLocale, string> = {
   sl: 'Slovenščina',
 };
 
-function isGuestLocale(locale: string): locale is GuestLocale {
+export function isGuestLocale(locale: string): locale is GuestLocale {
   return (guestLocales as readonly string[]).includes(locale);
 }
 
@@ -257,4 +278,13 @@ export function guestCategoryLabel(locale: string, category: SectionCategory): s
 // the plain path, so the pre-localization URLs stay valid.
 export function guestLink(path: string, locale: string, sourceLocale: string): string {
   return locale === sourceLocale ? path : `${path}?lang=${locale}`;
+}
+
+export function firstLine(body: string): string {
+  return (
+    body
+      .split('\n')
+      .find((line) => line.trim())
+      ?.trim() ?? ''
+  );
 }
