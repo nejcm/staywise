@@ -41,7 +41,10 @@ function stubClient(options: StubOptions) {
             ? { data: null, error: options.factorsError }
             : { data: { all: options.factors ?? [], totp: options.factors ?? [] }, error: null },
         getAuthenticatorAssuranceLevel: async () => ({
-          data: { currentLevel: options.currentLevel ?? 'aal1', nextLevel: 'aal1' },
+          data: {
+            currentLevel: options.currentLevel ?? 'aal1',
+            nextLevel: options.factors?.some((f) => f.status === 'verified') ? 'aal2' : 'aal1',
+          },
           error: null,
         }),
         enroll: async () => ({
@@ -88,7 +91,7 @@ describe('getHostAuthState', () => {
 
   it('reports an interrupted enrollment with its unverified factor id', async () => {
     const { client } = stubClient({ user, factors: [unverifiedFactor] });
-    expect(await getHostAuthState(client)).toEqual({ state: 'enroll', factorId: unverifiedFactor.id });
+    expect(await getHostAuthState(client)).toEqual({ state: 'enroll', factorId: unverifiedFactor.id, optional: false });
   });
 
   it('requires the second factor when one is verified at AAL1', async () => {
@@ -122,7 +125,7 @@ describe('aal2Session', () => {
   });
 });
 
-describe('MFA disabled', () => {
+describe('MFA optional', () => {
   afterEach(() => {
     mfa.required = true;
   });
@@ -132,6 +135,23 @@ describe('MFA disabled', () => {
     const { client } = stubClient({ user, factors: [unverifiedFactor], currentLevel: 'aal1' });
     expect(await getHostAuthState(client)).toEqual({ state: 'workspace', totpFactorIds: [] });
     expect(await aal2Session(client)).toEqual({ outcome: 'ok', session: { userId: user.id, email: user.email } });
+  });
+
+  it('offers enrollment when the host asks to set it up', async () => {
+    mfa.required = false;
+    const { client } = stubClient({ user, factors: [] });
+    expect(await getHostAuthState(client, { setup: true })).toEqual({
+      state: 'enroll',
+      factorId: null,
+      optional: true,
+    });
+  });
+
+  it('still gates a host who has a verified factor', async () => {
+    mfa.required = false;
+    const { client } = stubClient({ user, factors: [verifiedFactor], currentLevel: 'aal1' });
+    expect(await getHostAuthState(client)).toEqual({ state: 'verify', factorId: verifiedFactor.id });
+    expect(await aal2Session(client)).toEqual({ outcome: 'aal1' });
   });
 });
 

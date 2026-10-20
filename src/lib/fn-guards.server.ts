@@ -46,8 +46,8 @@ export function isGuardedMutation(): boolean {
   return isJsonRequest() && isSameOriginRequest();
 }
 
-export function requestAuth() {
-  return createRequestAuth(getRequest().headers.get('cookie'));
+export function requestAuth(forwardedFor: string | null = null) {
+  return createRequestAuth(getRequest().headers.get('cookie'), forwardedFor);
 }
 
 // clearSession deletes the request's session cookies on the response, so a signed-out or revoked

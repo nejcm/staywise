@@ -17,6 +17,7 @@ const localEnv: ServerEnv = {
   appOrigin: 'http://localhost:3000',
   shareHmacKey: 'synthetic-share-hmac-key-not-for-use',
   guestAccessDisabled: false,
+  supabaseSecretKey: null,
   mfaRequired: true,
   googleTranslateServiceAccount: null,
 };

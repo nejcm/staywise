@@ -105,19 +105,21 @@ describe('parseServerEnv', () => {
     expect(parseServerEnv({ APP_ENV: 'local' }).smtpUrl).toBe('smtp://127.0.0.1:54325');
   });
 
-  it('parses the MFA toggle strictly and defaults it on', () => {
-    expect(parseServerEnv({ APP_ENV: 'local' }).mfaRequired).toBe(true);
+  it('parses the MFA toggle strictly and defaults it off', () => {
+    expect(parseServerEnv({ APP_ENV: 'local' }).mfaRequired).toBe(false);
     expect(parseServerEnv({ APP_ENV: 'local', MFA_REQUIRED: 'true' }).mfaRequired).toBe(true);
     expect(parseServerEnv({ APP_ENV: 'local', MFA_REQUIRED: 'false' }).mfaRequired).toBe(false);
     expect(() => parseServerEnv({ APP_ENV: 'local', MFA_REQUIRED: 'no' })).toThrow(/MFA_REQUIRED/);
-    expect(() =>
-      parseServerEnv({
-        ...remoteEnv(
-          'postgresql://user:pass@db.example.test:5432/postgres?sslmode=verify-full&sslrootcert=/etc/staywise/db-root-ca.pem',
-        ),
-        MFA_REQUIRED: 'false',
-      }),
-    ).toThrow(/APP_ENV=local/);
+  });
+
+  it('accepts only an sb_secret_ Supabase secret key and leaves it unset by default', () => {
+    expect(parseServerEnv({ APP_ENV: 'local' }).supabaseSecretKey).toBeNull();
+    expect(parseServerEnv({ APP_ENV: 'local', SUPABASE_SECRET_KEY: 'sb_secret_synthetic' }).supabaseSecretKey).toBe(
+      'sb_secret_synthetic',
+    );
+    expect(() => parseServerEnv({ APP_ENV: 'local', SUPABASE_SECRET_KEY: 'eyJ.service.role' })).toThrow(
+      /SUPABASE_SECRET_KEY/,
+    );
   });
 
   it('parses the guest kill switch strictly and defaults it off', () => {

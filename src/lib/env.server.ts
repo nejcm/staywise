@@ -31,6 +31,7 @@ export type ServerEnv = {
   appEnv: AppEnv;
   supabaseUrl: string;
   supabasePublishableKey: string;
+  supabaseSecretKey: string | null;
   appDbUrl: string;
   appDbCaPath: string | null;
   smtpUrl: string;
@@ -102,6 +103,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     appEnv,
     supabaseUrl,
     supabasePublishableKey,
+    supabaseSecretKey: parseSupabaseSecretKey(env.SUPABASE_SECRET_KEY),
     appDbUrl,
     appDbCaPath: parseDbCaPath(appDbUrl, appEnv),
     smtpUrl: parseSmtpUrl(parseValue(env, 'SMTP_URL', appEnv, z.url()), appEnv),
@@ -110,7 +112,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     // Key for share-secret digests and guest rate-limit fingerprints; never leaves the server.
     shareHmacKey: parseValue(env, 'SHARE_HMAC_KEY', appEnv, z.string().min(32)),
     guestAccessDisabled: parseGuestAccessDisabled(env.GUEST_ACCESS_DISABLED),
-    mfaRequired: parseMfaRequired(env.MFA_REQUIRED, appEnv),
+    mfaRequired: parseMfaRequired(env.MFA_REQUIRED),
     googleTranslateServiceAccount: parseGoogleTranslateServiceAccount(env.GOOGLE_TRANSLATE_SERVICE_ACCOUNT),
   };
 }
@@ -124,11 +126,17 @@ function parseGuestAccessDisabled(raw: string | undefined): boolean {
   throw new Error('GUEST_ACCESS_DISABLED must be true or false');
 }
 
-function parseMfaRequired(raw: string | undefined, appEnv: AppEnv): boolean {
-  if (raw === undefined || raw === '' || raw === 'true') return true;
-  if (raw !== 'false') throw new Error('MFA_REQUIRED must be true or false');
-  if (appEnv !== 'local') throw new Error('MFA_REQUIRED=false is only allowed when APP_ENV=local');
-  return false;
+// Optional: only the magic-link request uses it, so Auth can trust Sb-Forwarded-For.
+function parseSupabaseSecretKey(raw: string | undefined): string | null {
+  if (raw === undefined || raw === '') return null;
+  if (!raw.startsWith('sb_secret_')) throw new Error('SUPABASE_SECRET_KEY must be an sb_secret_ key');
+  return raw;
+}
+
+function parseMfaRequired(raw: string | undefined): boolean {
+  if (raw === undefined || raw === '' || raw === 'false') return false;
+  if (raw === 'true') return true;
+  throw new Error('MFA_REQUIRED must be true or false');
 }
 
 // Translation egress stays off until the documented provider gate is passed and the service

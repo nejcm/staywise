@@ -9,7 +9,7 @@ import {
   restartEnrollment,
 } from '../features/host/host-fns';
 import { HostShell, SignOutButton } from '../components/app-shell';
-import { Button } from '../components/button';
+import { Button, buttonClass } from '../components/button';
 import { Field } from '../components/field';
 import { Mark } from '../components/mark';
 import { Pill } from '../components/pill';
@@ -22,8 +22,10 @@ import publicStyles from '../features/host/public.module.css';
 type PropertySummary = { id: string; displayName: string; published: boolean; createdAt: Date };
 
 export const Route = createFileRoute('/host')({
-  loader: async () => {
-    const state = await getHostAuthState();
+  validateSearch: (search: Record<string, unknown>): { setup?: true } => (search.setup === true ? { setup: true } : {}),
+  loaderDeps: ({ search }) => ({ setup: search.setup === true }),
+  loader: async ({ deps }) => {
+    const state = await getHostAuthState({ data: { setup: deps.setup } });
     if ('error' in state || state.state === 'signed_out') {
       throw redirect({ to: '/auth/sign-in' });
     }
@@ -186,6 +188,7 @@ function HostPage() {
       }
       setCode('');
       setFactor(null);
+      await navigate({ to: '/host', search: {} });
       await router.invalidate();
     } catch {
       setMessage('Something went wrong. Try again.');
@@ -220,7 +223,9 @@ function HostPage() {
             <p className={publicStyles.lede}>
               {state.state === 'verify'
                 ? 'Enter the six-digit code from your authenticator app to continue.'
-                : 'Set up an authenticator app. The host workspace stays locked until two-factor authentication is active.'}
+                : state.optional
+                  ? 'Add an authenticator app. After this, every sign-in asks for a six-digit code as well as the email link.'
+                  : 'Set up an authenticator app. The host workspace stays locked until two-factor authentication is active.'}
             </p>
             <div>
               {factor ? (
@@ -271,6 +276,11 @@ function HostPage() {
               </Toast>
             </div>
             <p className="actions">
+              {state.state === 'enroll' && state.optional ? (
+                <Link to="/host" search={{}} className={buttonClass('ghost')} data-testid="host-enroll-skip">
+                  Not now
+                </Link>
+              ) : null}
               <SignOutButton variant="ghost" />
             </p>
           </div>
@@ -392,16 +402,43 @@ function HostPage() {
               {supportMessage}
             </Toast>
           </div>
-          <div className="actions">
-            <Button
-              type="button"
-              variant="danger"
-              onClick={() => removeMfa(state.totpFactorIds[0] ?? '')}
-              disabled={busy || state.totpFactorIds.length === 0}
-              data-testid="host-remove-mfa"
-            >
-              Remove authenticator
-            </Button>
+          <div className="stack">
+            <h3>Two-step sign-in</h3>
+            {state.totpFactorIds.length ? (
+              <>
+                <p className="muted" data-testid="host-mfa-status">
+                  On. Each sign-in asks for a code from your authenticator app.
+                </p>
+                <p className="actions">
+                  <Button
+                    type="button"
+                    variant="danger"
+                    onClick={() => removeMfa(state.totpFactorIds[0])}
+                    disabled={busy}
+                    data-testid="host-remove-mfa"
+                  >
+                    Remove authenticator
+                  </Button>
+                </p>
+              </>
+            ) : (
+              <>
+                <p className="muted" data-testid="host-mfa-status">
+                  Off. Anyone who can open your email can sign in. An authenticator app adds a six-digit code.
+                </p>
+                <p className="actions">
+                  <Link
+                    to="/host"
+                    search={{ setup: true }}
+                    reloadDocument
+                    className={buttonClass()}
+                    data-testid="host-add-mfa"
+                  >
+                    Set up authenticator
+                  </Link>
+                </p>
+              </>
+            )}
           </div>
         </section>
       </div>

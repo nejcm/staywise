@@ -12,16 +12,19 @@ export type RequestAuth = {
   cookieHeader: string | null;
 };
 
-// One client per request, server-only: reads cookies from the request, collects writes so the
-// caller can attach them to its response. No browser auth client exists.
-export function createRequestAuth(cookieHeader: string | null): RequestAuth {
+// One client per request, server-only. forwardedFor switches to the secret key, which Auth requires
+// before it trusts Sb-Forwarded-For; only the magic-link request passes it.
+export function createRequestAuth(cookieHeader: string | null, forwardedFor: string | null = null): RequestAuth {
+  const forward = forwardedFor !== null && serverEnv.supabaseSecretKey !== null;
   const auth: RequestAuth = {
     client: null as unknown as SupabaseClient,
     cookies: [],
     headers: {},
     cookieHeader,
   };
-  auth.client = createServerClient(serverEnv.supabaseUrl, serverEnv.supabasePublishableKey, {
+  const key = forward ? (serverEnv.supabaseSecretKey as string) : serverEnv.supabasePublishableKey;
+  auth.client = createServerClient(serverEnv.supabaseUrl, key, {
+    ...(forward ? { global: { headers: { 'sb-forwarded-for': forwardedFor as string } } } : {}),
     cookies: {
       getAll: () => parseCookieHeader(cookieHeader ?? ''),
       setAll: (cookiesToSet, headers) => {
@@ -35,26 +38,33 @@ export function createRequestAuth(cookieHeader: string | null): RequestAuth {
 
 export type HostAuthState =
   | { state: 'signed_out' }
-  | { state: 'enroll'; factorId: string | null }
+  | { state: 'enroll'; factorId: string | null; optional: boolean }
   | { state: 'verify'; factorId: string }
   | { state: 'workspace'; totpFactorIds: string[] };
 
-export async function getHostAuthState(client: SupabaseClient): Promise<HostAuthState> {
+// A verified authenticator always gates the workspace at AAL2; without one, enrollment is forced
+// only by MFA_REQUIRED or when the host asked to set one up.
+export async function getHostAuthState(
+  client: SupabaseClient,
+  options: { setup?: boolean } = {},
+): Promise<HostAuthState> {
   const session = await verifiedSession(client);
   if (!session) return { state: 'signed_out' };
-  if (!serverEnv.mfaRequired) return { state: 'workspace', totpFactorIds: [] };
   const { data: factors, error: factorsError } = await client.auth.mfa.listFactors();
   if (factorsError || !factors) return { state: 'signed_out' };
   const totp = factors.all.filter((factor) => factor.factor_type === 'totp');
-  const verified = totp.find((factor) => factor.status === 'verified');
-  if (verified) {
+  const verified = totp.filter((factor) => factor.status === 'verified');
+  if (verified.length) {
     const { data: aal } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (aal?.currentLevel === 'aal2') {
-      return { state: 'workspace', totpFactorIds: totp.filter((f) => f.status === 'verified').map((f) => f.id) };
-    }
-    return { state: 'verify', factorId: verified.id };
+    if (aal?.currentLevel === 'aal2') return { state: 'workspace', totpFactorIds: verified.map((f) => f.id) };
+    return { state: 'verify', factorId: verified[0].id };
   }
-  return { state: 'enroll', factorId: totp.find((f) => f.status === 'unverified')?.id ?? null };
+  if (!serverEnv.mfaRequired && !options.setup) return { state: 'workspace', totpFactorIds: [] };
+  return {
+    state: 'enroll',
+    factorId: totp.find((f) => f.status === 'unverified')?.id ?? null,
+    optional: !serverEnv.mfaRequired,
+  };
 }
 
 export type VerifiedSession = { userId: string; email: string | null };
@@ -74,7 +84,11 @@ export type Aal2Session = { outcome: 'ok'; session: VerifiedSession } | { outcom
 export async function aal2Session(client: SupabaseClient): Promise<Aal2Session> {
   const session = await verifiedSession(client);
   if (!session) return { outcome: 'invalid' };
-  if (!serverEnv.mfaRequired) return { outcome: 'ok', session };
+  // listFactors asks the Auth server; the cookie's cached user.factors (and so aal.nextLevel) is client-editable.
+  const { data: factors, error: factorsError } = await client.auth.mfa.listFactors();
+  if (factorsError || !factors) return { outcome: 'aal1' };
+  const needsAal2 = serverEnv.mfaRequired || factors.totp.some((factor) => factor.status === 'verified');
+  if (!needsAal2) return { outcome: 'ok', session };
   const { data: aal } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
   return aal?.currentLevel === 'aal2' ? { outcome: 'ok', session } : { outcome: 'aal1' };
 }
