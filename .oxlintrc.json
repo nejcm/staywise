@@ -1,0 +1,29 @@
+{
+  "$schema": "./node_modules/oxlint/configuration_schema.json",
+  "plugins": ["typescript", "react", "jsx-a11y", "import", "vitest"],
+  "categories": { "correctness": "error", "suspicious": "error" },
+  "rules": {
+    "import/no-cycle": "error",
+    "react/react-in-jsx-scope": "off",
+    "import/no-unassigned-import": "off",
+    "jsx-a11y/prefer-tag-over-role": "off",
+    "vitest/require-mock-type-parameters": "off",
+    "vitest/require-to-throw-message": "off",
+    "react/set-state-in-effect": "off"
+  },
+  "overrides": [
+    {
+      "files": ["src/tests/**"],
+      "rules": { "vitest/no-conditional-expect": "off", "vitest/no-standalone-expect": "off" }
+    }
+  ],
+  "ignorePatterns": [
+    "dist",
+    "src/routeTree.gen.ts",
+    ".netlify",
+    ".tanstack",
+    "coverage",
+    "playwright-report",
+    "test-results"
+  ]
+}

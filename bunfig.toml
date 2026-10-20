@@ -1,0 +1,3 @@
+[install]
+minimumReleaseAge = 172800
+# For a vetted urgent update, use minimumReleaseAgeExcludes with exact package@version entries.

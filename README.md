@@ -18,11 +18,26 @@ Prerequisites: Bun (pinned in `package.json`), Docker (local Supabase), Node.js 
 bun install --frozen-lockfile  # install dependencies
 bun run dev                    # dev server on http://localhost:3000
 bun run verify                 # typecheck, lint, format check, tests, unused-code check
+bun run test:coverage          # unit tests with coverage thresholds
+bun run test:e2e               # Playwright + axe on public pages (builds, serves on :3100)
 bun run db:start               # local Supabase stack (Docker)
 bun run db:reset               # apply supabase/migrations to a clean local database
 ```
 
 Environment: copy `.env.example` to `.env.local`; never commit real values. `APP_ENV` defaults to `local` and must be set explicitly (`preview`/`production`) when `NODE_ENV=production`. Set `GUEST_ACCESS_DISABLED=true` to stop all guest exchange, reads, and message intake (see the kill switch below); omit it or set `false` for normal operation.
+
+| Variable | Required | Purpose |
+|---|---|---|
+| `APP_ENV` | when `NODE_ENV=production` | `local` \| `preview` \| `production`; outside `local` every variable marked "outside local" must be set |
+| `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` | outside local | Supabase API URL and publishable key |
+| `SUPABASE_SECRET_KEY` | no | Server-only; lets Auth rate-limit magic links per end-user IP |
+| `APP_DB_URL` | outside local | `app_runtime` Postgres URL; must use `sslmode=verify-full` and `sslrootcert` outside local |
+| `SMTP_URL`, `SMTP_FROM` | outside local | Reviewed SMTP provider and sender for Auth and host alerts; TLS required outside local |
+| `APP_ORIGIN` | outside local | Public origin, used for same-origin checks and links |
+| `SHARE_HMAC_KEY` | outside local | At least 32 characters; keys guest link hashes and rate-limit windows |
+| `GUEST_ACCESS_DISABLED` | no | Operator kill switch (below) |
+| `MFA_REQUIRED` | no | `true` forces every host to enroll TOTP; default lets hosts opt in |
+| `GOOGLE_TRANSLATE_SERVICE_ACCOUNT` | no | Enables guide translation egress; unset means nothing is sent |
 
 ### Guest kill switch
 
@@ -118,13 +133,7 @@ Production must either enable `pg_cron` in the Supabase project (the guarded mig
 
 ## Documentation
 
-| Document | What it covers |
-|---|---|
-| [docs/smart_guest_portal_plan.md](docs/smart_guest_portal_plan.md) | Product plan: target segment, competitive scan, MVP, pilot plan and decision rule, risks, technical direction |
-| `plans/implementation_plan.md` (local only, not in git) | Implementation plan: architecture, data model, security/privacy, phases 0–8 with acceptance criteria, verification, rollout |
-| [docs/guest_features_plan.md](docs/guest_features_plan.md) | Guest features plan: essentials, contact and hours, address, privacy panel, loading states; decisions and review dispositions |
-| [docs/decision_log.md](docs/decision_log.md) | All decisions taken (D1–D23, platform decisions, open items), dated |
-| [docs/booking_integration_research.md](docs/booking_integration_research.md) | Integration/ingestion research (18 Oct 2026): OTA API gates, PMS/channel-manager APIs, iCal limits, email parsing, competitor ingestion, AI corpus sourcing |
+Product, implementation, and research plans live in `plans/` (local only, not in git). Terms with a project-specific meaning are in [CONTEXT.md](CONTEXT.md); durable architecture decisions go in [docs/adr/](docs/adr/). Agent instructions: [AGENTS.md](AGENTS.md).
 
 ## License
 

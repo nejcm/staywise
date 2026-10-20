@@ -7,5 +7,14 @@
   "printWidth": 120,
   "trailingComma": "all",
   "arrowParens": "always",
-  "ignorePatterns": ["dist/**", ".netlify/**", "src/routeTree.gen.ts", "**/*.md"]
+  "ignorePatterns": [
+    "dist/**",
+    ".netlify/**",
+    "src/routeTree.gen.ts",
+    "**/*.md",
+    ".ulis/**",
+    "coverage/**",
+    "playwright-report/**",
+    "test-results/**"
+  ]
 }

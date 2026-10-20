@@ -20,3 +20,8 @@ plans/
 .opencode
 .taste-skill
 .ulis/generated
+
+# test output
+coverage/
+playwright-report/
+test-results/
