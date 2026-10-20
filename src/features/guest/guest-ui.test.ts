@@ -27,10 +27,9 @@ describe('guest UI resources', () => {
     );
   });
 
-  it('keeps a non-source language on guest links and plain paths for the source', () => {
-    expect(guestLink('/g/synthetic/guide', 'de', 'en')).toBe('/g/synthetic/guide?lang=de');
-    expect(guestLink('/g/synthetic/guide', 'en', 'en')).toBe('/g/synthetic/guide');
-    expect(guestLink('/g/synthetic', 'de', 'de')).toBe('/g/synthetic');
-    expect(guestLink('/g/synthetic/help', 'sl', 'de')).toBe('/g/synthetic/help?lang=sl');
+  it('adds ?lang only when a language is given, including the source language', () => {
+    expect(guestLink('/g/synthetic/guide', 'en')).toBe('/g/synthetic/guide?lang=en');
+    expect(guestLink('/g/synthetic/help', 'sl')).toBe('/g/synthetic/help?lang=sl');
+    expect(guestLink('/g/synthetic')).toBe('/g/synthetic');
   });
 });

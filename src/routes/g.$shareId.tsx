@@ -15,14 +15,18 @@ export const Route = createFileRoute('/g/$shareId')({
   beforeLoad: async ({ params, search }) => {
     const result = await getGuestPage({ data: { shareId: params.shareId, locale: search.lang } });
     const guest: GuestPage = 'error' in result ? { state: 'denied' } : result;
-    return { guest, shareId: params.shareId };
+    return {
+      guest,
+      deniedLocale: 'locale' in result ? result.locale : 'en',
+      shareId: params.shareId,
+      lang: search.lang && isGuestLocale(search.lang) ? search.lang : undefined,
+    };
   },
   component: GuestLayout,
 });
 
 function GuestLayout() {
-  const { guest, shareId } = Route.useRouteContext();
-  const { lang } = Route.useSearch();
+  const { guest, deniedLocale, shareId, lang } = Route.useRouteContext();
   const pathname = useRouterState({ select: (state) => state.location.pathname });
 
   useEffect(() => {
@@ -35,17 +39,16 @@ function GuestLayout() {
 
   if (guest.state === 'denied') {
     // Only the fixed UI languages: a denied page must not reveal anything about the property.
-    const uiLocale = lang && isGuestLocale(lang) ? lang : 'en';
     return (
-      <main className={styles.shell} lang={uiLocale}>
+      <main className={styles.shell} lang={deniedLocale}>
         <div className={styles.top}>
-          <LocaleSwitch locale={uiLocale} locales={guestLocales} sourceLocale="en" pathname={pathname} />
+          <LocaleSwitch locale={deniedLocale} locales={guestLocales} pathname={pathname} />
         </div>
-        <GuestOpen shareId={shareId} locale={uiLocale} />
+        <GuestOpen shareId={shareId} locale={deniedLocale} />
       </main>
     );
   }
-  const { locale, locales, sourceLocale } = guest.guest;
+  const { locale, locales } = guest.guest;
   return (
     <main className={styles.shell} lang={locale}>
       <a
@@ -63,10 +66,10 @@ function GuestLayout() {
       <header className={styles.header}>
         <div className={styles.top}>
           <p className={styles.label}>{guestUiText(locale, 'label.guest')}</p>
-          <LocaleSwitch locale={locale} locales={locales} sourceLocale={sourceLocale} pathname={pathname} />
+          <LocaleSwitch locale={locale} locales={locales} pathname={pathname} />
         </div>
         <h1>{guest.guest.displayName}</h1>
-        <GuestNav shareId={shareId} locale={locale} sourceLocale={sourceLocale} pathname={pathname} />
+        <GuestNav shareId={shareId} locale={locale} lang={lang} pathname={pathname} />
       </header>
       <div id="guest-content" className={styles.content} tabIndex={-1} data-testid="guest-content">
         <Outlet />
@@ -78,12 +81,12 @@ function GuestLayout() {
 function GuestNav({
   shareId,
   locale,
-  sourceLocale,
+  lang,
   pathname,
 }: {
   shareId: string;
   locale: string;
-  sourceLocale: string;
+  lang: string | undefined;
   pathname: string;
 }) {
   const tabs = [
@@ -95,11 +98,7 @@ function GuestNav({
     <nav className={styles.nav} aria-label={guestUiText(locale, 'nav.guide')}>
       {tabs.map((tab) => (
         // Full document loads keep the /g-scoped cookie on every request and re-check the link.
-        <a
-          key={tab.href}
-          href={guestLink(tab.href, locale, sourceLocale)}
-          aria-current={pathname === tab.href ? 'page' : undefined}
-        >
+        <a key={tab.href} href={guestLink(tab.href, lang)} aria-current={pathname === tab.href ? 'page' : undefined}>
           {tab.label}
         </a>
       ))}
@@ -107,17 +106,7 @@ function GuestNav({
   );
 }
 
-function LocaleSwitch({
-  locale,
-  locales,
-  sourceLocale,
-  pathname,
-}: {
-  locale: string;
-  locales: readonly string[];
-  sourceLocale: string;
-  pathname: string;
-}) {
+function LocaleSwitch({ locale, locales, pathname }: { locale: string; locales: readonly string[]; pathname: string }) {
   if (locales.length < 2) return null;
   const label = guestUiText(locale, 'nav.languages');
   const name = (code: string) => languageNames[code as keyof typeof languageNames] ?? guestLocaleName(code);
@@ -128,7 +117,7 @@ function LocaleSwitch({
         {locales.map((code) => (
           <li key={code}>
             <a
-              href={guestLink(pathname, code, sourceLocale)}
+              href={guestLink(pathname, code)}
               lang={code}
               hrefLang={code}
               aria-current={code === locale ? 'true' : undefined}

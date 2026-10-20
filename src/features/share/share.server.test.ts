@@ -17,7 +17,9 @@ import {
   GUEST_SESSION_SECONDS,
   guestSessionToken,
   newShareLink,
+  resolveGuestLocale,
   serializeGuestCookie,
+  serializeLanguageCookie,
   shareSecretMatches,
 } from './share.server';
 
@@ -78,5 +80,20 @@ describe('share link secrets', () => {
     expect(guestSessionToken('other=1')).toBeNull();
     expect(guestSessionToken(null)).toBeNull();
     expect(guestSessionToken('')).toBeNull();
+  });
+
+  it('resolves ?lang before the remembered cookie before source, ignoring invalid values', () => {
+    expect(resolveGuestLocale('de', 'sw_lang=sl')).toEqual({ locale: 'de', remember: 'de' });
+    expect(resolveGuestLocale(undefined, 'sw_lang=sl')).toEqual({ locale: 'sl', remember: undefined });
+    expect(resolveGuestLocale('xx', 'sw_lang=sl')).toEqual({ locale: 'sl', remember: undefined });
+    expect(resolveGuestLocale(undefined, 'sw_lang=%3Cscript')).toEqual({ locale: undefined, remember: undefined });
+    expect(resolveGuestLocale(undefined, null)).toEqual({ locale: undefined, remember: undefined });
+  });
+
+  it('serializes the language cookie with the decided attributes', () => {
+    expect(serializeLanguageCookie('de', true)).toBe(
+      'sw_lang=de; Max-Age=15552000; Path=/g; HttpOnly; Secure; SameSite=Lax',
+    );
+    expect(serializeLanguageCookie('de', false)).not.toContain('Secure');
   });
 });

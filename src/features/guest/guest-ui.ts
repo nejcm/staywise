@@ -274,10 +274,9 @@ export function guestCategoryLabel(locale: string, category: SectionCategory): s
   return guestUiText(locale, `category.${category}`);
 }
 
-// Full-document guest links keep a selected non-source language; the source language alone uses
-// the plain path, so the pre-localization URLs stay valid.
-export function guestLink(path: string, locale: string, sourceLocale: string): string {
-  return locale === sourceLocale ? path : `${path}?lang=${locale}`;
+// A language-switch link always names its language so an explicit choice beats the remembered one.
+export function guestLink(path: string, lang?: string): string {
+  return lang ? `${path}?lang=${lang}` : path;
 }
 
 export function firstLine(body: string): string {

@@ -30,7 +30,11 @@ const guide = {
 
 describe('guest routes', () => {
   it('renders identical denied markup for every denial cause', async () => {
-    const causes = [{ state: 'denied' }, { error: 'denied' }, { error: 'server' }];
+    const causes = [
+      { state: 'denied', locale: 'en' },
+      { error: 'unexpected', locale: 'en' },
+      { error: 'invalid_input', locale: 'en' },
+    ];
     const pages = await Promise.all(causes.map((cause) => render('/g/synthetic', cause)));
     expect(new Set(pages).size).toBe(1);
     expect(pages[0]).toContain('Opening your guide');
@@ -38,11 +42,14 @@ describe('guest routes', () => {
   });
 
   it('localizes the denied page from the fixed UI languages only', async () => {
-    const html = await render('/g/synthetic?lang=sl', { state: 'denied' });
+    const html = await render('/g/synthetic?lang=sl', { state: 'denied', locale: 'sl' });
     expect(html).toMatch(/<main[^>]*lang="sl"/);
     expect(html).toContain('Odpiramo vaš vodič');
     expect(html).toMatch(/lang="sl"[^>]*aria-current="true"/);
-    const unknown = await render('/g/synthetic?lang=fr', { state: 'denied' });
+    const remembered = await render('/g/synthetic', { state: 'denied', locale: 'de' });
+    expect(remembered).toMatch(/<main[^>]*lang="de"/);
+    expect(remembered).toContain('Ihr Gästeführer wird geöffnet');
+    const unknown = await render('/g/synthetic?lang=fr', { state: 'denied', locale: 'en' });
     expect(unknown).toMatch(/<main[^>]*lang="en"/);
   });
 
@@ -65,5 +72,17 @@ describe('guest routes', () => {
   it('takes the first non-empty body line as the preview', () => {
     expect(firstLine('\n  first \nsecond')).toBe('first');
     expect(firstLine('')).toBe('');
+  });
+
+  it('puts ?lang on every language-switch link, including the source, and keeps the current ?lang on nav', async () => {
+    const html = await render('/g/synthetic/guide?lang=de', guide);
+    expect(html).toContain('href="/g/synthetic/guide?lang=en"');
+    expect(html).toContain('href="/g/synthetic/help?lang=de"');
+    const plain = await render('/g/synthetic/guide', guide);
+    expect(plain).toContain('href="/g/synthetic/help"');
+  });
+
+  it('discloses the language cookie on the privacy page', async () => {
+    expect(await render('/privacy', { state: 'denied' })).toContain('sw_lang');
   });
 });

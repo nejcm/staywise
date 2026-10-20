@@ -42,6 +42,11 @@ function PrivacyNotice() {
             <code>/g</code> for up to 12 hours; the server stores only a hash of the session token.
           </li>
           <li>
+            Choosing a guide language sets an HttpOnly <code>sw_lang</code> cookie scoped to <code>/g</code> for 180
+            days. It holds only the language code, applies to every guide opened on that device, and falls back to the
+            guide&apos;s original language when the host has not enabled it.
+          </li>
+          <li>
             A guest message stores the message text, question/issue choice, topic, locale, optional reply email,
             submitted time, new/handled state, and the host&apos;s optional &quot;answer was in the guide&quot; tag. The
             reply email is guest-supplied and unverified.

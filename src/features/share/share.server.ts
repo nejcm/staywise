@@ -7,6 +7,7 @@ import { withLinkContext } from '../../lib/db.server';
 import { serverEnv } from '../../lib/env.server';
 import { bumpGuestCounter, bumpRate, utcWindow } from '../guest/guest-counters.server';
 import { readGuestGuide, type GuestGuideDto } from '../guide/guide.server';
+import { isGuestLocale } from '../guest/guest-ui';
 import { propertyIdInput } from '../guide/guide-validation';
 
 // Canonical guest-link layer: host issuance/rotation/disable and the link-scoped guest read.
@@ -14,6 +15,8 @@ import { propertyIdInput } from '../guide/guide-validation';
 // exposes only the link's own row, its property, and published guest prose.
 
 const GUEST_COOKIE_NAME = 'sw_guest';
+const LANGUAGE_COOKIE_NAME = 'sw_lang';
+const LANGUAGE_COOKIE_SECONDS = 180 * 24 * 60 * 60;
 export const GUEST_SESSION_SECONDS = 12 * 60 * 60;
 export const GUEST_EXCHANGES_PER_HOUR = 30;
 
@@ -72,6 +75,24 @@ export function serializeGuestCookie(token: string, secure: boolean): string {
     httpOnly: true,
     secure,
     maxAge: GUEST_SESSION_SECONDS,
+  });
+}
+
+export function resolveGuestLocale(query: string | undefined, cookieHeader: string | null) {
+  const explicit = query && isGuestLocale(query) ? query : undefined;
+  const remembered = parseCookieHeader(cookieHeader ?? '').find(
+    (cookie) => cookie.name === LANGUAGE_COOKIE_NAME,
+  )?.value;
+  return { locale: explicit ?? (remembered && isGuestLocale(remembered) ? remembered : undefined), remember: explicit };
+}
+
+export function serializeLanguageCookie(locale: string, secure: boolean): string {
+  return serializeCookieHeader(LANGUAGE_COOKIE_NAME, locale, {
+    path: '/g',
+    sameSite: 'lax',
+    httpOnly: true,
+    secure,
+    maxAge: LANGUAGE_COOKIE_SECONDS,
   });
 }
 

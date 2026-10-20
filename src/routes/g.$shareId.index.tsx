@@ -12,7 +12,7 @@ export const Route = createFileRoute('/g/$shareId/')({
 const homeCategories: SectionCategory[] = ['arrival', 'wifi', 'emergency'];
 
 function GuestHome() {
-  const { guest, shareId } = Route.useRouteContext();
+  const { guest, shareId, lang } = Route.useRouteContext();
   if (guest.state !== 'guide') return null;
   const { locale, sourceLocale } = guest.guest;
   const highlights = homeCategories
@@ -41,10 +41,7 @@ function GuestHome() {
       <section className={`${styles.card} ${styles.callout}`} data-testid="guest-home-help">
         <h3>{guestUiText(locale, 'home.help.title')}</h3>
         <p>{guestUiText(locale, 'home.help.body')}</p>
-        <a
-          className={`${buttonClass('secondary')} ${styles.pill}`}
-          href={guestLink(`/g/${shareId}/help`, locale, sourceLocale)}
-        >
+        <a className={`${buttonClass('secondary')} ${styles.pill}`} href={guestLink(`/g/${shareId}/help`, lang)}>
           {guestUiText(locale, 'home.help.open')}
         </a>
       </section>

@@ -93,4 +93,8 @@ describe('toGuestGuideDto', () => {
     const dto = toGuestGuideDto({ ...property, enabled_locales: ['sl', 'de'] }, [], 'en');
     expect(dto.locales).toEqual(['de', 'en', 'sl']);
   });
+
+  it('falls back to source when the requested language is not enabled', () => {
+    expect(toGuestGuideDto({ ...property, enabled_locales: ['de'] }, [], 'sl').locale).toBe('en');
+  });
 });

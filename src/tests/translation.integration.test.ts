@@ -824,7 +824,7 @@ describeLocal('stored guide localization (synthetic provider double)', () => {
     expect(mainLang(englishHome)).toBe('en');
     expect(navHrefs(englishHome)).toEqual([`/g/${shareId}`, `/g/${shareId}/guide`, `/g/${shareId}/help`]);
     expect(localeHrefs(englishHome)).toEqual({
-      en: `/g/${shareId}`,
+      en: `/g/${shareId}?lang=en`,
       de: `/g/${shareId}?lang=de`,
       sl: `/g/${shareId}?lang=sl`,
     });
@@ -838,18 +838,22 @@ describeLocal('stored guide localization (synthetic provider double)', () => {
     ]);
     expect(localeHrefs(germanGuide)).toEqual({
       de: `/g/${shareId}/guide?lang=de`,
-      en: `/g/${shareId}/guide`,
+      en: `/g/${shareId}/guide?lang=en`,
       sl: `/g/${shareId}/guide?lang=sl`,
     });
 
-    // Follow the advertised anchors; every hop keeps the selected language until the source is chosen.
+    // Follow the advertised anchors; every hop keeps the selected language.
     for (const href of navHrefs(germanGuide)) expect(mainLang(await page(href))).toBe('de');
     const slovenianHelp = await page(localeHrefs(germanGuide).sl);
     expect(mainLang(slovenianHelp)).toBe('sl');
     for (const href of navHrefs(slovenianHelp)) expect(mainLang(await page(href))).toBe('sl');
     const sourceGuide = await page(localeHrefs(germanGuide).en);
     expect(mainLang(sourceGuide)).toBe('en');
-    expect(navHrefs(sourceGuide)).toEqual([`/g/${shareId}`, `/g/${shareId}/guide`, `/g/${shareId}/help`]);
+    expect(navHrefs(sourceGuide)).toEqual([
+      `/g/${shareId}?lang=en`,
+      `/g/${shareId}/guide?lang=en`,
+      `/g/${shareId}/help?lang=en`,
+    ]);
     for (const href of navHrefs(sourceGuide)) expect(mainLang(await page(href))).toBe('en');
 
     const switched = decode<{ ok?: boolean }>(
@@ -869,7 +873,7 @@ describeLocal('stored guide localization (synthetic provider double)', () => {
     expect(mainLang(germanSourceHome)).toBe('de');
     expect(navHrefs(germanSourceHome)).toEqual([`/g/${shareId}`, `/g/${shareId}/guide`, `/g/${shareId}/help`]);
     expect(localeHrefs(germanSourceHome)).toEqual({
-      de: `/g/${shareId}`,
+      de: `/g/${shareId}?lang=de`,
       en: `/g/${shareId}?lang=en`,
       sl: `/g/${shareId}?lang=sl`,
     });
@@ -882,7 +886,7 @@ describeLocal('stored guide localization (synthetic provider double)', () => {
       `/g/${shareId}/help?lang=en`,
     ]);
     expect(localeHrefs(englishGuide)).toEqual({
-      de: `/g/${shareId}/guide`,
+      de: `/g/${shareId}/guide?lang=de`,
       en: `/g/${shareId}/guide?lang=en`,
       sl: `/g/${shareId}/guide?lang=sl`,
     });
