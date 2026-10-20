@@ -118,6 +118,7 @@ Shared files: `guest-ui.ts`, `guest.module.css`, `g.$shareId.tsx`, `guide.server
 
 - **Scope:** (1) "Opening your guide…" on `GuestOpen` becomes the skeleton, CSS-only shimmer respecting `prefers-reduced-motion`, retry link after ~8 s. (2) Measure the guide read and counter write (`share.server.ts:218`); make the counter fire-and-forget only if it measurably delays the page. No new dependencies.
 - **Tests:** timeout link renders; shimmer off under reduced motion.
+- **Measured (local, 20 loads, median):** guide read 6.1 ms, counter upsert 3.5 ms. Not a measurable delay next to SSR, so the counter stays awaited; fire-and-forget would risk lost writes on serverless.
 
 ## Review dispositions
 
