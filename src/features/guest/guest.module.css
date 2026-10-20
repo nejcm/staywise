@@ -1,5 +1,5 @@
 .shell {
-  max-width: 640px;
+  max-width: 800px;
   margin: 0 auto;
   padding: 14px var(--space-4) 64px;
 }
@@ -173,6 +173,10 @@
   line-height: 27px;
 }
 
+.prose > * {
+  max-width: 68ch;
+}
+
 .prose h3 {
   font-size: 20px;
   line-height: 26px;
@@ -310,4 +314,16 @@
   padding: var(--space-8) var(--space-4);
   text-align: center;
   color: var(--muted);
+}
+
+@media (min-width: 720px) {
+  .content:has(> .arrival) {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    align-items: start;
+  }
+
+  .content:has(> .arrival) > :not(section) {
+    grid-column: 1 / -1;
+  }
 }
