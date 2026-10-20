@@ -1,5 +1,9 @@
 import { useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
+import { Button } from '../../components/button';
+import { useConfirmDialog } from '../../components/confirm-dialog';
+import { Pill } from '../../components/pill';
+import { Toast } from '../../components/toast';
 import { guestLocaleName } from '../guest/guest-ui';
 import { sectionCategoryLabels } from '../guide/guide-validation';
 import { inboxLimit } from '../messages/message-validation';
@@ -12,6 +16,7 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
   const router = useRouter();
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set());
   const [notice, setNotice] = useState('');
+  const { confirm, dialog } = useConfirmDialog();
 
   function stamp(iso: string): string {
     return `${iso.slice(0, 16).replace('T', ' ')} UTC`;
@@ -46,9 +51,7 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
           <span className="muted small">{waiting === 0 ? 'All handled' : `${waiting} waiting for you`}</span>
         ) : null}
       </header>
-      <p role="status" className="small" data-testid="inbox-notice">
-        {notice}
-      </p>
+      <Toast testId="inbox-notice">{notice}</Toast>
       {messages === null ? (
         <p className="empty" data-testid="inbox-unavailable">
           Inbox unavailable.
@@ -68,15 +71,15 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
               data-kind={entry.kind}
             >
               <p className="message-meta">
-                <span className={entry.kind === 'question' ? 'pill' : 'pill issue'} data-testid="inbox-item-kind">
+                <Pill tone={entry.kind === 'question' ? 'accent' : 'attention'} testId="inbox-item-kind">
                   {entry.kind === 'question' ? 'Question' : 'Issue'}
-                </span>
+                </Pill>
                 {entry.category ? <span>{sectionCategoryLabels[entry.category]}</span> : null}
                 <span data-testid="inbox-item-locale">{guestLocaleName(entry.locale)}</span>
                 <span data-testid="inbox-item-created">{stamp(entry.createdAt)}</span>
-                <span className={entry.state === 'handled' ? undefined : 'pill new'} data-testid="inbox-item-state">
+                <Pill tone={entry.state === 'handled' ? 'positive' : 'attention'} testId="inbox-item-state">
                   {entry.state === 'handled' ? 'Handled' : 'New'}
-                </span>
+                </Pill>
                 {entry.handledAt ? <span data-testid="inbox-item-handled"> {stamp(entry.handledAt)}</span> : null}
               </p>
               <p className="message-body" data-testid="inbox-item-body">
@@ -122,9 +125,9 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
                   <span />
                 )}
                 <div className="actions">
-                  <button
+                  <Button
                     type="button"
-                    className={entry.state === 'handled' ? undefined : 'primary'}
+                    variant={entry.state === 'handled' ? undefined : 'primary'}
                     disabled={busyIds.has(entry.id) || entry.state === 'handled'}
                     onClick={() =>
                       void run(entry.id, () => markInboxHandled({ data: { propertyId, messageId: entry.id } }))
@@ -132,19 +135,24 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
                     data-testid={`inbox-handle-${entry.id}`}
                   >
                     Mark handled
-                  </button>
-                  <button
+                  </Button>
+                  <Button
                     type="button"
-                    className="quiet"
+                    variant="danger-outline"
                     disabled={busyIds.has(entry.id)}
-                    onClick={() => {
-                      if (!window.confirm('Delete this guest message permanently?')) return;
+                    onClick={async () => {
+                      const confirmed = await confirm({
+                        title: 'Delete this guest message?',
+                        body: 'It is removed permanently.',
+                        confirmLabel: 'Delete message',
+                      });
+                      if (!confirmed) return;
                       void run(entry.id, () => deleteInboxMessage({ data: { propertyId, messageId: entry.id } }));
                     }}
                     data-testid={`inbox-delete-${entry.id}`}
                   >
                     Delete
-                  </button>
+                  </Button>
                 </div>
               </div>
             </li>
@@ -156,6 +164,7 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
           Showing the newest {inboxLimit} messages. Delete or wait for older ones to expire to see the rest.
         </p>
       ) : null}
+      {dialog}
     </section>
   );
 }

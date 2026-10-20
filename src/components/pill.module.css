@@ -1,0 +1,33 @@
+.pill {
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  gap: 5px;
+  height: 24px;
+  padding: 0 10px;
+  font-size: var(--fs-small);
+  font-weight: 500;
+  line-height: 1;
+  white-space: nowrap;
+  border-radius: 999px;
+}
+
+.neutral {
+  color: var(--pill-neutral-ink);
+  background: var(--pill-neutral-bg);
+}
+
+.positive {
+  color: var(--pill-positive-ink);
+  background: var(--pill-positive-bg);
+}
+
+.attention {
+  color: var(--pill-warning-ink);
+  background: var(--pill-warning-bg);
+}
+
+.accent {
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+}

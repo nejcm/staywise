@@ -1,4 +1,5 @@
 import { Link, createFileRoute } from '@tanstack/react-router';
+import { buttonClass } from '../components/button';
 import { Mark } from '../components/mark';
 
 export const Route = createFileRoute('/')({
@@ -27,10 +28,10 @@ function HomePage() {
         </div>
       </dl>
       <p className="actions" style={{ marginTop: 32 }}>
-        <Link to="/auth/sign-in" className="button primary">
+        <Link to="/auth/sign-in" className={buttonClass('primary')}>
           Host sign in
         </Link>
-        <Link to="/privacy" className="button">
+        <Link to="/privacy" className={buttonClass()}>
           Privacy and data handling
         </Link>
       </p>

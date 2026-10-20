@@ -2,6 +2,7 @@ import { Link, createFileRoute, redirect } from '@tanstack/react-router';
 import { useEffect, useRef } from 'react';
 import { z } from 'zod';
 import { HostBar } from '../components/app-shell';
+import { Pill } from '../components/pill';
 import { getHostAuthState } from '../features/host/host-fns';
 import { getGuestPreview, recordPreviewOpened } from '../features/guide/guide-fns';
 import { guestCategoryLabel, guestLocaleName, guestUiText, languageNames } from '../features/guest/guest-ui';
@@ -62,9 +63,9 @@ function PreviewPage() {
               {languageNames[guest.locale as GuestLocale] ?? guest.locale}.
             </p>
           </div>
-          <span className={guidePublished ? 'pill live' : 'pill'} data-testid="preview-guide-status">
+          <Pill tone={guidePublished ? 'positive' : 'neutral'} testId="preview-guide-status">
             {guidePublished ? 'Guide is live.' : 'Guide is offline: guests cannot open it yet.'}
-          </span>
+          </Pill>
         </div>
         <div className="guest preview">
           {guest.locales.length > 1 ? (

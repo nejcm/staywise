@@ -1,9 +1,10 @@
 import { Link, useRouter } from '@tanstack/react-router';
 import { useState } from 'react';
 import { signOut } from '../features/host/host-fns';
+import { Button } from './button';
 import { Mark } from './mark';
 
-export function SignOutButton({ className }: { className?: string }) {
+export function SignOutButton({ variant }: { variant?: 'ghost' }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
 
@@ -18,9 +19,9 @@ export function SignOutButton({ className }: { className?: string }) {
   }
 
   return (
-    <button type="button" className={className} onClick={logout} disabled={busy} data-testid="host-signout">
+    <Button type="button" variant={variant} onClick={logout} disabled={busy} data-testid="host-signout">
       Sign out
-    </button>
+    </Button>
   );
 }
 
@@ -36,7 +37,7 @@ export function HostBar() {
         </Link>
         <Link to="/privacy">Privacy</Link>
       </nav>
-      <SignOutButton className="quiet" />
+      <SignOutButton variant="ghost" />
     </header>
   );
 }

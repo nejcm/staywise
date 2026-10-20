@@ -1,6 +1,9 @@
 import { Link, createFileRoute } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
+import { Button } from '../components/button';
+import { Field } from '../components/field';
 import { Mark } from '../components/mark';
+import { Toast } from '../components/toast';
 import { getHostAuthState, requestMagicLink } from '../features/host/host-fns';
 
 export const Route = createFileRoute('/auth/sign-in')({
@@ -52,8 +55,7 @@ function SignInPage() {
         Host accounts are invite-only. Enter your invited email address to get a one-time sign-in link.
       </p>
       <form onSubmit={onSubmit} className="panel stack" data-testid="signin-form">
-        <label>
-          Email
+        <Field label="Email">
           <input
             type="email"
             autoComplete="email"
@@ -62,13 +64,11 @@ function SignInPage() {
             onChange={(event) => setEmail(event.target.value)}
             data-testid="signin-email"
           />
-        </label>
-        <button type="submit" className="primary" disabled={busy} data-testid="signin-submit">
+        </Field>
+        <Button type="submit" variant="primary" disabled={busy} data-testid="signin-submit">
           {busy ? 'Sending…' : 'Email me a sign-in link'}
-        </button>
-        <p data-testid="signin-message" role="status">
-          {message}
-        </p>
+        </Button>
+        <Toast testId="signin-message">{message}</Toast>
       </form>
       <p style={{ marginTop: 24 }}>
         <Link to="/privacy">Privacy and data handling</Link>

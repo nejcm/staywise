@@ -9,7 +9,11 @@ import {
   restartEnrollment,
 } from '../features/host/host-fns';
 import { HostBar, SignOutButton } from '../components/app-shell';
+import { Button } from '../components/button';
+import { Field } from '../components/field';
 import { Mark } from '../components/mark';
+import { Pill } from '../components/pill';
+import { Toast } from '../components/toast';
 import { copyProperty, createProperty, requestSetupSupport } from '../features/guide/guide-fns';
 import { collectFieldErrors, propertyFields } from '../features/guide/guide-validation';
 
@@ -204,13 +208,12 @@ function HostPage() {
                     Enrollment was not finished. Enter a current code if the secret was already saved, or restart to get
                     a new one.
                   </p>
-                  <button type="button" onClick={restart} disabled={busy} data-testid="host-enroll-start">
+                  <Button type="button" onClick={restart} disabled={busy} data-testid="host-enroll-start">
                     Restart enrollment
-                  </button>
+                  </Button>
                 </div>
               ) : null}
-              <label>
-                Six-digit code
+              <Field label="Six-digit code">
                 <input
                   inputMode="numeric"
                   autoComplete="one-time-code"
@@ -220,28 +223,26 @@ function HostPage() {
                   onChange={(event) => setCode(event.target.value)}
                   data-testid="host-code"
                 />
-              </label>
-              <button type="submit" className="primary" disabled={busy} data-testid="host-verify-submit">
+              </Field>
+              <Button type="submit" variant="primary" disabled={busy} data-testid="host-verify-submit">
                 Verify
-              </button>
+              </Button>
             </form>
           ) : (
-            <button
+            <Button
               type="button"
-              className="primary"
+              variant="primary"
               onClick={startEnroll}
               disabled={busy}
               data-testid="host-enroll-start"
             >
               Set up authenticator
-            </button>
+            </Button>
           )}
-          <p role="status" data-testid="host-message">
-            {message}
-          </p>
+          <Toast testId="host-message">{message}</Toast>
         </div>
         <p className="actions" style={{ marginTop: 16 }}>
-          <SignOutButton className="quiet" />
+          <SignOutButton variant="ghost" />
         </p>
       </main>
     );
@@ -285,23 +286,21 @@ function HostPage() {
                         >
                           {property.displayName}
                         </Link>
-                        <span className={property.published ? 'pill live' : 'pill'} data-testid="host-property-status">
+                        <Pill tone={property.published ? 'positive' : 'neutral'} testId="host-property-status">
                           {property.published ? 'Live' : 'Draft'}
-                        </span>
-                        <button
+                        </Pill>
+                        <Button
                           type="button"
                           onClick={() => duplicate(property.id)}
                           disabled={busy}
                           data-testid="host-property-copy"
                         >
                           Make a copy
-                        </button>
+                        </Button>
                       </li>
                     ))}
                   </ul>
-                  <p role="status" data-testid="host-copy-message">
-                    {copyMessage}
-                  </p>
+                  <Toast testId="host-copy-message">{copyMessage}</Toast>
                 </>
               )}
             </section>
@@ -312,8 +311,12 @@ function HostPage() {
                 <h2 id="create-heading">New property</h2>
               </header>
               <form onSubmit={create} noValidate className="stack" data-testid="host-create-form">
-                <label>
-                  Property name
+                <Field
+                  label="Property name"
+                  error={createErrors.displayName}
+                  errorId="create-name-error"
+                  errorTestId="host-create-name-error"
+                >
                   <input
                     name="displayName"
                     maxLength={120}
@@ -322,14 +325,13 @@ function HostPage() {
                     aria-describedby={createErrors.displayName ? 'create-name-error' : undefined}
                     data-testid="host-create-name"
                   />
-                </label>
-                {createErrors.displayName ? (
-                  <p id="create-name-error" role="alert" data-testid="host-create-name-error">
-                    {createErrors.displayName}
-                  </p>
-                ) : null}
-                <label>
-                  Guide language
+                </Field>
+                <Field
+                  label="Guide language"
+                  error={createErrors.sourceLocale}
+                  errorId="create-locale-error"
+                  errorTestId="host-create-locale-error"
+                >
                   <input
                     name="sourceLocale"
                     defaultValue="en"
@@ -340,19 +342,12 @@ function HostPage() {
                     aria-describedby={createErrors.sourceLocale ? 'create-locale-error' : undefined}
                     data-testid="host-create-locale"
                   />
-                </label>
-                {createErrors.sourceLocale ? (
-                  <p id="create-locale-error" role="alert" data-testid="host-create-locale-error">
-                    {createErrors.sourceLocale}
-                  </p>
-                ) : null}
+                </Field>
                 <div className="actions">
-                  <button type="submit" className="primary" disabled={busy} data-testid="host-create-submit">
+                  <Button type="submit" variant="primary" disabled={busy} data-testid="host-create-submit">
                     Create property
-                  </button>
-                  <span role="status" className="small" data-testid="host-create-message">
-                    {createMessage}
-                  </span>
+                  </Button>
+                  <Toast testId="host-create-message">{createMessage}</Toast>
                 </div>
               </form>
             </section>
@@ -360,23 +355,21 @@ function HostPage() {
               <h2 id="account-heading">Account</h2>
               <p className="muted">Need a hand with the first guide? The pilot team can set it up with you.</p>
               <div className="actions">
-                <button type="button" onClick={requestSupport} disabled={busy} data-testid="host-support-request">
+                <Button type="button" onClick={requestSupport} disabled={busy} data-testid="host-support-request">
                   Request setup support
-                </button>
-                <span role="status" className="small" data-testid="host-support-message">
-                  {supportMessage}
-                </span>
+                </Button>
+                <Toast testId="host-support-message">{supportMessage}</Toast>
               </div>
               <div className="actions">
-                <button
+                <Button
                   type="button"
-                  className="danger"
+                  variant="danger"
                   onClick={() => removeMfa(state.totpFactorIds[0] ?? '')}
                   disabled={busy || state.totpFactorIds.length === 0}
                   data-testid="host-remove-mfa"
                 >
                   Remove authenticator
-                </button>
+                </Button>
               </div>
             </section>
           </div>

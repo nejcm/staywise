@@ -1,4 +1,6 @@
 import { useState, type FormEvent } from 'react';
+import { Button } from '../../components/button';
+import { Field } from '../../components/field';
 import { sectionCategories } from '../guide/guide-validation';
 import { guestCategoryLabel, guestUiText } from './guest-ui';
 import { type MessageKind } from '../messages/message-validation';
@@ -82,7 +84,7 @@ export function GuestMessageForm({ shareId, locale }: { shareId: string; locale:
           <p>{guestUiText(locale, 'help.form.intro')}</p>
           <p className="guest-fallback">{guestUiText(locale, 'help.form.privacy')}</p>
           <form className="guest-form" onSubmit={submit} noValidate>
-            <fieldset className="guest-field">
+            <fieldset>
               <legend>{guestUiText(locale, 'form.kind')}</legend>
               <label>
                 <input
@@ -105,8 +107,11 @@ export function GuestMessageForm({ shareId, locale }: { shareId: string; locale:
                 {guestUiText(locale, 'form.kind.issue')}
               </label>
             </fieldset>
-            <p className="guest-field">
-              <label htmlFor="guest-message-category">{guestUiText(locale, 'form.category')}</label>
+            <Field
+              label={guestUiText(locale, 'form.category')}
+              error={sendErrors.category ? fieldError(sendErrors.category) : null}
+              errorTestId="guest-message-category-error"
+            >
               <select
                 id="guest-message-category"
                 value={category}
@@ -121,14 +126,12 @@ export function GuestMessageForm({ shareId, locale }: { shareId: string; locale:
                   </option>
                 ))}
               </select>
-              {sendErrors.category ? (
-                <span className="guest-field-error" role="alert" data-testid="guest-message-category-error">
-                  {fieldError(sendErrors.category)}
-                </span>
-              ) : null}
-            </p>
-            <p className="guest-field">
-              <label htmlFor="guest-message-body">{guestUiText(locale, 'form.body')}</label>
+            </Field>
+            <Field
+              label={guestUiText(locale, 'form.body')}
+              error={sendErrors.body ? fieldError(sendErrors.body) : null}
+              errorTestId="guest-message-body-error"
+            >
               <textarea
                 id="guest-message-body"
                 rows={5}
@@ -137,13 +140,8 @@ export function GuestMessageForm({ shareId, locale }: { shareId: string; locale:
                 aria-invalid={Boolean(sendErrors.body)}
                 data-testid="guest-message-body"
               />
-              {sendErrors.body ? (
-                <span className="guest-field-error" role="alert" data-testid="guest-message-body-error">
-                  {fieldError(sendErrors.body)}
-                </span>
-              ) : null}
-            </p>
-            <p className="guest-field">
+            </Field>
+            <p>
               <label>
                 <input
                   type="checkbox"
@@ -155,8 +153,11 @@ export function GuestMessageForm({ shareId, locale }: { shareId: string; locale:
               </label>
             </p>
             {wantReply ? (
-              <p className="guest-field">
-                <label htmlFor="guest-message-email">{guestUiText(locale, 'form.replyEmail')}</label>
+              <Field
+                label={guestUiText(locale, 'form.replyEmail')}
+                error={sendErrors.replyEmail ? fieldError(sendErrors.replyEmail) : null}
+                errorTestId="guest-message-email-error"
+              >
                 <input
                   id="guest-message-email"
                   type="email"
@@ -165,20 +166,15 @@ export function GuestMessageForm({ shareId, locale }: { shareId: string; locale:
                   aria-invalid={Boolean(sendErrors.replyEmail)}
                   data-testid="guest-message-email"
                 />
-                {sendErrors.replyEmail ? (
-                  <span className="guest-field-error" role="alert" data-testid="guest-message-email-error">
-                    {fieldError(sendErrors.replyEmail)}
-                  </span>
-                ) : null}
-              </p>
+              </Field>
             ) : null}
-            <p className="guest-field">
-              <button type="submit" disabled={busy} data-testid="guest-message-submit">
+            <p>
+              <Button type="submit" variant="primary" disabled={busy} data-testid="guest-message-submit">
                 {guestUiText(locale, 'form.submit')}
-              </button>
+              </Button>
             </p>
             {notice ? (
-              <p role="alert" className="guest-field-error" data-testid="guest-message-error">
+              <p role="alert" data-testid="guest-message-error">
                 {notice}
               </p>
             ) : null}
