@@ -3,6 +3,7 @@ import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { bearerSecretFromFragment } from '../features/guest/guest-fragment';
 import { getGuestPage } from '../features/guest/guest-fns';
+import { GUEST_OPEN_SLOW_MS, GuestOpening } from '../features/guest/guest-opening';
 import { guestLink, guestLocaleName, guestUiText, isGuestLocale, languageNames } from '../features/guest/guest-ui';
 import { guestLocales } from '../features/guide/guide-validation';
 import type { GuestPage } from '../features/share/share.server';
@@ -13,7 +14,9 @@ const guestSearchSchema = z.object({ lang: z.string().max(16).optional() }).catc
 export const Route = createFileRoute('/g/$shareId')({
   validateSearch: (search) => guestSearchSchema.parse(search),
   beforeLoad: async ({ params, search }) => {
-    const result = await getGuestPage({ data: { shareId: params.shareId, locale: search.lang } });
+    const result = await getGuestPage({
+      data: { shareId: params.shareId, locale: search.lang },
+    });
     const guest: GuestPage = result.state === 'guide' ? result : { state: result.state };
     return {
       guest,
@@ -27,8 +30,12 @@ export const Route = createFileRoute('/g/$shareId')({
 
 function GuestLayout() {
   const { guest, deniedLocale, shareId, lang } = Route.useRouteContext();
-  const pathname = useRouterState({ select: (state) => state.location.pathname });
-  const searchStr = useRouterState({ select: (state) => state.location.searchStr });
+  const pathname = useRouterState({
+    select: (state) => state.location.pathname,
+  });
+  const searchStr = useRouterState({
+    select: (state) => state.location.searchStr,
+  });
 
   useEffect(() => {
     // A full reload keeps the /g-scoped cookie; a client-side replace would re-run this route
@@ -91,7 +98,9 @@ function GuestLayout() {
           <p className={styles.reviewed} data-testid="guest-reviewed">
             {guestUiText(locale, 'translated.notice')} ·{' '}
             <a href={guestLink(pathname, sourceLocale)} hrefLang={sourceLocale}>
-              {guestUiText(locale, 'translated.showSource', { language: guestLocaleName(sourceLocale) })}
+              {guestUiText(locale, 'translated.showSource', {
+                language: guestLocaleName(sourceLocale),
+              })}
             </a>
           </p>
         ) : null}
@@ -159,6 +168,12 @@ function LocaleSwitch({ locale, locales, pathname }: { locale: string; locales: 
 // client-side and exchanged for the host-checked session cookie.
 function GuestOpen({ shareId, locale }: { shareId: string; locale: string }) {
   const [denied, setDenied] = useState(false);
+  const [slow, setSlow] = useState(false);
+
+  useEffect(() => {
+    const timer = window.setTimeout(() => setSlow(true), GUEST_OPEN_SLOW_MS);
+    return () => window.clearTimeout(timer);
+  }, []);
 
   useEffect(() => {
     let active = true;
@@ -196,13 +211,5 @@ function GuestOpen({ shareId, locale }: { shareId: string; locale: string }) {
       </section>
     );
   }
-  return (
-    <section className={`${styles.card} ${styles.unavailable}`} data-testid="guest-opening">
-      <h1>{guestUiText(locale, 'open.title')}</h1>
-      <p>{guestUiText(locale, 'open.body')}</p>
-      <noscript>
-        <p>{guestUiText(locale, 'open.noscript')}</p>
-      </noscript>
-    </section>
-  );
+  return <GuestOpening locale={locale} slow={slow} />;
 }

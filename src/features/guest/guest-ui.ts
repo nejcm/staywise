@@ -67,6 +67,7 @@ export const guestUiKeys = [
   'open.title',
   'open.body',
   'open.noscript',
+  'open.slow',
   'denied.title',
   'denied.body',
   'category.arrival',
@@ -156,6 +157,7 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'error.retry': 'Try again',
     'open.title': 'Opening your guide…',
     'open.body': 'Stay on this page while we check your link.',
+    'open.slow': 'This is taking longer than usual. Your connection may be slow.',
     'open.noscript': 'This guide needs JavaScript to open the link. Ask your host to resend it.',
     'denied.title': "This link can't be opened",
     'denied.body': 'Ask your host to send you a new link.',
@@ -245,6 +247,7 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'error.retry': 'Erneut versuchen',
     'open.title': 'Ihr Gästeführer wird geöffnet…',
     'open.body': 'Bleiben Sie auf dieser Seite, während wir Ihren Link prüfen.',
+    'open.slow': 'Das dauert länger als üblich. Ihre Verbindung ist möglicherweise langsam.',
     'open.noscript':
       'Dieser Gästeführer braucht JavaScript, um den Link zu öffnen. Bitten Sie Ihren Gastgeber, ihn erneut zu senden.',
     'denied.title': 'Dieser Link kann nicht geöffnet werden',
@@ -333,6 +336,7 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'error.retry': 'Poskusi znova',
     'open.title': 'Odpiramo vaš vodič…',
     'open.body': 'Ostanite na tej strani, medtem ko preverjamo povezavo.',
+    'open.slow': 'To traja dlje kot običajno. Povezava je morda počasna.',
     'open.noscript': 'Ta vodič za odpiranje povezave potrebuje JavaScript. Prosite gostitelja, naj jo pošlje znova.',
     'denied.title': 'Te povezave ni mogoče odpreti',
     'denied.body': 'Prosite gostitelja za novo povezavo.',
@@ -403,7 +407,9 @@ export function mapSearchUrl(address: string): string {
 }
 
 export function avatarInitial(name: string, locale: string): string {
-  const [first] = new Intl.Segmenter(locale, { granularity: 'grapheme' }).segment(name.trim());
+  const [first] = new Intl.Segmenter(locale, {
+    granularity: 'grapheme',
+  }).segment(name.trim());
   return first ? first.segment.toLocaleUpperCase(locale) : '';
 }
 
