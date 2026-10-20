@@ -47,7 +47,7 @@ function PreviewPage() {
 
   return (
     <div className={previewStyles.page}>
-      <div role="region" aria-label="Preview controls" className={previewStyles.bar}>
+      <section aria-label="Preview controls" className={previewStyles.bar}>
         <Link
           to="/host/properties/$propertyId"
           params={{ propertyId }}
@@ -68,7 +68,7 @@ function PreviewPage() {
         <Pill tone={guidePublished ? 'positive' : 'neutral'} testId="preview-guide-status">
           {guidePublished ? 'Guide is live.' : 'Guide is offline: guests cannot open it yet.'}
         </Pill>
-      </div>
+      </section>
       <main className={previewStyles.stage}>
         <div className={previewStyles.phone}>
           <p className={previewStyles.banner}>Preview · not visible to guests</p>

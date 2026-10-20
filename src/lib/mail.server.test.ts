@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 const sendMail = vi.hoisted(() => vi.fn());
-vi.mock('nodemailer', () => ({ default: { createTransport: () => ({ sendMail }) } }));
+vi.mock('nodemailer', () => ({ createTransport: () => ({ sendMail }) }));
 
 import { sendGuestMessageAlert } from './mail.server';
 

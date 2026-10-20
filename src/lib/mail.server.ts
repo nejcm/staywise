@@ -1,9 +1,9 @@
-import nodemailer from 'nodemailer';
+import { createTransport } from 'nodemailer';
 import { serverEnv, appEnv } from './env.server';
 import { logEvent } from './log.server';
 
 // The single server-only mail path; the SMTP provider must stay the one reviewed for Auth.
-const transport = nodemailer.createTransport(serverEnv.smtpUrl);
+const transport = createTransport(serverEnv.smtpUrl);
 
 export type SecurityNotice = 'mfa_enrolled' | 'mfa_unenrolled';
 

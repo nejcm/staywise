@@ -126,7 +126,7 @@ describeLocal('phase 7a restore rehearsal (scratch databases)', () => {
         await source.unsafe('create schema auth; create table auth.users (id uuid primary key, email text);');
         for (const migration of migrationFiles) await source.unsafe(readFileSync(migration, 'utf8'));
         await source.unsafe(SEED);
-        [snapshot] = await source.unsafe<Counts[]>(COUNT_SQL);
+        snapshot = (await source.unsafe<Counts[]>(COUNT_SQL))[0]!;
         const [sourcePolicies] = await source<{ n: number }[]>`
           select count(*)::integer as n from pg_policies where schemaname = 'app'`;
         dump = execFileSync(

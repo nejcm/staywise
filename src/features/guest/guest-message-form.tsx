@@ -23,9 +23,10 @@ const fieldIds = {
 export function summaryEntries(
   fields: Record<string, string>,
 ): { field: keyof typeof fieldIds; id: string; code: string }[] {
-  return (Object.keys(fieldIds) as (keyof typeof fieldIds)[])
-    .filter((field) => fields[field])
-    .map((field) => ({ field, id: fieldIds[field], code: fields[field] }));
+  return (Object.keys(fieldIds) as (keyof typeof fieldIds)[]).flatMap((field) => {
+    const code = fields[field];
+    return code ? [{ field, id: fieldIds[field], code }] : [];
+  });
 }
 
 export function messageExcerpt(body: string, max = 120): string {

@@ -263,9 +263,7 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
     <section className={`${styles.panel} stack`} aria-labelledby="guest-link-heading" data-testid="guest-link-panel">
       <h2 id="guest-link-heading">Guest link</h2>
       <p data-testid="guest-link-status">
-        {share?.link
-          ? `Active link issued ${share.link.createdAt.slice(0, 10)}.`
-          : 'No active guest link.'}
+        {share?.link ? `Active link issued ${share.link.createdAt.slice(0, 10)}.` : 'No active guest link.'}
       </p>
       {share?.link && !url ? (
         <p className="muted">The link is shown only once, when it is issued. Rotate it to get a new one to share.</p>

@@ -336,7 +336,7 @@ export async function insertProperty(
     values (app.current_owner_id(), ${parsed.displayName}, ${parsed.sourceLocale}, ${parsed.enabledLocales}, ${email})
     returning id
   `;
-  return row.id;
+  return row!.id;
 }
 
 export async function updateProperty(

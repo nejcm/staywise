@@ -82,9 +82,9 @@ describe('sectionFields', () => {
 
   it('rejects a secret value on a guest section', () => {
     const parsed = sectionFields.safeParse({ ...validSection, secretValue: 'SYNTHETIC-CODE' });
-    expect(parsed.success).toBe(false);
-    if (!parsed.success)
-      expect(collectFieldErrors(parsed.error)).toEqual({ secretValue: 'A secret value belongs to a private note' });
+    expect(parsed.success ? null : collectFieldErrors(parsed.error)).toEqual({
+      secretValue: 'A secret value belongs to a private note',
+    });
   });
 
   it('accepts a secret value on a private note', () => {

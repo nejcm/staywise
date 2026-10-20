@@ -57,7 +57,7 @@ export async function getHostAuthState(
   if (verified.length) {
     const { data: aal } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
     if (aal?.currentLevel === 'aal2') return { state: 'workspace', totpFactorIds: verified.map((f) => f.id) };
-    return { state: 'verify', factorId: verified[0].id };
+    return { state: 'verify', factorId: verified[0]!.id };
   }
   if (!serverEnv.mfaRequired && !options.setup) return { state: 'workspace', totpFactorIds: [] };
   return {

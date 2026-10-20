@@ -413,7 +413,7 @@ function HostPage() {
                   <Button
                     type="button"
                     variant="danger"
-                    onClick={() => removeMfa(state.totpFactorIds[0])}
+                    onClick={() => removeMfa(state.totpFactorIds[0]!)}
                     disabled={busy}
                     data-testid="host-remove-mfa"
                   >

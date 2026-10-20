@@ -13,8 +13,8 @@ import { guestSessionToken } from '../features/share/share.server';
 
 // Guest message intake: the same boundary shape as the link exchange — exact same-origin JSON POST
 // with the Path=/g session cookie — and one JSON state per outcome, never guest content echoes.
-function state(state: string, status: number, extra?: Record<string, unknown>): Response {
-  return new Response(JSON.stringify({ state, ...extra }), {
+function state(value: string, status: number, extra?: Record<string, unknown>): Response {
+  return new Response(JSON.stringify({ state: value, ...extra }), {
     status,
     headers: { 'cache-control': 'private, no-store', 'content-type': 'application/json' },
   });

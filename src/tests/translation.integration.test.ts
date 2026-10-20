@@ -844,10 +844,10 @@ describeLocal('stored guide localization (synthetic provider double)', () => {
 
     // Follow the advertised anchors; every hop keeps the selected language.
     for (const href of navHrefs(germanGuide)) expect(mainLang(await page(href))).toBe('de');
-    const slovenianHelp = await page(localeHrefs(germanGuide).sl);
+    const slovenianHelp = await page(localeHrefs(germanGuide).sl!);
     expect(mainLang(slovenianHelp)).toBe('sl');
     for (const href of navHrefs(slovenianHelp)) expect(mainLang(await page(href))).toBe('sl');
-    const sourceGuide = await page(localeHrefs(germanGuide).en);
+    const sourceGuide = await page(localeHrefs(germanGuide).en!);
     expect(mainLang(sourceGuide)).toBe('en');
     expect(navHrefs(sourceGuide)).toEqual([
       `/g/${shareId}?lang=en`,
