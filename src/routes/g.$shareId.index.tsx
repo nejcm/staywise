@@ -1,6 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { guestCategoryLabel, guestLink, guestLocaleName, guestUiText } from '../features/guest/guest-ui';
 import type { SectionCategory } from '../features/guide/guide-validation';
+import styles from '../features/guest/guest.module.css';
+import { buttonClass } from '../components/button';
 
 export const Route = createFileRoute('/g/$shareId/')({
   component: GuestHome,
@@ -23,25 +25,28 @@ function GuestHome() {
         <p data-testid="guest-home-empty">{guestUiText(locale, 'home.empty')}</p>
       ) : (
         highlights.map((section) => (
-          <section className="guest-card" key={section.category} data-testid="guest-highlight">
+          <section className={`${styles.card} ${styles.arrival}`} key={section.category} data-testid="guest-highlight">
             <h3>{guestCategoryLabel(locale, section.category)}</h3>
-            <p className="guest-body" lang={section.fallback ? sourceLocale : undefined}>
+            <p className={styles.body} lang={section.fallback ? sourceLocale : undefined}>
               {section.body}
             </p>
             {section.fallback ? (
-              <p className="guest-fallback" data-testid="guest-fallback">
+              <p className={styles.fallback} data-testid="guest-fallback">
                 {guestUiText(locale, 'fallback.notice', { language: guestLocaleName(sourceLocale) })}
               </p>
             ) : null}
           </section>
         ))
       )}
-      <section className="guest-card guest-callout" data-testid="guest-home-help">
+      <section className={`${styles.card} ${styles.callout}`} data-testid="guest-home-help">
         <h3>{guestUiText(locale, 'home.help.title')}</h3>
         <p>{guestUiText(locale, 'home.help.body')}</p>
-        <p>
-          <a href={guestLink(`/g/${shareId}/help`, locale, sourceLocale)}>{guestUiText(locale, 'home.help.open')}</a>
-        </p>
+        <a
+          className={`${buttonClass('secondary')} ${styles.pill}`}
+          href={guestLink(`/g/${shareId}/help`, locale, sourceLocale)}
+        >
+          {guestUiText(locale, 'home.help.open')}
+        </a>
       </section>
     </>
   );

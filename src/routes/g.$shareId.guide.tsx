@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { guestCategoryLabel, guestLocaleName, guestUiText } from '../features/guest/guest-ui';
+import styles from '../features/guest/guest.module.css';
 
 export const Route = createFileRoute('/g/$shareId/guide')({
   component: GuestGuide,
@@ -16,14 +17,18 @@ function GuestGuide() {
         <p data-testid="guest-guide-empty">{guestUiText(locale, 'guide.empty')}</p>
       ) : (
         sections.map((section, index) => (
-          <section className="guest-card" key={`${section.category}-${index}`} data-testid="guest-section">
-            <p className="guest-category">{guestCategoryLabel(locale, section.category)}</p>
+          <section
+            className={`${styles.card} ${styles.prose}`}
+            key={`${section.category}-${index}`}
+            data-testid="guest-section"
+          >
+            <p className={styles.category}>{guestCategoryLabel(locale, section.category)}</p>
             <h3 lang={section.fallback ? sourceLocale : undefined}>{section.title}</h3>
-            <p className="guest-body" lang={section.fallback ? sourceLocale : undefined}>
+            <p className={styles.body} lang={section.fallback ? sourceLocale : undefined}>
               {section.body}
             </p>
             {section.fallback ? (
-              <p className="guest-fallback" data-testid="guest-fallback">
+              <p className={styles.fallback} data-testid="guest-fallback">
                 {guestUiText(locale, 'fallback.notice', { language: guestLocaleName(sourceLocale) })}
               </p>
             ) : null}

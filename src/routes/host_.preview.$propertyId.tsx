@@ -7,6 +7,7 @@ import { getHostAuthState } from '../features/host/host-fns';
 import { getGuestPreview, recordPreviewOpened } from '../features/guide/guide-fns';
 import { guestCategoryLabel, guestLocaleName, guestUiText, languageNames } from '../features/guest/guest-ui';
 import type { GuestLocale } from '../features/guide/guide-validation';
+import styles from '../features/guest/guest.module.css';
 
 const previewSearchSchema = z.object({ lang: z.string().max(16).optional() }).catch({});
 
@@ -67,9 +68,9 @@ function PreviewPage() {
             {guidePublished ? 'Guide is live.' : 'Guide is offline: guests cannot open it yet.'}
           </Pill>
         </div>
-        <div className="guest preview">
+        <div className={`${styles.shell} ${styles.preview}`}>
           {guest.locales.length > 1 ? (
-            <ul className="guest-locales" data-testid="preview-locale-switch">
+            <ul className={styles.locales} data-testid="preview-locale-switch">
               {guest.locales.map((code) => (
                 <li key={code}>
                   <Link
@@ -86,25 +87,29 @@ function PreviewPage() {
             </ul>
           ) : null}
           {guest.sections.length === 0 ? (
-            <p className="guest-card empty" data-testid="preview-empty">
+            <p className={`${styles.card} ${styles.empty}`} data-testid="preview-empty">
               No published guest content yet.
             </p>
           ) : (
             guest.sections.map((section, index) => (
-              <section key={`${section.category}-${index}`} className="guest-card" data-testid="preview-section">
-                <h2 className="guest-category">{guestCategoryLabel(guest.locale, section.category)}</h2>
+              <section
+                key={`${section.category}-${index}`}
+                className={`${styles.card} ${styles.prose}`}
+                data-testid="preview-section"
+              >
+                <h2 className={styles.category}>{guestCategoryLabel(guest.locale, section.category)}</h2>
                 <h3 lang={section.fallback ? guest.sourceLocale : undefined} data-testid="preview-section-title">
                   {section.title}
                 </h3>
                 <p
-                  className="guest-body"
+                  className={styles.body}
                   lang={section.fallback ? guest.sourceLocale : undefined}
                   data-testid="preview-section-body"
                 >
                   {section.body}
                 </p>
                 {section.fallback ? (
-                  <p className="guest-fallback" data-testid="preview-fallback">
+                  <p className={styles.fallback} data-testid="preview-fallback">
                     {guestUiText(guest.locale, 'fallback.notice', { language: guestLocaleName(guest.sourceLocale) })}
                   </p>
                 ) : null}

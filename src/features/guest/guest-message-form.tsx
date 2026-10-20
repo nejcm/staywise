@@ -4,6 +4,7 @@ import { Field } from '../../components/field';
 import { sectionCategories } from '../guide/guide-validation';
 import { guestCategoryLabel, guestUiText } from './guest-ui';
 import { type MessageKind } from '../messages/message-validation';
+import styles from './guest.module.css';
 
 // Guest question/report form: one bounded same-origin POST; every failure keeps the guest's text in
 // the form and shows a localized reason. It never promises a reply or a response time.
@@ -75,37 +76,41 @@ export function GuestMessageForm({ shareId, locale }: { shareId: string; locale:
   }
 
   return (
-    <section className="guest-card" data-testid="guest-message-form">
+    <section className={styles.card} data-testid="guest-message-form">
       <h3>{guestUiText(locale, 'help.form.title')}</h3>
       {sent ? (
-        <p data-testid="guest-message-sent">{guestUiText(locale, 'form.sent')}</p>
+        <p className={styles.sent} data-testid="guest-message-sent">
+          {guestUiText(locale, 'form.sent')}
+        </p>
       ) : (
         <>
           <p>{guestUiText(locale, 'help.form.intro')}</p>
-          <p className="guest-fallback">{guestUiText(locale, 'help.form.privacy')}</p>
-          <form className="guest-form" onSubmit={submit} noValidate>
+          <p className={styles.fallback}>{guestUiText(locale, 'help.form.privacy')}</p>
+          <form className={styles.form} onSubmit={submit} noValidate>
             <fieldset>
               <legend>{guestUiText(locale, 'form.kind')}</legend>
-              <label>
-                <input
-                  type="radio"
-                  name="guest-message-kind"
-                  checked={kind === 'question'}
-                  onChange={() => setKind('question')}
-                  data-testid="guest-message-kind-question"
-                />{' '}
-                {guestUiText(locale, 'form.kind.question')}
-              </label>
-              <label>
-                <input
-                  type="radio"
-                  name="guest-message-kind"
-                  checked={kind === 'issue'}
-                  onChange={() => setKind('issue')}
-                  data-testid="guest-message-kind-issue"
-                />{' '}
-                {guestUiText(locale, 'form.kind.issue')}
-              </label>
+              <div className={styles.segments}>
+                <label>
+                  <input
+                    type="radio"
+                    name="guest-message-kind"
+                    checked={kind === 'question'}
+                    onChange={() => setKind('question')}
+                    data-testid="guest-message-kind-question"
+                  />{' '}
+                  {guestUiText(locale, 'form.kind.question')}
+                </label>
+                <label>
+                  <input
+                    type="radio"
+                    name="guest-message-kind"
+                    checked={kind === 'issue'}
+                    onChange={() => setKind('issue')}
+                    data-testid="guest-message-kind-issue"
+                  />{' '}
+                  {guestUiText(locale, 'form.kind.issue')}
+                </label>
+              </div>
             </fieldset>
             <Field
               label={guestUiText(locale, 'form.category')}
@@ -174,7 +179,7 @@ export function GuestMessageForm({ shareId, locale }: { shareId: string; locale:
               </Button>
             </p>
             {notice ? (
-              <p role="alert" data-testid="guest-message-error">
+              <p role="alert" className={styles.alert} data-testid="guest-message-error">
                 {notice}
               </p>
             ) : null}

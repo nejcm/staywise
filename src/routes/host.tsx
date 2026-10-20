@@ -50,11 +50,15 @@ function HostPage() {
   );
   const [code, setCode] = useState('');
   const [message, setMessage] = useState('');
+  const [messageFailed, setMessageFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
   const [createMessage, setCreateMessage] = useState('');
+  const [createMessageFailed, setCreateMessageFailed] = useState(false);
   const [copyMessage, setCopyMessage] = useState('');
+  const [copyMessageFailed, setCopyMessageFailed] = useState(false);
   const [supportMessage, setSupportMessage] = useState('');
+  const [supportMessageFailed, setSupportMessageFailed] = useState(false);
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -62,20 +66,24 @@ function HostPage() {
     if (!parsed.success) {
       setCreateErrors(collectFieldErrors(parsed.error));
       setCreateMessage('Check the highlighted fields.');
+      setCreateMessageFailed(true);
       return;
     }
     setCreateErrors({});
     setCreateMessage('');
+    setCreateMessageFailed(false);
     setBusy(true);
     try {
       const result = await createProperty({ data: parsed.data });
       if ('error' in result) {
         setCreateMessage('Something went wrong. Try again.');
+        setCreateMessageFailed(true);
         return;
       }
       await navigate({ to: '/host/properties/$propertyId', params: { propertyId: result.propertyId } });
     } catch {
       setCreateMessage('Something went wrong. Try again.');
+      setCreateMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -83,16 +91,19 @@ function HostPage() {
 
   async function duplicate(sourcePropertyId: string) {
     setCopyMessage('');
+    setCopyMessageFailed(false);
     setBusy(true);
     try {
       const result = await copyProperty({ data: { sourcePropertyId } });
       if ('error' in result) {
         setCopyMessage('Something went wrong. Try again.');
+        setCopyMessageFailed(true);
         return;
       }
       await navigate({ to: '/host/properties/$propertyId', params: { propertyId: result.propertyId } });
     } catch {
       setCopyMessage('Something went wrong. Try again.');
+      setCopyMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -100,14 +111,17 @@ function HostPage() {
 
   async function requestSupport() {
     setSupportMessage('');
+    setSupportMessageFailed(false);
     setBusy(true);
     try {
       const result = await requestSetupSupport({ data: {} });
       setSupportMessage(
         'error' in result ? 'Something went wrong. Try again.' : 'Request recorded for the pilot team.',
       );
+      setSupportMessageFailed('error' in result);
     } catch {
       setSupportMessage('Something went wrong. Try again.');
+      setSupportMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -116,15 +130,18 @@ function HostPage() {
   async function startEnroll() {
     setBusy(true);
     setMessage('');
+    setMessageFailed(false);
     try {
       const result = await mfaEnroll({ data: {} });
       if ('error' in result) {
         setMessage('Something went wrong. Try again.');
+        setMessageFailed(true);
         return;
       }
       setFactor({ factorId: result.factorId, secret: result.secret });
     } catch {
       setMessage('Something went wrong. Try again.');
+      setMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -133,15 +150,18 @@ function HostPage() {
   async function restart() {
     setBusy(true);
     setMessage('');
+    setMessageFailed(false);
     try {
       const result = await restartEnrollment({ data: {} });
       if ('error' in result) {
         setMessage('Something went wrong. Try again.');
+        setMessageFailed(true);
         return;
       }
       setFactor({ factorId: result.factorId, secret: result.secret });
     } catch {
       setMessage('Something went wrong. Try again.');
+      setMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -152,12 +172,14 @@ function HostPage() {
     if (!factor) return;
     setBusy(true);
     setMessage('');
+    setMessageFailed(false);
     try {
       const result = await mfaVerify({ data: { factorId: factor.factorId, code } });
       if ('error' in result) {
         setMessage(
           result.error === 'invalid_code' ? 'That code did not match. Try again.' : 'Something went wrong. Try again.',
         );
+        setMessageFailed(true);
         return;
       }
       setCode('');
@@ -165,6 +187,7 @@ function HostPage() {
       await router.invalidate();
     } catch {
       setMessage('Something went wrong. Try again.');
+      setMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -239,7 +262,9 @@ function HostPage() {
               Set up authenticator
             </Button>
           )}
-          <Toast testId="host-message">{message}</Toast>
+          <Toast testId="host-message" tone={messageFailed ? 'error' : undefined}>
+            {message}
+          </Toast>
         </div>
         <p className="actions" style={{ marginTop: 16 }}>
           <SignOutButton variant="ghost" />
@@ -300,7 +325,9 @@ function HostPage() {
                       </li>
                     ))}
                   </ul>
-                  <Toast testId="host-copy-message">{copyMessage}</Toast>
+                  <Toast testId="host-copy-message" tone={copyMessageFailed ? 'error' : undefined}>
+                    {copyMessage}
+                  </Toast>
                 </>
               )}
             </section>
@@ -347,7 +374,9 @@ function HostPage() {
                   <Button type="submit" variant="primary" disabled={busy} data-testid="host-create-submit">
                     Create property
                   </Button>
-                  <Toast testId="host-create-message">{createMessage}</Toast>
+                  <Toast testId="host-create-message" tone={createMessageFailed ? 'error' : undefined}>
+                    {createMessage}
+                  </Toast>
                 </div>
               </form>
             </section>
@@ -358,7 +387,9 @@ function HostPage() {
                 <Button type="button" onClick={requestSupport} disabled={busy} data-testid="host-support-request">
                   Request setup support
                 </Button>
-                <Toast testId="host-support-message">{supportMessage}</Toast>
+                <Toast testId="host-support-message" tone={supportMessageFailed ? 'error' : undefined}>
+                  {supportMessage}
+                </Toast>
               </div>
               <div className="actions">
                 <Button

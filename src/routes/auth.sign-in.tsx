@@ -25,12 +25,14 @@ function SignInPage() {
   const { status } = Route.useSearch();
   const [email, setEmail] = useState('');
   const [message, setMessage] = useState(status === 'restart' ? RESTART_MESSAGE : '');
+  const [messageFailed, setMessageFailed] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function onSubmit(event: FormEvent) {
     event.preventDefault();
     setBusy(true);
     setMessage('');
+    setMessageFailed(false);
     try {
       const result = await requestMagicLink({ data: { email } });
       setMessage(
@@ -38,8 +40,10 @@ function SignInPage() {
           ? 'Something went wrong. Request a new link and try again.'
           : 'Check your email for the sign-in link. Open it in this same browser.',
       );
+      setMessageFailed('error' in result);
     } catch {
       setMessage('Something went wrong. Request a new link and try again.');
+      setMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -68,7 +72,9 @@ function SignInPage() {
         <Button type="submit" variant="primary" disabled={busy} data-testid="signin-submit">
           {busy ? 'Sending…' : 'Email me a sign-in link'}
         </Button>
-        <Toast testId="signin-message">{message}</Toast>
+        <Toast testId="signin-message" tone={messageFailed ? 'error' : undefined}>
+          {message}
+        </Toast>
       </form>
       <p style={{ marginTop: 24 }}>
         <Link to="/privacy">Privacy and data handling</Link>

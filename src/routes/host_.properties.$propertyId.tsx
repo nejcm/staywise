@@ -147,19 +147,23 @@ function GuidePublish({ propertyId, published }: { propertyId: string; published
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [messageFailed, setMessageFailed] = useState(false);
 
   async function toggle() {
     setBusy(true);
     setMessage('');
+    setMessageFailed(false);
     try {
       const result = await setGuidePublished({ data: { propertyId, published: !published } });
       if ('error' in result) {
         setMessage('Something went wrong. Try again.');
+        setMessageFailed(true);
         return;
       }
       await router.invalidate();
     } catch {
       setMessage('Something went wrong. Try again.');
+      setMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -179,7 +183,9 @@ function GuidePublish({ propertyId, published }: { propertyId: string; published
       >
         {published ? 'Unpublish guide' : 'Publish guide'}
       </Button>
-      <Toast testId="guide-status-message">{message}</Toast>
+      <Toast testId="guide-status-message" tone={messageFailed ? 'error' : undefined}>
+        {message}
+      </Toast>
     </>
   );
 }
@@ -189,14 +195,26 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
   const [issued, setIssued] = useState<{ shareId: string; secret: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [messageFailed, setMessageFailed] = useState(false);
+  const { confirm, dialog } = useConfirmDialog();
 
   // The raw secret exists in this component state and the one issuance response only; a reload
   // cannot show it again, so the database never holds a replayable capability.
   const url = issued ? `${window.location.origin}/g/${issued.shareId}#${issued.secret}` : null;
 
   async function run(action: 'create' | 'rotate' | 'disable') {
+    if (
+      action === 'rotate' &&
+      !(await confirm({
+        title: 'Make a new guest link?',
+        body: "The current link and every printed QR card stop working at once. You'll need to reprint the QR card and resend the link to current guests.",
+        confirmLabel: 'Make new link',
+      }))
+    )
+      return;
     setBusy(true);
     setMessage('');
+    setMessageFailed(false);
     try {
       const result =
         action === 'create'
@@ -206,18 +224,22 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
             : await disableGuestLink({ data: { propertyId } });
       if ('error' in result) {
         setMessage('Something went wrong. Try again.');
+        setMessageFailed(true);
         return;
       }
       if ('secret' in result) {
         setIssued({ shareId: result.shareId, secret: result.secret });
         setMessage('New guest link ready. Share it now — for security it is never shown again.');
+        setMessageFailed(false);
       } else {
         setIssued(null);
         setMessage('Guest link disabled. Guests can no longer open the guide.');
+        setMessageFailed(false);
       }
       await router.invalidate();
     } catch {
       setMessage('Something went wrong. Try again.');
+      setMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -227,8 +249,10 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
     try {
       await navigator.clipboard.writeText(value);
       setMessage('Link copied.');
+      setMessageFailed(false);
     } catch {
       setMessage('Copy failed. Select the link text and copy it manually.');
+      setMessageFailed(true);
     }
   }
 
@@ -288,7 +312,10 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
           </Button>
         )}
       </div>
-      <Toast testId="guest-link-message">{message}</Toast>
+      <Toast testId="guest-link-message" tone={messageFailed ? 'error' : undefined}>
+        {message}
+      </Toast>
+      {dialog}
     </section>
   );
 }
@@ -333,7 +360,9 @@ function PropertyForm({ property }: { property: EditorProperty }) {
   const [alertEmail, setAlertEmail] = useState(property.alertEmail);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
+  const [messageFailed, setMessageFailed] = useState(false);
   const [alertMessage, setAlertMessage] = useState('');
+  const [alertMessageFailed, setAlertMessageFailed] = useState(false);
   const [alertBusy, setAlertBusy] = useState(false);
   const [busy, setBusy] = useState(false);
 
@@ -348,21 +377,26 @@ function PropertyForm({ property }: { property: EditorProperty }) {
     if (!parsed.success) {
       setErrors(collectFieldErrors(parsed.error));
       setMessage('Check the highlighted fields.');
+      setMessageFailed(true);
       return;
     }
     setErrors({});
     setBusy(true);
     setMessage('');
+    setMessageFailed(false);
     try {
       const result = await saveProperty({ data: { propertyId: property.id, ...parsed.data } });
       if ('error' in result) {
         setMessage('Something went wrong. Try again.');
+        setMessageFailed(true);
         return;
       }
       setMessage('Saved.');
+      setMessageFailed(false);
       await router.invalidate();
     } catch {
       setMessage('Something went wrong. Try again.');
+      setMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -371,17 +405,21 @@ function PropertyForm({ property }: { property: EditorProperty }) {
   async function resyncEmail() {
     setAlertBusy(true);
     setAlertMessage('');
+    setAlertMessageFailed(false);
     try {
       const result = await resyncAlertEmail({ data: { propertyId: property.id } });
       if ('error' in result) {
         setAlertMessage('Something went wrong. Try again.');
+        setAlertMessageFailed(true);
         return;
       }
       setAlertEmail(result.alertEmail);
       setAlertMessage('Alert address updated to your current sign-in address.');
+      setAlertMessageFailed(false);
       await router.invalidate();
     } catch {
       setAlertMessage('Something went wrong. Try again.');
+      setAlertMessageFailed(true);
     } finally {
       setAlertBusy(false);
     }
@@ -466,13 +504,17 @@ function PropertyForm({ property }: { property: EditorProperty }) {
             Use my current sign-in address
           </Button>
         </div>
-        <Toast testId="alert-email-message">{alertMessage}</Toast>
+        <Toast testId="alert-email-message" tone={alertMessageFailed ? 'error' : undefined}>
+          {alertMessage}
+        </Toast>
       </section>
       <div className="actions">
         <Button type="submit" variant="primary" disabled={busy} data-testid="property-save">
           Save property
         </Button>
-        <Toast testId="property-save-status">{message}</Toast>
+        <Toast testId="property-save-status" tone={messageFailed ? 'error' : undefined}>
+          {message}
+        </Toast>
       </div>
     </form>
   );
@@ -482,6 +524,7 @@ function PropertyDangerZone({ propertyId }: { propertyId: string }) {
   const navigate = useNavigate();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [messageFailed, setMessageFailed] = useState(false);
   const { confirm, dialog } = useConfirmDialog();
 
   async function remove() {
@@ -493,15 +536,18 @@ function PropertyDangerZone({ propertyId }: { propertyId: string }) {
     if (!confirmed) return;
     setBusy(true);
     setMessage('');
+    setMessageFailed(false);
     try {
       const result = await deleteProperty({ data: { propertyId } });
       if ('error' in result) {
         setMessage('Something went wrong. Try again.');
+        setMessageFailed(true);
         return;
       }
       await navigate({ to: '/host' });
     } catch {
       setMessage('Something went wrong. Try again.');
+      setMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -527,7 +573,9 @@ function PropertyDangerZone({ propertyId }: { propertyId: string }) {
         >
           Delete property
         </Button>
-        <Toast testId="property-delete-message">{message}</Toast>
+        <Toast testId="property-delete-message" tone={messageFailed ? 'error' : undefined}>
+          {message}
+        </Toast>
       </div>
       {dialog}
     </section>
@@ -551,6 +599,7 @@ function SectionForm({
   const [loadedRevision, setLoadedRevision] = useState(section.sourceRevision);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
+  const [messageFailed, setMessageFailed] = useState(false);
   const [busy, setBusy] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -567,24 +616,29 @@ function SectionForm({
     if (!parsed.success) {
       setErrors(collectFieldErrors(parsed.error));
       setMessage('Check the highlighted fields.');
+      setMessageFailed(true);
       return;
     }
     setErrors({});
     setBusy(true);
     setMessage('');
+    setMessageFailed(false);
     try {
       const result = await saveSection({
         data: { propertyId, sectionId: section.id, expectedRevision: loadedRevision, ...parsed.data },
       });
       if ('error' in result) {
         setMessage('Could not save; if this section changed in another tab, reload the page and try again.');
+        setMessageFailed(true);
         return;
       }
       setLoadedRevision(result.sourceRevision);
       setMessage('Saved.');
+      setMessageFailed(false);
       await router.invalidate();
     } catch {
       setMessage('Something went wrong. Try again.');
+      setMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -593,15 +647,18 @@ function SectionForm({
   async function move(direction: 'up' | 'down') {
     setBusy(true);
     setMessage('');
+    setMessageFailed(false);
     try {
       const result = await moveSectionOrder({ data: { propertyId, sectionId: section.id, direction } });
       if ('error' in result) {
         setMessage('Something went wrong. Try again.');
+        setMessageFailed(true);
         return;
       }
       await router.invalidate();
     } catch {
       setMessage('Something went wrong. Try again.');
+      setMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -717,7 +774,9 @@ function SectionForm({
             <Button type="button" onClick={() => move('down')} disabled={busy || last} data-testid="section-move-down">
               Move down
             </Button>
-            <Toast testId="section-status">{message}</Toast>
+            <Toast testId="section-status" tone={messageFailed ? 'error' : undefined}>
+              {message}
+            </Toast>
           </div>
         </form>
         <TranslationBlocks propertyId={propertyId} translations={section.translations} />
@@ -748,6 +807,7 @@ function TranslationBlock({ propertyId, translation }: { propertyId: string; tra
   const router = useRouter();
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
+  const [messageFailed, setMessageFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const locale = translation.locale;
   const { confirm, dialog } = useConfirmDialog();
@@ -765,21 +825,26 @@ function TranslationBlock({ propertyId, translation }: { propertyId: string; tra
     if (!parsed.success) {
       setErrors(collectFieldErrors(parsed.error));
       setMessage('Check the highlighted fields.');
+      setMessageFailed(true);
       return;
     }
     setErrors({});
     setBusy(true);
     setMessage('');
+    setMessageFailed(false);
     try {
       const result = await approveGuideTranslation({ data: parsed.data });
       if ('error' in result) {
         setMessage('Could not approve; if the source text changed meanwhile, generate the translation again.');
+        setMessageFailed(true);
         return;
       }
       setMessage('Translation approved.');
+      setMessageFailed(false);
       await router.invalidate();
     } catch {
       setMessage('Something went wrong. Try again.');
+      setMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -799,18 +864,22 @@ function TranslationBlock({ propertyId, translation }: { propertyId: string; tra
     }
     setBusy(true);
     setMessage('');
+    setMessageFailed(false);
     try {
       const result = await rejectGuideTranslation({ data: { propertyId, translationId: translation.id } });
       if ('error' in result) {
         setMessage(
           approved ? 'Could not withdraw the translation. Try again.' : 'Could not remove the draft. Try again.',
         );
+        setMessageFailed(true);
         return;
       }
       setMessage(approved ? 'Translation withdrawn.' : 'Draft removed.');
+      setMessageFailed(false);
       await router.invalidate();
     } catch {
       setMessage('Something went wrong. Try again.');
+      setMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -893,7 +962,9 @@ function TranslationBlock({ propertyId, translation }: { propertyId: string; tra
           </div>
         </div>
       )}
-      <Toast testId={`translation-status-${locale}`}>{message}</Toast>
+      <Toast testId={`translation-status-${locale}`} tone={messageFailed ? 'error' : undefined}>
+        {message}
+      </Toast>
       {dialog}
     </fieldset>
   );
@@ -905,15 +976,18 @@ function TranslationPanel({ property, sections }: { property: EditorProperty; se
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [messageFailed, setMessageFailed] = useState(false);
   const targets = property.enabledLocales.filter((code) => code !== property.sourceLocale);
 
   async function generate() {
     setBusy(true);
     setMessage('');
+    setMessageFailed(false);
     try {
       const result = await generateGuideTranslations({ data: { propertyId: property.id } });
       if ('error' in result) {
         setMessage('Something went wrong. Try again.');
+        setMessageFailed(true);
         return;
       }
       if (result.state === 'blocked') {
@@ -926,10 +1000,12 @@ function TranslationPanel({ property, sections }: { property: EditorProperty; se
             ', ',
           )}. Edit them, then generate again.`,
         );
+        setMessageFailed(true);
         return;
       }
       if (result.state === 'provider_unavailable') {
         setMessage('Translation is not available right now, and nothing was sent.');
+        setMessageFailed(true);
         return;
       }
       if (result.state === 'generated') {
@@ -938,12 +1014,15 @@ function TranslationPanel({ property, sections }: { property: EditorProperty; se
             ? 'Every enabled language is already translated for the current source text.'
             : `Generated ${result.generated} draft translation${result.generated === 1 ? '' : 's'}. Review each one under its section.`,
         );
+        setMessageFailed(false);
         await router.invalidate();
         return;
       }
       setMessage('Enable a guest language first, then generate.');
+      setMessageFailed(true);
     } catch {
       setMessage('Something went wrong. Try again.');
+      setMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -973,7 +1052,9 @@ function TranslationPanel({ property, sections }: { property: EditorProperty; se
           Generate translations
         </Button>
       </div>
-      <Toast testId="translation-message">{message}</Toast>
+      <Toast testId="translation-message" tone={messageFailed ? 'error' : undefined}>
+        {message}
+      </Toast>
     </section>
   );
 }
@@ -982,6 +1063,7 @@ function AddSectionForm({ propertyId }: { propertyId: string }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
+  const [messageFailed, setMessageFailed] = useState(false);
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -989,19 +1071,23 @@ function AddSectionForm({ propertyId }: { propertyId: string }) {
     const parsed = createSectionInput.safeParse({ propertyId, category: values.category });
     if (!parsed.success) {
       setMessage('Choose a category first.');
+      setMessageFailed(true);
       return;
     }
     setBusy(true);
     setMessage('');
+    setMessageFailed(false);
     try {
       const result = await createSection({ data: parsed.data });
       if ('error' in result) {
         setMessage('Something went wrong. Try again.');
+        setMessageFailed(true);
         return;
       }
       await router.invalidate();
     } catch {
       setMessage('Something went wrong. Try again.');
+      setMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -1027,7 +1113,9 @@ function AddSectionForm({ propertyId }: { propertyId: string }) {
           Add section
         </Button>
       </div>
-      <Toast testId="section-new-status">{message}</Toast>
+      <Toast testId="section-new-status" tone={messageFailed ? 'error' : undefined}>
+        {message}
+      </Toast>
     </form>
   );
 }

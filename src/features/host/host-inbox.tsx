@@ -16,6 +16,7 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
   const router = useRouter();
   const [busyIds, setBusyIds] = useState<ReadonlySet<string>>(new Set());
   const [notice, setNotice] = useState('');
+  const [noticeFailed, setNoticeFailed] = useState(false);
   const { confirm, dialog } = useConfirmDialog();
 
   function stamp(iso: string): string {
@@ -25,13 +26,16 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
   async function run(messageId: string, work: () => Promise<{ error: string } | { ok: boolean }>): Promise<void> {
     setBusyIds((current) => new Set(current).add(messageId));
     setNotice('');
+    setNoticeFailed(false);
     try {
       const result = await work();
+      setNoticeFailed('error' in result);
       if ('error' in result) setNotice('Something went wrong. Try again.');
       else if (!result.ok) setNotice('Nothing changed — the inbox below is refreshed.');
       await router.invalidate();
     } catch {
       setNotice('Something went wrong. Try again.');
+      setNoticeFailed(true);
     } finally {
       setBusyIds((current) => {
         const next = new Set(current);
@@ -51,7 +55,9 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
           <span className="muted small">{waiting === 0 ? 'All handled' : `${waiting} waiting for you`}</span>
         ) : null}
       </header>
-      <Toast testId="inbox-notice">{notice}</Toast>
+      <Toast testId="inbox-notice" tone={noticeFailed ? 'error' : undefined}>
+        {notice}
+      </Toast>
       {messages === null ? (
         <p className="empty" data-testid="inbox-unavailable">
           Inbox unavailable.

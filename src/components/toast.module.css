@@ -6,6 +6,12 @@
   box-shadow: 0 8px 24px rgb(19 32 31 / 20%);
 }
 
+.error {
+  color: var(--negative-ink);
+  background: var(--negative-soft);
+  box-shadow: 0 8px 24px rgb(19 32 31 / 12%);
+}
+
 /* Out of flow but still in the a11y tree, so the live region exists before the message arrives. */
 .toast:empty {
   position: absolute;

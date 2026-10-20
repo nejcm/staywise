@@ -5,6 +5,7 @@ import { bearerSecretFromFragment } from '../features/guest/guest-fragment';
 import { getGuestPage } from '../features/guest/guest-fns';
 import { guestLink, guestLocaleName, guestUiText, languageNames } from '../features/guest/guest-ui';
 import type { GuestPage } from '../features/share/share.server';
+import styles from '../features/guest/guest.module.css';
 
 const guestSearchSchema = z.object({ lang: z.string().max(16).optional() }).catch({});
 
@@ -32,16 +33,16 @@ function GuestLayout() {
 
   if (guest.state === 'denied') {
     return (
-      <main className="guest">
+      <main className={styles.shell}>
         <GuestOpen shareId={shareId} />
       </main>
     );
   }
   const { locale, locales, sourceLocale } = guest.guest;
   return (
-    <main className="guest" lang={locale}>
+    <main className={styles.shell} lang={locale}>
       <a
-        className="skip-link"
+        className={styles.skipLink}
         href="#guest-content"
         data-testid="guest-skip"
         onClick={(event) => {
@@ -52,15 +53,15 @@ function GuestLayout() {
       >
         {guestUiText(locale, 'nav.skip')}
       </a>
-      <header className="guest-header">
-        <div className="guest-top">
-          <p className="guest-label">{guestUiText(locale, 'label.guest')}</p>
+      <header className={styles.header}>
+        <div className={styles.top}>
+          <p className={styles.label}>{guestUiText(locale, 'label.guest')}</p>
           <LocaleSwitch locale={locale} locales={locales} sourceLocale={sourceLocale} pathname={pathname} />
         </div>
         <h1>{guest.guest.displayName}</h1>
         <GuestNav shareId={shareId} locale={locale} sourceLocale={sourceLocale} pathname={pathname} />
       </header>
-      <div id="guest-content" tabIndex={-1} data-testid="guest-content">
+      <div id="guest-content" className={styles.content} tabIndex={-1} data-testid="guest-content">
         <Outlet />
       </div>
     </main>
@@ -84,7 +85,7 @@ function GuestNav({
     { href: `/g/${shareId}/help`, label: guestUiText(locale, 'nav.help') },
   ];
   return (
-    <nav aria-label={guestUiText(locale, 'nav.guide')}>
+    <nav className={styles.nav} aria-label={guestUiText(locale, 'nav.guide')}>
       {tabs.map((tab) => (
         // Full document loads keep the /g-scoped cookie on every request and re-check the link.
         <a
@@ -114,7 +115,7 @@ function LocaleSwitch({
 }) {
   if (locales.length < 2) return null;
   return (
-    <ul className="guest-locales" aria-label={guestUiText(locale, 'nav.languages')} data-testid="guest-locale-switch">
+    <ul className={styles.locales} aria-label={guestUiText(locale, 'nav.languages')} data-testid="guest-locale-switch">
       {locales.map((code) => (
         <li key={code}>
           <a
@@ -165,14 +166,14 @@ function GuestOpen({ shareId }: { shareId: string }) {
 
   if (denied) {
     return (
-      <section className="guest-card" data-testid="guest-denied">
+      <section className={`${styles.card} ${styles.unavailable}`} data-testid="guest-denied">
         <h1>This link can&apos;t be opened</h1>
         <p>Ask your host to send you a new link.</p>
       </section>
     );
   }
   return (
-    <section className="guest-card" data-testid="guest-opening">
+    <section className={`${styles.card} ${styles.unavailable}`} data-testid="guest-opening">
       <h1>Opening your guide…</h1>
       <p>Stay on this page while we check your link.</p>
       <noscript>
