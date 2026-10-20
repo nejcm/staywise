@@ -1,6 +1,7 @@
 {
   "name": "staywise",
   "private": true,
+  "license": "UNLICENSED",
   "type": "module",
   "scripts": {
     "dev": "vite dev --port 3000",

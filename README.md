@@ -2,9 +2,13 @@
 
 Guest portal for independent vacation-rental owners (1–10 properties): a mobile guest guide served by link/QR, plus one host inbox for guest questions and issue reports. No app, no guest account, no booking-system integration at launch.
 
-**Status:** the local pilot feature set is implemented through implementation plan Phase 7c and has synthetic-data verification; independent completion re-review is pending: host onboarding and guide authoring, link/QR sharing, the guest guide in English/German/Slovenian, inbox and alerts, retention cleanup, and security/accessibility hardening. Deployment, real SMTP, provider backup/PITR, hosted Auth session policy, physical-device checks, and the five-host pilot remain external gates.
+**Status:** the local pilot feature set is implemented through implementation plan Phase 7c, plus the guest features plan (phases 1–8: essentials, call actions, address/maps, answering hours, privacy panel, loading states), with synthetic-data verification: host onboarding and guide authoring, link/QR sharing, the guest guide in English/German/Slovenian, inbox and alerts, retention cleanup, and security/accessibility hardening. Deployment, real SMTP, provider backup/PITR, hosted Auth session policy, physical-device checks, and the five-host pilot remain external gates.
 
 **Name:** "Staywise" is provisional; existing hospitality products use it (see the product plan).
+
+## Stack
+
+TanStack Start (React 19, SSR, server functions) with CSS Modules, Bun, Supabase (Postgres with RLS, Auth with magic link + TOTP, pg_cron), Netlify. Tests: Vitest unit and local-stack integration suites, pgTAP for the database.
 
 ## Development
 
@@ -117,6 +121,11 @@ Production must either enable `pg_cron` in the Supabase project (the guarded mig
 | Document | What it covers |
 |---|---|
 | [docs/smart_guest_portal_plan.md](docs/smart_guest_portal_plan.md) | Product plan: target segment, competitive scan, MVP, pilot plan and decision rule, risks, technical direction |
-| [plans/implementation_plan.md](plans/implementation_plan.md) | Implementation plan: architecture, data model, security/privacy, phases 0–8 with acceptance criteria, verification, rollout |
+| `plans/implementation_plan.md` (local only, not in git) | Implementation plan: architecture, data model, security/privacy, phases 0–8 with acceptance criteria, verification, rollout |
+| [docs/guest_features_plan.md](docs/guest_features_plan.md) | Guest features plan: essentials, contact and hours, address, privacy panel, loading states; decisions and review dispositions |
 | [docs/decision_log.md](docs/decision_log.md) | All decisions taken (D1–D23, platform decisions, open items), dated |
 | [docs/booking_integration_research.md](docs/booking_integration_research.md) | Integration/ingestion research (18 Oct 2026): OTA API gates, PMS/channel-manager APIs, iCal limits, email parsing, competitor ingestion, AI corpus sourcing |
+
+## License
+
+Proprietary. Copyright (c) 2026 nejcm. All rights reserved; see [LICENSE](LICENSE).
