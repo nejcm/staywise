@@ -1,0 +1,29 @@
+# yaml-language-server: $schema=https://unpkg.com/@nejcm/ulis/schemas/skills.schema.json
+
+"*":
+  skills:
+    - name: https://github.com/elayadesign/ai-design-skills/blob/main/skills/landing-page-design
+      key: ai-design-skills/landing-page-design
+    - name: https://github.com/anthropics/skills
+      key: anthropics/frontend-design
+      args:
+        - --skill frontend-design
+    - name: https://github.com/leonxlnx/taste-skill
+      key: leonxlnx/taste-skill/design-taste-frontend
+      args:
+        - --skill design-taste-frontend
+    - name: https://github.com/emilkowalski/skills
+      key: emilkowalski/skills/find-animation-opportunities
+      args:
+        - --skill find-animation-opportunities
+    - name: https://github.com/emilkowalski/skills
+      key: emilkowalski/skills/improve-animations
+      args:
+        - --skill improve-animations
+    - name: https://github.com/vercel-labs/agent-skills
+      key: vercel-labs/agent-skills/vercel-react-view-transitions
+      args:
+        - --skill vercel-react-view-transitions
+
+    - name: https://github.com/cursor/plugins/tree/main/pstack/skills/create-verification-skill
+    - name: https://github.com/cursor/plugins/tree/main/pstack/skills/maintain-verification-skill

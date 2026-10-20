@@ -6,6 +6,7 @@ coverage/
 .env.*
 !.env.example
 supabase/.temp/
+tanstack/tmp/
 *.log
 .DS_Store
 
@@ -18,3 +19,4 @@ plans/
 .cursor
 .opencode
 .taste-skill
+.ulis/generated
