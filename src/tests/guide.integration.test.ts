@@ -41,7 +41,8 @@ const describeLocal = localStack && localDbUp && devServerUp ? describe : descri
 // The dev server's log file is an orchestration artifact; the forced-failure log assertions skip
 // when it is absent (for example when the server logs to a terminal).
 function devServerLogBytes(): string | null {
-  const path = fileURLToPath(new URL('../../.git/orchestration/dev-server.log', import.meta.url));
+  const path =
+    process.env.DEV_SERVER_LOG ?? fileURLToPath(new URL('../../.git/orchestration/dev-server.log', import.meta.url));
   return existsSync(path) ? readFileSync(path, 'utf8') : null;
 }
 
@@ -132,6 +133,10 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
           checkinTime: null,
           checkoutTime: null,
           address: null,
+          contactPhone: null,
+          answerFrom: null,
+          answerTo: null,
+          timezone: 'UTC',
         },
       });
 
@@ -170,6 +175,10 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
           checkinTime: null,
           checkoutTime: null,
           address: null,
+          contactPhone: null,
+          answerFrom: null,
+          answerTo: null,
+          timezone: 'UTC',
         },
       });
       for (const leak of ['SYNTHETIC-NOTE-BODY', 'SYNTHETIC-SECRET-CODE']) {
@@ -943,7 +952,7 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
       if (!copied?.propertyId) throw new Error('synthetic copy failed');
       const copy = await withOwnerContext(owner.userId, (tx) => readGuideEditor(tx, copied.propertyId as string));
       expect(copy?.property).toMatchObject({
-        wifiName: 'Synthetic net',
+        wifiName: ' Spaced net ',
         wifiPassword: null,
         keyboxCode: null,
         checkinTime: '15:00',

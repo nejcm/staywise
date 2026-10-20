@@ -34,9 +34,9 @@ const devServerUp = await detectDevServer();
 const describeLocal = localStack && localDbUp && devServerUp ? describe : describe.skip;
 
 const APP = 'http://localhost:3000';
-const GUIDE_FNS = '/src/guide-fns.ts?tss-serverfn-split';
-const SHARE_FNS = '/src/share-fns.ts?tss-serverfn-split';
-const MESSAGE_FNS = '/src/messages-fns.ts?tss-serverfn-split';
+const GUIDE_FNS = '/src/features/guide/guide-fns.ts?tss-serverfn-split';
+const SHARE_FNS = '/src/features/share/share-fns.ts?tss-serverfn-split';
+const MESSAGE_FNS = '/src/features/messages/messages-fns.ts?tss-serverfn-split';
 const PUBLISHED_BODY = 'SYNTHETIC-PUBLISHED-BODY-OK';
 const BODY_MARKER = 'SYNTHETIC-PHASE6-BODY-NEVER-EGRESS';
 const REPLY_MARKER = 'synthetic-phase6-reply@example.test';
@@ -45,7 +45,8 @@ type ShareLink = { shareId: string; secret: string };
 type GuestSession = { link: ShareLink; guestCookie: string; guestToken: string };
 
 function devServerLog(): string | null {
-  const path = fileURLToPath(new URL('../../.git/orchestration/dev-server.log', import.meta.url));
+  const path =
+    process.env.DEV_SERVER_LOG ?? fileURLToPath(new URL('../../.git/orchestration/dev-server.log', import.meta.url));
   return existsSync(path) ? readFileSync(path, 'utf8') : null;
 }
 

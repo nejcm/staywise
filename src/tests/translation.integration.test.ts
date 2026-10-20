@@ -28,8 +28,8 @@ const localDbUp = await detectLocalDb();
 const devServerUp = await detectDevServer();
 const describeLocal = localStack && localDbUp && devServerUp ? describe : describe.skip;
 
-const GUIDE_FNS = '/src/guide-fns.ts?tss-serverfn-split';
-const TRANSLATION_FNS = '/src/translation-fns.ts?tss-serverfn-split';
+const GUIDE_FNS = '/src/features/guide/guide-fns.ts?tss-serverfn-split';
+const TRANSLATION_FNS = '/src/features/translation/translation-fns.ts?tss-serverfn-split';
 
 const TOKEN_URL = 'https://oauth2.googleapis.com/token';
 const TRANSLATE_URL =
