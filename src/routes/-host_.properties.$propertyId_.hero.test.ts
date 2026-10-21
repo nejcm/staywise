@@ -119,18 +119,6 @@ describe('hero upload', () => {
     expect(drainStorageDeletions).not.toHaveBeenCalled();
   });
 
-  it('does not start the upload once too little of the reservation lease is left', async () => {
-    const now = vi
-      .spyOn(performance, 'now')
-      .mockReturnValueOnce(0)
-      .mockReturnValueOnce(2 * 60_000 + 1);
-    expect((await upload(jpeg)).status).toBe(500);
-    now.mockRestore();
-    expect(reserveHeroUpload).toHaveBeenCalledOnce();
-    expect(putImage).not.toHaveBeenCalled();
-    expect(upsertHero).not.toHaveBeenCalled();
-  });
-
   it.each([
     ['rejects', () => vi.mocked(putImage).mockResolvedValue(false)],
     ['throws', () => vi.mocked(putImage).mockRejectedValue(new Error('timeout'))],

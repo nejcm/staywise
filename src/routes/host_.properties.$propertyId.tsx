@@ -1516,7 +1516,7 @@ const heroLongEdge = 1600;
 // Re-encoding through a canvas drops Exif/GPS and normalizes HEIC or PNG sources to JPEG (ADR 0005).
 async function encodeHero(file: File): Promise<Blob | null> {
   try {
-    const bitmap = await createImageBitmap(file);
+    const bitmap = await createImageBitmap(file, { imageOrientation: 'from-image' });
     const scale = Math.min(1, heroLongEdge / Math.max(bitmap.width, bitmap.height));
     const canvas = document.createElement('canvas');
     canvas.width = Math.round(bitmap.width * scale);
@@ -1655,7 +1655,6 @@ function CoverPhotoPanel({
           )}
           <Field label="Choose a photo">
             <input
-              id="cover-photo-file"
               type="file"
               accept="image/*"
               disabled={working}

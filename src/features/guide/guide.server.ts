@@ -36,7 +36,7 @@ export type GuideTranslation = {
   reviewedAt: string | null;
 };
 
-// Object paths never leave the server; version changes with every upload so URLs can be cached.
+// Object paths never leave the server.
 export type HeroImage = { alt: string; width: number; height: number; version: string };
 
 export type GuideEditorData = {
@@ -165,7 +165,7 @@ export async function ownsProperty(tx: postgres.TransactionSql, propertyId: stri
 
 type HeroRow = { alt: string; width: number; height: number; created_at: Date };
 
-export function toHeroImage(row: HeroRow): HeroImage {
+function toHeroImage(row: HeroRow): HeroImage {
   return { alt: row.alt, width: row.width, height: row.height, version: String(row.created_at.getTime()) };
 }
 
@@ -184,7 +184,6 @@ export async function readHeroPath(tx: postgres.TransactionSql, propertyId: stri
   return row?.object_path ?? null;
 }
 
-// Queues a fresh key before upload, so bytes from a failed or abandoned upload are drained later (ADR 0005).
 export async function reserveHeroUpload(tx: postgres.TransactionSql, propertyId: string): Promise<string | null> {
   const parsed = canonicalInput(propertyIdInput, { propertyId });
   const objectPath = `${parsed.propertyId}/${crypto.randomUUID()}.jpg`;
@@ -194,7 +193,6 @@ export async function reserveHeroUpload(tx: postgres.TransactionSql, propertyId:
   return row?.reserved ? objectPath : null;
 }
 
-// Claims the reservation in the row's transaction; replacing the row queues the old object for the drain.
 export async function upsertHero(
   tx: postgres.TransactionSql,
   objectPath: string,
@@ -203,8 +201,12 @@ export async function upsertHero(
   const parsed = canonicalInput(heroWriteInput, input);
   if (!objectPath.startsWith(`${parsed.propertyId}/`)) throw new Error('invalid_input');
   if (!(await ownsProperty(tx, parsed.propertyId))) return null;
-  // The delete's row lock serializes with the drain's: if the drain took the path first, nothing is claimed.
-  const claimed = await tx`delete from app.storage_deletions where object_path = ${objectPath} returning object_path`;
+  // A due reservation may already be drained, even if that drain later rolled back (ADR 0005).
+  const claimed = await tx`
+    delete from app.storage_deletions
+    where object_path = ${objectPath} and not_before > clock_timestamp()
+    returning object_path
+  `;
   if (claimed.length !== 1) throw new Error('upload_reservation_expired');
   const [row] = await tx<HeroRow[]>`
     insert into app.property_images (property_id, object_path, alt, width, height, bytes)

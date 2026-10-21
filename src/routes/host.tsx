@@ -434,20 +434,6 @@ function PropertyRow({ property }: { property: PropertySummary }) {
   return (
     <tr data-testid="host-property">
       <td>
-        {property.hero ? (
-          <img
-            className={styles.homeThumb}
-            src={`/host/properties/${property.id}/hero?v=${property.hero.version}`}
-            alt=""
-            width={72}
-            height={48}
-            decoding="async"
-            loading="lazy"
-            data-testid="host-property-thumb"
-          />
-        ) : (
-          <span className={styles.homeThumb} data-testid="host-property-thumb-empty" />
-        )}
         <Link
           to="/host/properties/$propertyId"
           params={params}

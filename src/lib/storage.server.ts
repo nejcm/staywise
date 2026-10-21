@@ -11,7 +11,6 @@ function withWriteDeadline(input: RequestInfo | URL, init?: RequestInit): Promis
   return fetch(input, { ...init, signal: AbortSignal.timeout(STORAGE_WRITE_TIMEOUT_MS) });
 }
 
-// The secret key performs I/O only; callers read the image row under RLS first (ADR 0005).
 const bucket = serverEnv.supabaseSecretKey
   ? createClient(serverEnv.supabaseUrl, serverEnv.supabaseSecretKey, {
       auth: { persistSession: false, autoRefreshToken: false },
@@ -31,13 +30,13 @@ export async function getImage(path: string): Promise<ReadableStream<Uint8Array>
   return error ? null : (data as ReadableStream<Uint8Array>);
 }
 
-// Deleting the rows first locks them through the Storage call, so a publish that claims the same path
-// either commits first (the row is then skipped) or finds nothing to claim; a failed removal rolls back.
+// The row locks taken by the delete serialize with a publish claim until Storage answers (ADR 0005).
 export async function drainStorageDeletions(limit = 50): Promise<number> {
   const storage = bucket;
   if (!storage) return 0;
   return sql
     .begin(async (tx) => {
+      await tx`set local lock_timeout = '2s'`;
       const rows = await tx<{ object_path: string }[]>`
         delete from app.storage_deletions where object_path in (
           select object_path from app.storage_deletions where not_before <= now() order by queued_at limit ${limit}
@@ -52,7 +51,6 @@ export async function drainStorageDeletions(limit = 50): Promise<number> {
     .catch(() => 0);
 }
 
-// Stops at an empty queue or the first failed batch; a failure stays queued for the next drain.
 export async function drainAllStorageDeletions(): Promise<number> {
   let total = 0;
   for (;;) {

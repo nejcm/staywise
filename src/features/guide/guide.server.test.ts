@@ -180,11 +180,11 @@ describe('hero writes', () => {
       height: 1067,
       version: String(created.getTime()),
     });
-    expect(queries[1]?.text).toContain('delete from app.storage_deletions');
+    expect(queries[1]?.text).toContain('not_before > clock_timestamp()');
     expect(queries[2]?.values).toEqual([propertyId, objectPath, 'Lake view', 1600, 1067, 900000]);
   });
 
-  it('refuses a reservation the drain already took, or a key outside the property prefix', async () => {
+  it('refuses a due or drained reservation, or a key outside the property prefix', async () => {
     const expired = fakeTx([{}], []);
     await expect(upsertHero(expired.tx, objectPath, input)).rejects.toThrow('upload_reservation_expired');
     expect(expired.queries).toHaveLength(2);

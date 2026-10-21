@@ -293,16 +293,6 @@
   text-decoration: underline;
 }
 
-.homeThumb {
-  float: left;
-  width: 72px;
-  height: 48px;
-  margin-right: var(--space-3);
-  object-fit: cover;
-  border-radius: var(--radius-card);
-  background: var(--rule);
-}
-
 .homeMeta {
   display: block;
   font-size: var(--fs-small);

@@ -16,11 +16,13 @@ vi.mock('./env.server', () => ({ serverEnv: env }));
 vi.mock('@supabase/supabase-js', () => ({ createClient }));
 
 const queued = [{ object_path: 'p/a.jpg' }, { object_path: 'p/b.jpg' }];
+const isDelete = (strings: unknown) => String(strings).includes('delete from app.storage_deletions');
+const statement = (strings: unknown) => (isDelete(strings) ? queued : []);
 
 beforeEach(() => {
   vi.resetModules();
   env.supabaseSecretKey = 'sb_secret_SYNTHETIC';
-  tx.mockReset().mockReturnValue(queued);
+  tx.mockReset().mockImplementation(statement);
   createClient.mockClear();
   for (const fn of Object.values(bucket)) fn.mockReset();
   sql.begin.mockReset().mockImplementation(async (work: (t: typeof tx) => Promise<unknown>) => work(tx));
@@ -56,9 +58,8 @@ describe('storage', () => {
     const { drainStorageDeletions } = await import('./storage.server');
     bucket.remove.mockResolvedValue({ data: [{ name: 'p/a.jpg' }], error: null });
     expect(await drainStorageDeletions()).toBe(2);
-    const statement = String(tx.mock.calls[0]?.[0]);
-    expect(statement).toContain('delete from app.storage_deletions');
-    expect(statement).toContain('where not_before <= now()');
+    expect(String(tx.mock.calls[0]?.[0])).toContain("lock_timeout = '2s'");
+    expect(String(tx.mock.calls[1]?.[0])).toContain('where not_before <= now()');
     expect(bucket.remove).toHaveBeenCalledWith(['p/a.jpg', 'p/b.jpg']);
 
     bucket.remove.mockResolvedValue({ data: null, error: new Error('storage down SYNTHETIC') });
@@ -76,7 +77,8 @@ describe('storage', () => {
   it('drains every batch until the queue is empty or a batch fails', async () => {
     const { drainAllStorageDeletions } = await import('./storage.server');
     let selects = 0;
-    tx.mockImplementation(() => {
+    tx.mockImplementation((strings: unknown) => {
+      if (!isDelete(strings)) return [];
       selects += 1;
       return selects <= 2 ? queued : [];
     });

@@ -160,51 +160,104 @@ describeLocal('hero image routes against the local stack', () => {
       expect(decode<{ ok?: boolean }>(removed)?.result?.ok).toBe(true);
       expect(await storedObjects(propertyId)).toEqual({ objects: 0, queued: 0 });
       expect((await hostHero(propertyId, host.jar.header())).status).toBe(404);
+
+      expect((await upload(propertyId, host.jar.header())).status).toBe(200);
+      const deleted = await guideFn('deleteProperty', { jar: host.jar, data: { propertyId } });
+      expect(decode<{ ok?: boolean }>(deleted)?.result?.ok).toBe(true);
+      expect(await storedObjects(propertyId)).toEqual({ objects: 0, queued: 0 });
     } finally {
       await admin`delete from app.properties where id = ${propertyId}`;
       await admin`delete from app.storage_deletions where object_path like ${`${propertyId}/%`}`;
     }
   });
 
-  it('makes a drain wait for a publish that claimed a due reservation, then keeps its bytes', async (ctx) => {
+  async function storageModule(ctx: { skip: () => void }) {
     const secretKey = (localStack as LocalStack).secretKey;
     if (!secretKey.startsWith('sb_secret_')) ctx.skip();
     // The test process has no .env; the Storage client reads the key when the module loads.
     serverEnv.supabaseSecretKey = secretKey;
-    const { drainStorageDeletions, putImage } = await import('../lib/storage.server');
+    return import('../lib/storage.server');
+  }
+
+  async function withOwnedProperty(work: (ownerId: string, propertyId: string) => Promise<void>) {
+    const { drainStorageDeletions } = await import('../lib/storage.server');
     const ownerId = crypto.randomUUID();
     const propertyId = crypto.randomUUID();
     await admin`insert into auth.users (id, email) values (${ownerId}, ${`hero-race-${ownerId}@example.test`})`;
     await admin`insert into app.properties (id, owner_id, display_name) values (${propertyId}, ${ownerId}, 'Race villa (synthetic)')`;
     try {
-      const objectPath = await withOwnerContext(ownerId, (tx) => reserveHeroUpload(tx, propertyId));
-      if (!objectPath) throw new Error('synthetic reservation failed');
-      expect(await putImage(objectPath, jpeg)).toBe(true);
-      await admin`update app.storage_deletions set not_before = now() - interval '1 second' where object_path = ${objectPath}`;
-
-      let claimed = () => {};
-      let release = () => {};
-      const claimedSignal = new Promise<void>((resolve) => (claimed = resolve));
-      const releaseSignal = new Promise<void>((resolve) => (release = resolve));
-      const input = { propertyId, alt: 'Race (synthetic)', width: 24, height: 16, bytes: jpeg.byteLength };
-      const publish = withOwnerContext(ownerId, async (tx) => {
-        const hero = await upsertHero(tx, objectPath, input);
-        claimed();
-        await releaseSignal;
-        return hero;
-      });
-      await claimedSignal;
-      const drain = drainStorageDeletions();
-      expect(await drainWaitsOnLock()).toBe(true);
-      release();
-      expect(await publish).not.toBeNull();
-      await drain;
-      expect(await storedObjects(propertyId)).toEqual({ objects: 1, queued: 0 });
+      await work(ownerId, propertyId);
     } finally {
       await admin`delete from auth.users where id = ${ownerId}`;
       await admin`update app.storage_deletions set not_before = now() where object_path like ${`${propertyId}/%`}`;
       await drainStorageDeletions();
       expect(await storedObjects(propertyId)).toEqual({ objects: 0, queued: 0 });
     }
+  }
+
+  const input = (propertyId: string) => ({
+    propertyId,
+    alt: 'Race (synthetic)',
+    width: 24,
+    height: 16,
+    bytes: jpeg.byteLength,
+  });
+
+  it('refuses to publish a due reservation and drains one whose bytes never arrived', async (ctx) => {
+    const { drainStorageDeletions } = await storageModule(ctx);
+    await withOwnedProperty(async (ownerId, propertyId) => {
+      const objectPath = await withOwnerContext(ownerId, (tx) => reserveHeroUpload(tx, propertyId));
+      if (!objectPath) throw new Error('synthetic reservation failed');
+      // Stands in for a drain that removed the bytes and then rolled back, leaving the row due again.
+      await admin`update app.storage_deletions set not_before = now() - interval '1 second' where object_path = ${objectPath}`;
+      await expect(withOwnerContext(ownerId, (tx) => upsertHero(tx, objectPath, input(propertyId)))).rejects.toThrow(
+        'upload_reservation_expired',
+      );
+      expect(await storedObjects(propertyId)).toEqual({ objects: 0, queued: 1 });
+      expect(await drainStorageDeletions()).toBeGreaterThan(0);
+      expect(await storedObjects(propertyId)).toEqual({ objects: 0, queued: 0 });
+    });
+  });
+
+  it('makes a drain wait for a publish that claimed its reservation, then keeps the bytes', async (ctx) => {
+    const { drainStorageDeletions, putImage } = await storageModule(ctx);
+    await withOwnedProperty(async (ownerId, propertyId) => {
+      const objectPath = await withOwnerContext(ownerId, (tx) => reserveHeroUpload(tx, propertyId));
+      if (!objectPath) throw new Error('synthetic reservation failed');
+      expect(await putImage(objectPath, jpeg)).toBe(true);
+      const [lease] = await admin<{ due: Date }[]>`
+        update app.storage_deletions set not_before = clock_timestamp() + interval '1 second'
+        where object_path = ${objectPath} returning not_before as due
+      `;
+
+      let claimed = () => {};
+      let release = () => {};
+      const claimedSignal = new Promise<void>((resolve) => (claimed = resolve));
+      const releaseSignal = new Promise<void>((resolve) => (release = resolve));
+      const publish = withOwnerContext(ownerId, async (tx) => {
+        const hero = await upsertHero(tx, objectPath, input(propertyId));
+        claimed();
+        await releaseSignal;
+        return hero;
+      });
+      let drain: Promise<number> | undefined;
+      try {
+        await Promise.race([claimedSignal, publish]);
+        // The claimed row becomes due while the publish is still open, which is when a drain could take it.
+        while (
+          (await admin<{ due: boolean }[]>`select clock_timestamp() > ${lease?.due ?? new Date()} as due`)[0]?.due !==
+          true
+        ) {
+          await new Promise((resolve) => setTimeout(resolve, 50));
+        }
+        drain = drainStorageDeletions();
+        expect(await drainWaitsOnLock()).toBe(true);
+      } finally {
+        release();
+        await Promise.allSettled([publish, drain]);
+      }
+      expect(await publish).not.toBeNull();
+      expect(await storedObjects(propertyId)).toEqual({ objects: 1, queued: 0 });
+    });
   });
 });

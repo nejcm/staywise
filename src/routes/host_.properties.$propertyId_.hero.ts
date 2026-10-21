@@ -8,9 +8,6 @@ import { serverEnv } from '../lib/env.server';
 import { aal2Host } from '../lib/fn-guards.server';
 import { drainStorageDeletions, getImage, imageResponse, putImage } from '../lib/storage.server';
 
-// Well inside the 10-minute reservation lease, leaving room for the 15-second Storage write deadline.
-const UPLOAD_START_WINDOW_MS = 2 * 60_000;
-
 function state(value: string, status: number, extra?: Record<string, unknown>): Response {
   return new Response(JSON.stringify({ state: value, ...extra }), {
     status,
@@ -29,7 +26,6 @@ function decodedAlt(header: string | null): string | null {
 export const Route = createFileRoute('/host_/properties/$propertyId_/hero')({
   server: {
     handlers: {
-      // Raw JPEG body, alt text URI-encoded in x-hero-alt; the browser re-encodes before upload (ADR 0005).
       POST: async ({ request, params }) => {
         try {
           if (request.headers.get('origin') !== serverEnv.appOrigin) return state('denied', 403);
@@ -47,12 +43,8 @@ export const Route = createFileRoute('/host_/properties/$propertyId_/hero')({
           const size = parseJpeg(body.bytes);
           if (!size) return state('invalid', 400);
           const propertyId = property.data.propertyId;
-          const reservedAt = performance.now();
           const objectPath = await withOwnerContext(host.userId, (tx) => reserveHeroUpload(tx, propertyId));
           if (!objectPath) return state('denied', 403);
-          // The lease starts after reservedAt, so this elapsed time bounds what is left of it without clock skew.
-          if (performance.now() - reservedAt > UPLOAD_START_WINDOW_MS) return state('error', 500);
-          // Storage I/O stays outside any transaction; until the row claims the key, the drain owns its bytes.
           if (!(await putImage(objectPath, body.bytes))) return state('error', 500);
           const input = { propertyId, alt: alt.data, bytes: body.bytes.byteLength, ...size };
           const hero = await withOwnerContext(host.userId, (tx) => upsertHero(tx, objectPath, input));
