@@ -5,6 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routeTree } from '../routeTree.gen';
 import { getHostAuthState, listOwnProperties, mfaUnenroll } from '../features/host/host-fns';
+import { guestLocales } from '../features/guide/guide-validation';
 
 vi.mock('../features/host/host-fns', () => ({
   getHostAuthState: vi.fn(),
@@ -56,5 +57,15 @@ describe('host account two-step sign-in', () => {
     const toast = await screen.findByText('Something went wrong. Try again.');
     expect(toast.className).toMatch(/error/);
     await waitFor(() => expect((button as HTMLButtonElement).disabled).toBe(false));
+  });
+});
+
+describe('host create property', () => {
+  it('offers only the approved guest languages as the guide language', async () => {
+    vi.mocked(listOwnProperties).mockResolvedValue({ properties: [] } as never);
+    await renderHost();
+    const select = (await screen.findByTestId('host-create-locale')) as HTMLSelectElement;
+    expect([...select.options].map((option) => option.value)).toEqual([...guestLocales]);
+    expect(select.value).toBe('en');
   });
 });

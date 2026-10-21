@@ -434,16 +434,19 @@ function HostPage() {
               errorId="create-locale-error"
               errorTestId="host-create-locale-error"
             >
-              <input
+              <select
                 name="sourceLocale"
                 defaultValue="en"
-                maxLength={5}
-                required
-                title="Language tag like en or pt-BR"
                 aria-invalid={Boolean(createErrors.sourceLocale)}
                 aria-describedby={createErrors.sourceLocale ? 'create-locale-error' : undefined}
                 data-testid="host-create-locale"
-              />
+              >
+                {guestLocales.map((locale) => (
+                  <option key={locale} value={locale}>
+                    {guestLocaleName(locale)}
+                  </option>
+                ))}
+              </select>
             </Field>
             <div className="actions">
               <Button type="submit" variant="primary" disabled={busy} data-testid="host-create-submit">
