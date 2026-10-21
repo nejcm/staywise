@@ -107,8 +107,9 @@ function PrivacyNotice() {
             </li>
             <li>
               Audit and setup events are deleted after 90 days. Disabled-link metadata is deleted after 30 days; expired
-              guest sessions and old rate-limit windows are removed by cleanup. Guest counters remain while the property
-              exists. Reservations are empty in this pilot; the schema deletes them 90 days after the stay end date.
+              guest sessions and old rate-limit windows are removed by cleanup. Guest counters are deleted 400 days
+              after the day they count. Reservations are empty in this pilot; the schema deletes them 90 days after the
+              stay end date.
             </li>
             <li>
               A host can delete their account from Settings. Deletion is immediate and cannot be undone: it removes the

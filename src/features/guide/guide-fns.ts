@@ -29,6 +29,7 @@ import {
   updateProperty,
   updateSection,
 } from './guide.server';
+import { readGuideGaps } from '../messages/messages.server';
 
 export const createProperty = createServerFn({ method: 'POST' })
   .validator((value: unknown) => value as { displayName: string })
@@ -158,7 +159,7 @@ export const setGuidePublished = createServerFn({ method: 'POST' })
   );
 
 export const createSection = createServerFn({ method: 'POST' })
-  .validator((value: unknown) => value as { propertyId: string; category: string })
+  .validator((value: unknown) => value as { propertyId: string; category: string; fromGap?: boolean })
   .handler(async ({ data }) =>
     runGuarded(async () => {
       if (!isGuardedMutation()) return { error: 'invalid_input' } satisfies FnError;
@@ -168,6 +169,12 @@ export const createSection = createServerFn({ method: 'POST' })
       if ('error' in host) return host;
       const sectionId = await withOwnerContext(host.userId, (tx) => insertSection(tx, input.data));
       if (!sectionId) return { error: 'invalid_input' } satisfies FnError;
+      if (input.data.fromGap) {
+        await recordSetupEvent(host.userId, 'gap_section_added', {
+          propertyId: input.data.propertyId,
+          step: input.data.category,
+        });
+      }
       return { sectionId };
     }),
   );
@@ -229,9 +236,12 @@ export const getPropertyEditor = createServerFn({ method: 'POST' })
       if (!input.success) return { error: 'invalid_input' } satisfies FnError;
       const host = await aal2Host();
       if ('error' in host) return host;
-      const editor = await withOwnerContext(host.userId, (tx) => readGuideEditor(tx, input.data.propertyId));
-      if (!editor) return { error: 'invalid_input' } satisfies FnError;
-      return { editor };
+      const read = await withOwnerContext(host.userId, async (tx) => {
+        const editor = await readGuideEditor(tx, input.data.propertyId);
+        return editor && { editor, gaps: await readGuideGaps(tx, input.data.propertyId) };
+      });
+      if (!read) return { error: 'invalid_input' } satisfies FnError;
+      return read;
     }),
   );
 

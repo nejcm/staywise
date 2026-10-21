@@ -64,6 +64,13 @@ describe('kill switch on', () => {
     expect(withLinkContext).not.toHaveBeenCalled();
   });
 
+  it('denies stay links through the same entry points', async () => {
+    const stayShareId = 'stay-link-0123456789';
+    expect(await exchangeGuestLink({ shareId: stayShareId, secret })).toBeNull();
+    expect(await readGuestPage({ shareId: stayShareId, sessionToken: secret })).toEqual({ state: 'denied' });
+    expect(withLinkContext).not.toHaveBeenCalled();
+  });
+
   it('denies message intake', async () => {
     expect(await submitGuestMessage({ shareId, sessionToken: secret, message })).toEqual({ state: 'denied' });
     expect(withLinkContext).not.toHaveBeenCalled();

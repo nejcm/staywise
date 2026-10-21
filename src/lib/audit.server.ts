@@ -22,6 +22,8 @@ const auditActions = [
   'message_deleted',
   'delete',
   'account_deleted',
+  'stay_link_created',
+  'stay_link_revoked',
 ] as const;
 export type AuditAction = (typeof auditActions)[number];
 

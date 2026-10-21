@@ -133,6 +133,7 @@ export const sectionFields = z
 export const createSectionInput = z.object({
   propertyId: z.uuid(),
   category: z.enum(sectionCategories, 'Choose a section category'),
+  fromGap: z.boolean().optional(),
 });
 export const saveSectionInput = z
   .object({

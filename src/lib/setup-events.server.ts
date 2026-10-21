@@ -8,7 +8,8 @@ export type SetupEventType =
   | 'section_saved'
   | 'preview_opened'
   | 'publish_clicked'
-  | 'support_requested';
+  | 'support_requested'
+  | 'gap_section_added';
 
 // Pilot instrumentation only: host-scoped, never shown to hosts, and never allowed to fail a host
 // action. A property-scoped event inserts only when that property is owned in the same context.
