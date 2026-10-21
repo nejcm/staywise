@@ -311,30 +311,32 @@ function SectionNavRow({
           <small className={section.visibility === 'guest' ? editorStyles.draftNote : undefined}>{note}</small>
         ) : null}
       </button>
-      {first ? null : (
-        <button
-          type="button"
-          className={buttonClass('ghost', 'sm')}
-          onClick={() => void move('up')}
-          disabled={busy}
-          data-testid="section-move-up"
-        >
-          <Icon icon={ArrowUp} />
-          Move up<span className={styles.srOnly}>: {name}</span>
-        </button>
-      )}
-      {last ? null : (
-        <button
-          type="button"
-          className={buttonClass('ghost', 'sm')}
-          onClick={() => void move('down')}
-          disabled={busy}
-          data-testid="section-move-down"
-        >
-          <Icon icon={ArrowDown} />
-          Move down<span className={styles.srOnly}>: {name}</span>
-        </button>
-      )}
+      <span className={editorStyles.navMoves}>
+        {first ? null : (
+          <button
+            type="button"
+            className={buttonClass('ghost', 'sm')}
+            onClick={() => void move('up')}
+            disabled={busy}
+            aria-label={`Move ${name} up`}
+            data-testid="section-move-up"
+          >
+            <Icon icon={ArrowUp} />
+          </button>
+        )}
+        {last ? null : (
+          <button
+            type="button"
+            className={`${buttonClass('ghost', 'sm')} ${editorStyles.moveDown}`}
+            onClick={() => void move('down')}
+            disabled={busy}
+            aria-label={`Move ${name} down`}
+            data-testid="section-move-down"
+          >
+            <Icon icon={ArrowDown} />
+          </button>
+        )}
+      </span>
       {failed ? (
         <p role="alert" className={editorStyles.navError}>
           Could not move. Try again.
@@ -1640,7 +1642,7 @@ function CoverPhotoPanel({
           Cover photos are not available on this server. Set SUPABASE_SECRET_KEY to turn them on.
         </p>
       ) : (
-        <>
+        <div className={editorStyles.cover}>
           {shown ? (
             <img
               className={editorStyles.coverPreview}
@@ -1653,62 +1655,64 @@ function CoverPhotoPanel({
           ) : (
             <p className="small muted">Guests see this photo at the top of the guide&apos;s Home page.</p>
           )}
-          <Field label="Choose a photo">
-            <input
-              type="file"
-              accept="image/*"
-              disabled={working}
-              onChange={(event) => void choose(event.currentTarget.files?.[0])}
-              data-testid="cover-photo-file"
-            />
-          </Field>
-          <Field
-            label="Photo description for guests who cannot see it"
-            error={altError}
-            errorId="cover-photo-alt-error"
-            errorTestId="cover-photo-alt-error"
-          >
-            <input
-              value={alt}
-              maxLength={200}
-              onChange={(event) => setAlt(event.currentTarget.value)}
-              aria-invalid={Boolean(altError)}
-              aria-describedby={altError ? 'cover-photo-alt-error' : undefined}
-              data-testid="cover-photo-alt"
-            />
-          </Field>
-          <div className="actions">
-            {pending ? (
-              <Button type="button" onClick={() => void upload()} disabled={working} data-testid="cover-photo-upload">
-                <Icon icon={ImageUp} />
-                {uploading ? 'Uploading…' : hero ? 'Replace photo' : 'Upload photo'}
-              </Button>
-            ) : null}
-            {hero && !pending ? (
-              <>
-                <Button
-                  type="button"
-                  variant="ghost"
-                  onClick={saveAlt}
-                  disabled={working}
-                  data-testid="cover-photo-alt-save"
-                >
-                  Save description
+          <div className="stack">
+            <Field label="Choose a photo">
+              <input
+                type="file"
+                accept="image/*"
+                disabled={working}
+                onChange={(event) => void choose(event.currentTarget.files?.[0])}
+                data-testid="cover-photo-file"
+              />
+            </Field>
+            <Field
+              label="Photo description for guests who cannot see it"
+              error={altError}
+              errorId="cover-photo-alt-error"
+              errorTestId="cover-photo-alt-error"
+            >
+              <input
+                value={alt}
+                maxLength={200}
+                onChange={(event) => setAlt(event.currentTarget.value)}
+                aria-invalid={Boolean(altError)}
+                aria-describedby={altError ? 'cover-photo-alt-error' : undefined}
+                data-testid="cover-photo-alt"
+              />
+            </Field>
+            <div className="actions">
+              {pending ? (
+                <Button type="button" onClick={() => void upload()} disabled={working} data-testid="cover-photo-upload">
+                  <Icon icon={ImageUp} />
+                  {uploading ? 'Uploading…' : hero ? 'Replace photo' : 'Upload photo'}
                 </Button>
-                <Button
-                  type="button"
-                  variant="danger"
-                  onClick={() => void remove()}
-                  disabled={working}
-                  data-testid="cover-photo-remove"
-                >
-                  <Icon icon={Trash} />
-                  Remove photo
-                </Button>
-              </>
-            ) : null}
+              ) : null}
+              {hero && !pending ? (
+                <>
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    onClick={saveAlt}
+                    disabled={working}
+                    data-testid="cover-photo-alt-save"
+                  >
+                    Save description
+                  </Button>
+                  <Button
+                    type="button"
+                    variant="danger"
+                    onClick={() => void remove()}
+                    disabled={working}
+                    data-testid="cover-photo-remove"
+                  >
+                    <Icon icon={Trash} />
+                    Remove photo
+                  </Button>
+                </>
+              ) : null}
+            </div>
           </div>
-        </>
+        </div>
       )}
       <Toast testId="cover-photo-message" tone={notice.failed ? 'error' : undefined}>
         {notice.text}

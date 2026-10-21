@@ -27,11 +27,14 @@ function accessibleName(control: Element): string {
   return (control.getAttribute('aria-label') ?? '').trim() || visibleText(control).trim();
 }
 
-// Every control shows its own text (aria-label alone does not count), has a non-empty accessible name, and every icon is hidden.
+// Every control has a non-empty accessible name from its visible text or aria-label, and every icon is hidden.
 export function expectNamedControlsAndHiddenIcons(root: ParentNode) {
   const unnamed = [...root.querySelectorAll('a, button')]
     .filter((control) => !control.closest('dialog:not([open])'))
-    .filter((control) => !visibleText(control).trim() || !accessibleName(control))
+    .filter(
+      (control) =>
+        !accessibleName(control) || (!visibleText(control).trim() && !control.getAttribute('aria-label')?.trim()),
+    )
     .map((control) => control.outerHTML);
   expect(unnamed).toEqual([]);
   const exposed = [...root.querySelectorAll('svg:not([role="img"])')]

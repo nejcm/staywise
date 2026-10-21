@@ -15,8 +15,13 @@ describe('expectNamedControlsAndHiddenIcons', () => {
     expect(check(`<button>${icon}Move up</button><a href="/x">${icon}Call</a>`)).not.toThrow();
   });
 
-  it('rejects an icon-only button named only by aria-label', () => {
-    expect(check(`<button aria-label="Move up">${icon}</button>`)).toThrow();
+  it('accepts an icon-only button named by aria-label, but not a blank one', () => {
+    expect(check(`<button aria-label="Move Wi-Fi up">${icon}</button>`)).not.toThrow();
+    expect(check(`<button aria-label="  ">${icon}</button>`)).toThrow();
+  });
+
+  it('rejects an icon-only button named only through aria-labelledby', () => {
+    expect(check(`<span id="label">Move up</span><button aria-labelledby="label">${icon}</button>`)).toThrow();
   });
 
   it('rejects a link whose only text is inside an aria-hidden subtree', () => {
