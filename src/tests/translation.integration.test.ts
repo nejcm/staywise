@@ -815,7 +815,7 @@ describeLocal('stored guide localization (synthetic provider double)', () => {
     };
     const localeHrefs = (html: string) => {
       const entries: Record<string, string> = {};
-      for (const code of ['en', 'de', 'sl']) {
+      for (const code of ['en', 'de', 'sl', 'fr', 'es']) {
         const href = html.match(new RegExp(`href="([^"]*)"[^>]*data-testid="guest-locale-${code}"`))?.[1];
         if (href) entries[code] = href;
       }

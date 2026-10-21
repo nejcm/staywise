@@ -30,7 +30,7 @@ describe('guest message validation', () => {
   it('rejects unknown kinds, categories, locales, unbounded bodies, and bad addresses', () => {
     expect(guestMessageFields.safeParse({ ...valid, kind: 'chat' }).success).toBe(false);
     expect(guestMessageFields.safeParse({ ...valid, category: 'roof' }).success).toBe(false);
-    expect(guestMessageFields.safeParse({ ...valid, locale: 'fr' }).success).toBe(false);
+    expect(guestMessageFields.safeParse({ ...valid, locale: 'it' }).success).toBe(false);
     expect(guestMessageFields.safeParse({ ...valid, body: '' }).success).toBe(false);
     expect(guestMessageFields.safeParse({ ...valid, body: 'x'.repeat(2001) }).success).toBe(false);
     expect(guestMessageFields.safeParse({ ...valid, body: 'break\u0007' }).success).toBe(false);
@@ -42,7 +42,7 @@ describe('guest message validation', () => {
     const result = guestMessageFields.safeParse({
       kind: 'chat',
       category: 'roof',
-      locale: 'fr',
+      locale: 'it',
       body: '',
       replyEmail: 'nope',
     });
@@ -217,7 +217,7 @@ describe('guest message copy', () => {
     for (const locale of guestLocales) {
       expect(guestUiText(locale, 'form.sent')).not.toMatch(promises);
       expect(guestUiText(locale, 'help.form.intro')).not.toMatch(promises);
-      expect(guestUiText(locale, 'help.form.privacy')).toMatch(/cod|kod/i);
+      expect(guestUiText(locale, 'help.form.privacy')).toMatch(/c[oó]d|kod/i);
     }
   });
 });

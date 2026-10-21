@@ -50,7 +50,7 @@ describe('guest routes', () => {
     const pages = await Promise.all(causes.map((cause) => render('/g/synthetic', cause)));
     expect(new Set(pages).size).toBe(1);
     expect(pages[0]).toContain('Opening your guide');
-    for (const code of ['en', 'de', 'sl']) expect(pages[0]).toContain(`lang="${code}" hrefLang="${code}"`);
+    for (const code of ['en', 'de', 'sl', 'fr', 'es']) expect(pages[0]).toContain(`lang="${code}" hrefLang="${code}"`);
   });
 
   it('localizes the denied page from the fixed UI languages only', async () => {

@@ -50,36 +50,46 @@ export type GenerateOutcome =
 // never prove absence, so the eligible payload stays a narrow allowlist of translated fields.
 const emailPattern = /[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}/;
 const phonePattern = /\+?\d[\d\s()./-]{6,}\d/g;
-// Explicit credential labels in the three supported languages; the Wi-Fi compounds cover the
+// Explicit credential labels in the supported languages; the Wi-Fi compounds cover the
 // shorthand "wifi pass" forms the earlier keyword list caught.
 const credentialLabels = [
-  'passw\\w*',
-  'passcod\\w*',
-  'pincod\\w*',
+  'passw\\p{L}*',
+  'passcod\\p{L}*',
+  'pincod\\p{L}*',
   'pin',
-  '(?:access|door|lock|gate|alarm|entry)\\s+cod\\w*',
-  '(?:wi-?fi|wlan)\\s*[- ]\\s*pass\\w*',
-  '(?:zugangs|zutritts|eingangs|haustür|haustuer|tür|tuer|alarm)-?cod\\w*',
+  '(?:access|door|lock|gate|alarm|entry)\\s+cod\\p{L}*',
+  '(?:wi-?fi|wlan)\\s*[- ]\\s*pass\\p{L}*',
+  '(?:zugangs|zutritts|eingangs|haustür|haustuer|tür|tuer|alarm)-?cod\\p{L}*',
   'ges(?:la|lo)',
-  'vstopn\\w*\\s+kod\\w*',
-  'dostopn\\w*\\s+kod\\w*',
+  'vstopn\\p{L}*\\s+kod\\p{L}*',
+  'dostopn\\p{L}*\\s+kod\\p{L}*',
   'koda\\s+za\\s+(?:vrata|vhod|alarm)',
+  'mots?\\s+de\\s+passe',
+  "code\\s+(?:d['’]acc[eè]s|d['’]entr[eé]e|de\\s+la\\s+porte|du\\s+portail|de\\s+l['’]alarme|de\\s+la\\s+bo[iî]te\\s+[aà]\\s+cl[eé]s)",
+  '(?:code|cl[eé])\\s+(?:wi-?fi|wlan)',
+  'digicode',
+  'contrase(?:ñ|n)as?',
+  'c[oó]digo\\s+(?:de\\s+(?:la\\s+|el\\s+)?|del\\s+)(?:acceso|entrada|alarma|puerta|portal|port[oó]n|caja\\s+de\\s+llaves)',
+  'clave\\s+(?:del?\\s+|de\\s+la\\s+)?(?:wi-?fi|acceso|puerta|portal|entrada)',
 ].join('|');
-const credentialLabel = new RegExp(`\\b(?:${credentialLabels})\\b`, 'giu');
+// \b is ASCII-only even with the u flag, so labels ending in é or ñ need Unicode-aware edges.
+const wordStart = '(?<![\\p{L}\\p{N}])';
+const wordEnd = '(?![\\p{L}\\p{N}])';
+const credentialLabel = new RegExp(`${wordStart}(?:${credentialLabels})${wordEnd}`, 'giu');
 // A labelled assignment such as "Wi-Fi password: summerhouse", "Password for guest Wi-Fi:
 // summerhouse", "WLAN-Passwort für Gäste: ferienhaus" or "Geslo za Wi-Fi: poletje" is treated as a
 // secret whatever the value looks like. Up to four qualifier words may sit between the label and
 // the separator; sentence punctuation ends the window. The composition heuristic below still
 // catches prose forms without an assignment, such as "The door code is BLUEBIRD.".
 const credentialAssignment = new RegExp(
-  `\\b(?:${credentialLabels})\\b(?:\\s+[\\p{L}\\p{N}][\\p{L}\\p{N}'’-]*){0,4}\\s*[:=]\\s*\\S`,
+  `${wordStart}(?:${credentialLabels})${wordEnd}(?:\\s+[\\p{L}\\p{N}][\\p{L}\\p{N}'’-]*){0,4}\\s*[:=]\\s*\\S`,
   'iu',
 );
 
 function keywordSecret(text: string): boolean {
   for (const match of text.matchAll(credentialLabel)) {
     const rest = text.slice(match.index + match[0].length, match.index + match[0].length + 24);
-    for (const token of rest.split(/[^A-Za-z0-9]+/)) {
+    for (const token of rest.split(/[^\p{L}\p{N}]+/u)) {
       if (token.length < 3) continue;
       const digits = token.replace(/\D/g, '').length;
       if (digits >= 2 || (token.length >= 4 && token === token.toUpperCase())) return true;

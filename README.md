@@ -2,7 +2,7 @@
 
 Guest portal for independent vacation-rental owners (1–10 properties): a mobile guest guide served by link/QR, plus one host inbox for guest questions and issue reports. No app, no guest account, no booking-system integration at launch.
 
-**Status:** the local pilot feature set is implemented through implementation plan Phase 7c, plus the guest features plan (phases 1–8: essentials, call actions, address/maps, answering hours, privacy panel, loading states), with synthetic-data verification: host onboarding and guide authoring, link/QR sharing, the guest guide in English/German/Slovenian, inbox and alerts, retention cleanup, and security/accessibility hardening. Deployment, real SMTP, provider backup/PITR, hosted Auth session policy, physical-device checks, and the five-host pilot remain external gates.
+**Status:** the local pilot feature set is implemented through implementation plan Phase 7c, plus the guest features plan (phases 1–8: essentials, call actions, address/maps, answering hours, privacy panel, loading states), with synthetic-data verification: host onboarding and guide authoring, link/QR sharing, the guest guide in English/German/Slovenian/French/Spanish, inbox and alerts, retention cleanup, and security/accessibility hardening. Deployment, real SMTP, provider backup/PITR, hosted Auth session policy, physical-device checks, and the five-host pilot remain external gates.
 
 **Name:** "Staywise" is provisional; existing hospitality products use it (see the product plan).
 
@@ -61,7 +61,7 @@ Each property stores an `alert_email` snapshot of the host's sign-in address whe
 
 ### Privacy and data handling
 
-The local app serves a synthetic-data notice at `/privacy`, linked from the home page, sign-in, host workspace, and guest Help. It describes stored fields, 90-day message/audit/setup retention with earlier host deletion, the property-deletion cascade, the bearer-link capability, log/counter minimization, conditional translation egress, and the missing host account-deletion screen. The guest Help page also shows a localized summary in English, German, or Slovenian. This is implemented local behavior, not a completed legal policy: a named controller/contact, processor/DPA and transfer review, production regions, and real-data approval remain unexecuted external gates.
+The local app serves a synthetic-data notice at `/privacy`, linked from the home page, sign-in, host workspace, and guest Help. It describes stored fields, 90-day message/audit/setup retention with earlier host deletion, the property-deletion cascade, the bearer-link capability, log/counter minimization, conditional translation egress, and the missing host account-deletion screen. The guest Help page also shows a localized summary in English, German, Slovenian, French, or Spanish. This is implemented local behavior, not a completed legal policy: a named controller/contact, processor/DPA and transfer review, production regions, and real-data approval remain unexecuted external gates.
 
 ### Pilot measurement
 

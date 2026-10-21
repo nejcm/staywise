@@ -9,6 +9,7 @@ describe('scanEgressText', () => {
   });
 
   it('blocks secret-like prose before egress', () => {
+    expect(scanEgressText('Le code de la porte est CAFÉ.')).toBe('secret');
     expect(scanEgressText('The door code is BLUEBIRD.')).toBe('secret');
     expect(scanEgressText('WLAN password: 4821')).toBe('secret');
     expect(scanEgressText('Use access code 9182 at the gate.')).toBe('secret');
@@ -22,6 +23,17 @@ describe('scanEgressText', () => {
     expect(scanEgressText('Password: sunflowers')).toBe('secret');
     expect(scanEgressText('WLAN-Passwort: ferienhaus')).toBe('secret');
     expect(scanEgressText('Geslo za Wi-Fi: poletje')).toBe('secret');
+    expect(scanEgressText('Mot de passe Wi-Fi : plage')).toBe('secret');
+    expect(scanEgressText("Code d'accès : soleil")).toBe('secret');
+    expect(scanEgressText('Contraseña del Wi-Fi: playa')).toBe('secret');
+    expect(scanEgressText('Código de la puerta: girasol')).toBe('secret');
+    expect(scanEgressText('Code Wi-Fi : plage')).toBe('secret');
+    expect(scanEgressText('Clé wifi : plage')).toBe('secret');
+    expect(scanEgressText('Digicode : soleil')).toBe('secret');
+    expect(scanEgressText('Code de la boîte à clés : soleil')).toBe('secret');
+    expect(scanEgressText('Clave de la puerta: girasol')).toBe('secret');
+    expect(scanEgressText('Código del portal: girasol')).toBe('secret');
+    expect(scanEgressText('Código de la caja de llaves: girasol')).toBe('secret');
     expect(scanEgressText('Password for guest Wi-Fi: summerhouse')).toBe('secret');
     expect(scanEgressText('WLAN-Passwort für Gäste: ferienhaus')).toBe('secret');
     expect(scanEgressText('Password for the apartment door: sunflowers')).toBe('secret');
@@ -42,6 +54,10 @@ describe('scanEgressText', () => {
     expect(scanEgressText('Der Zugangscode wird Ihnen bei der Ankunft mitgeteilt.')).toBeNull();
     expect(scanEgressText('Der Zugangscode steht in der Mappe. Für die Garage: siehe Seite 4.')).toBeNull();
     expect(scanEgressText('Geslo prejmete po SMS-u pred prihodom.')).toBeNull();
+    expect(scanEgressText('Le mot de passe est envoyé par SMS avant votre arrivée.')).toBeNull();
+    expect(scanEgressText('Recibirá la contraseña por SMS antes de llegar.')).toBeNull();
+    expect(scanEgressText('Le code wifi est sur le routeur.')).toBeNull();
+    expect(scanEgressText('La clave del éxito es descansar.')).toBeNull();
     expect(scanEgressText('Koda za vrata se spremeni ob vsaki prijavi.')).toBeNull();
   });
 });
