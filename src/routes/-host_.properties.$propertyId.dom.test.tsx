@@ -5,7 +5,14 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routeTree } from '../routeTree.gen';
 import { getHostAuthState } from '../features/host/host-fns';
-import { createSection, deleteProperty, getPropertyEditor, setGuidePublished } from '../features/guide/guide-fns';
+import {
+  createSection,
+  deleteProperty,
+  getPropertyEditor,
+  resyncAlertEmail,
+  saveProperty,
+  setGuidePublished,
+} from '../features/guide/guide-fns';
 import { getGuestLink, rotateGuestLink } from '../features/share/share-fns';
 import { getInbox } from '../features/messages/messages-fns';
 import {
@@ -316,5 +323,46 @@ describe('TranslationPanel', () => {
     await userEvent.click(button);
     await expectToast('translation-message', generic, true);
     expect(button.disabled).toBe(false);
+  });
+});
+
+describe('PropertyForm and AlertPanel', () => {
+  it('saves the property and refreshes', async () => {
+    vi.mocked(saveProperty).mockResolvedValue({ ok: true } as never);
+    await renderEditor();
+    await userEvent.click(screen.getByTestId('editor-basics'));
+    await userEvent.click(screen.getByTestId('property-save'));
+    expect(saveProperty).toHaveBeenCalledWith({
+      data: expect.objectContaining({ propertyId, displayName: 'Synthetic villa' }),
+    });
+    await expectToast('property-save-status', 'Saved.', false);
+    await expectInvalidated();
+  });
+
+  it('shows the generic error when saving fails', async () => {
+    vi.mocked(saveProperty).mockResolvedValue({ error: 'unexpected' } as never);
+    await renderEditor();
+    await userEvent.click(screen.getByTestId('editor-basics'));
+    await userEvent.click(screen.getByTestId('property-save'));
+    await expectToast('property-save-status', generic, true);
+    expect(getHostAuthState).toHaveBeenCalledTimes(1);
+  });
+
+  it('resyncs the alert address and refreshes', async () => {
+    vi.mocked(resyncAlertEmail).mockResolvedValue({ alertEmail: 'host@example.test' } as never);
+    await renderEditor();
+    await userEvent.click(screen.getByTestId('alert-email-resync'));
+    expect(resyncAlertEmail).toHaveBeenCalledWith({ data: { propertyId } });
+    await expectToast('alert-email-message', 'Alert address updated to your current sign-in address.', false);
+    expect(screen.getByTestId('alert-email').textContent).toContain('host@example.test');
+    await expectInvalidated();
+  });
+
+  it('shows the generic error when the resync fails', async () => {
+    vi.mocked(resyncAlertEmail).mockResolvedValue({ error: 'unexpected' } as never);
+    await renderEditor();
+    await userEvent.click(screen.getByTestId('alert-email-resync'));
+    await expectToast('alert-email-message', generic, true);
+    expect(getHostAuthState).toHaveBeenCalledTimes(1);
   });
 });
