@@ -1324,28 +1324,15 @@ function TranslationPanel({ property, sections }: { property: EditorProperty; se
 }
 
 function AddSectionForm({ propertyId, onCreated }: { propertyId: string; onCreated: (sectionId: string) => void }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
+  const { busy, notice, run } = useHostAction();
 
   async function add(category: SectionCategory) {
     const parsed = createSectionInput.safeParse({ propertyId, category });
     if (!parsed.success) return;
-    setBusy(true);
-    setMessage('');
-    try {
-      const result = await createSection({ data: parsed.data });
-      if ('error' in result) {
-        setMessage('Something went wrong. Try again.');
-        return;
-      }
-      await router.invalidate();
-      onCreated(result.sectionId);
-    } catch {
-      setMessage('Something went wrong. Try again.');
-    } finally {
-      setBusy(false);
-    }
+    await run(
+      () => createSection({ data: parsed.data }),
+      (result) => onCreated(result.sectionId),
+    );
   }
 
   return (
@@ -1366,7 +1353,7 @@ function AddSectionForm({ propertyId, onCreated }: { propertyId: string; onCreat
         ))}
       </div>
       <Toast testId="section-new-status" tone="error">
-        {message}
+        {notice.text}
       </Toast>
     </section>
   );
