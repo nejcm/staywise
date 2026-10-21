@@ -2,7 +2,7 @@
 
 Guest portal for independent vacation-rental owners (1–10 properties): a mobile guest guide served by link/QR, plus one host inbox for guest questions and issue reports. No app, no guest account, no booking-system integration at launch.
 
-**Status:** the local pilot feature set is implemented through implementation plan Phase 7c, plus the guest features plan (phases 1–8: essentials, call actions, address/maps, answering hours, privacy panel, loading states), with synthetic-data verification: host onboarding and guide authoring, link/QR sharing, the guest guide in English/German/Slovenian/French/Spanish, inbox and alerts, retention cleanup, and security/accessibility hardening. Deployment, real SMTP, provider backup/PITR, hosted Auth session policy, physical-device checks, and the five-host pilot remain external gates.
+**Status:** the local pilot feature set is implemented through implementation plan Phase 7c, plus the guest features plan (phases 1–8: essentials, call actions, address/maps, answering hours, privacy panel, loading states), with synthetic-data verification: host onboarding and guide authoring, link/QR sharing, the guest guide in English/German/Slovenian/French/Spanish, inbox and alerts, retention cleanup, and security/accessibility hardening. Deployment, real SMTP, provider backup/PITR, hosted Auth session policy, Netlify overwriting a client-sent `x-nf-geo`, physical-device checks, and the five-host pilot remain external gates.
 
 **Name:** "Staywise" is provisional; existing hospitality products use it (see the product plan).
 
@@ -14,7 +14,7 @@ TanStack Start (React 19, SSR, server functions) with CSS Modules, Bun, Supabase
 
 `/host` lists each property with its address, published state, guide categories, unpublished sections, guest link state, which guest languages are fully reviewed, and the latest waiting messages. The property editor has a guest preview in phone and tablet device frames at `/host/preview/<propertyId>`. Each property picks one of five preset guest page themes ([ADR 0003](docs/adr/0003-guest-themes-are-presets.md)).
 
-`/host/settings` holds account settings: two-step sign-in (set up or remove the authenticator), security activity (the 20 most recent sign-ins, two-step changes, and agent access grants and revocations from the 90-day audit log; agent tool calls are not listed), sign out, and the defaults for new properties (theme, guide and guest languages, time zone, check-in/out times, contact phone, answering hours). Defaults are copied into a property when it is created and never applied to existing properties; a copy keeps the values of its source property. Until a host saves, built-in defaults apply (`staywise` theme, English, `UTC`); the form only suggests the browser's time zone.
+`/host/settings` holds account settings: two-step sign-in (set up or remove the authenticator), security activity (the 20 most recent sign-ins, two-step verifications and changes, and agent access grants and revocations from the 90-day audit log; agent tool calls are not listed). Email-link sign-ins (`sign_in`) and authenticator-code sign-ins (`mfa_verified`) carry a device label parsed from the User-Agent ("Firefox on Linux"), the country and city from Netlify's `x-nf-geo` header, and a new-device flag for a device and country not seen for that host in the last 90 days. The geo header is read only on a deployed Netlify runtime (`SITE_ID` set, `APP_ENV` not `local`, no `NETLIFY_DEV`); elsewhere place stays empty. Deployment gate: confirm on a deploy that Netlify replaces a client-sent `x-nf-geo` before relying on the place; the raw User-Agent and the IP address are never stored, and account deletion clears the context with the actor, sign out, and the defaults for new properties (theme, guide and guest languages, time zone, check-in/out times, contact phone, answering hours). Defaults are copied into a property when it is created and never applied to existing properties; a copy keeps the values of its source property. Until a host saves, built-in defaults apply (`staywise` theme, English, `UTC`); the form only suggests the browser's time zone.
 
 ## Development
 
@@ -83,7 +83,7 @@ A host can connect their own AI agent to `https://<host>/mcp`. The design and it
 
 ### Privacy and data handling
 
-The local app serves a synthetic-data notice at `/privacy`, linked from the home page, sign-in, host workspace, and guest Help. It describes stored fields, 90-day message/audit/setup retention with earlier host deletion, the property-deletion cascade, cover photos, the bearer-link capability, log/counter minimization, conditional translation egress, and immediate host account deletion from `/host/settings` (ADR 0002) with what it does not erase. The guest Help page also shows a localized summary in English, German, Slovenian, French, or Spanish. This is implemented local behavior, not a completed legal policy: a named controller/contact, processor/DPA and transfer review, production regions, and real-data approval remain unexecuted external gates.
+The local app serves a synthetic-data notice at `/privacy`, linked from the home page, sign-in, host workspace, and guest Help. It describes stored fields, the sign-in device and place kept on audit rows (no IP or raw User-Agent), 90-day message/audit/setup retention with earlier host deletion, the property-deletion cascade, cover photos, the bearer-link capability, log/counter minimization, conditional translation egress, and immediate host account deletion from `/host/settings` (ADR 0002) with what it does not erase. The guest Help page also shows a localized summary in English, German, Slovenian, French, or Spanish. This is implemented local behavior, not a completed legal policy: a named controller/contact, processor/DPA and transfer review, production regions, and real-data approval remain unexecuted external gates.
 
 ### Pilot measurement
 
@@ -143,7 +143,7 @@ select property_id, count(*) as messages,
        avg(handled_at - created_at) filter (where handled_at is not null) as avg_handled_latency
 from app.guest_messages group by property_id order by property_id;
 
--- Revocation/deletion audit volume. Audit rows store actor, action, and time, not property IDs.
+-- Revocation/deletion audit volume. Audit rows store actor, action, and time (sign-in rows also a device label and place), not property IDs.
 select actor_id, action, count(*) as events, min(created_at) as first_at, max(created_at) as last_at
 from app.audit_events
 where action in ('delete', 'link_disabled', 'link_rotated')

@@ -88,6 +88,7 @@ const securityActions = [
   'sign_in',
   'mfa_enrolled',
   'mfa_unenrolled',
+  'mfa_verified',
   'agent_grant_created',
   'agent_grant_revoked',
   'agent_grants_revoked_all',
@@ -98,11 +99,27 @@ export type SecurityEvent = {
   action: (typeof securityActions)[number];
   at: string;
   grantName: string | null;
+  device: string | null;
+  countryCode: string | null;
+  city: string | null;
+  newDevice: boolean;
+};
+
+type SecurityRow = {
+  id: string;
+  action: SecurityEvent['action'];
+  created_at: Date;
+  grant_name: string | null;
+  device_label: string | null;
+  country_code: string | null;
+  city: string | null;
+  new_device: boolean | null;
 };
 
 export async function readSecurityActivity(tx: postgres.TransactionSql): Promise<SecurityEvent[]> {
-  const rows = await tx<{ id: string; action: SecurityEvent['action']; created_at: Date; grant_name: string | null }[]>`
-    select a.id::text as id, a.action, a.created_at, g.name as grant_name
+  const rows = await tx<SecurityRow[]>`
+    select a.id::text as id, a.action, a.created_at, g.name as grant_name, a.device_label, a.country_code, a.city,
+      a.new_device
     from app.audit_events a
     left join app.agent_grants g on g.id = a.grant_id
     where a.actor_id = app.current_owner_id() and a.action in ${tx([...securityActions])}
@@ -114,5 +131,9 @@ export async function readSecurityActivity(tx: postgres.TransactionSql): Promise
     action: row.action,
     at: row.created_at.toISOString(),
     grantName: row.grant_name,
+    device: row.device_label,
+    countryCode: row.country_code,
+    city: row.city,
+    newDevice: row.new_device === true,
   }));
 }

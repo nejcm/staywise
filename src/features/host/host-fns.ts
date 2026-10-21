@@ -13,6 +13,7 @@ import {
 } from '../auth/auth.server';
 import { applyAuthCookies, isGuardedMutation, requestAuth, runGuarded, type FnError } from '../../lib/fn-guards.server';
 import { recordAudit } from '../../lib/audit.server';
+import { recordSignIn, signInContext } from '../../lib/sign-in-context.server';
 import { otpSendAllowed } from '../auth/auth-limits.server';
 import { sendSecurityNotice } from '../../lib/mail.server';
 import { withOwnerContext } from '../../lib/db.server';
@@ -145,7 +146,9 @@ export const mfaVerify = createServerFn({ method: 'POST' })
       applyAuthCookies(auth);
       if (error) return { error: 'invalid_code' } satisfies FnError;
       // A step-up on an existing factor is not a new enrollment: no duplicate audit row or notice.
-      if (!alreadyVerified) {
+      if (alreadyVerified) {
+        await recordSignIn(session.userId, 'mfa_verified', signInContext(getRequest().headers));
+      } else {
         await recordAudit(session.userId, 'mfa_enrolled');
         if (session.email) await sendSecurityNotice(session.email, 'mfa_enrolled');
       }

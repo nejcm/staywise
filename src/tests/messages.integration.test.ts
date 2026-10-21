@@ -796,7 +796,7 @@ describeLocal('guest message intake and host inbox against the local stack', () 
       expect(retagged?.ok).toBe(true);
       expect(await tagAuditCount()).toBe(2);
 
-      // Actor, action, time and check-constrained agent call metadata only — no free-text payload to leak into.
+      // Actor, action, time, and check-constrained agent call and sign-in metadata only — no free-text payload to leak into.
       const [cols] = await admin<{ cols: string[] }[]>`
         select array_agg(column_name order by ordinal_position)::text[] as cols
         from information_schema.columns where table_schema = 'app' and table_name = 'audit_events'
@@ -813,6 +813,10 @@ describeLocal('guest message intake and host inbox against the local stack', () 
         'outcome',
         'latency_ms',
         'args_digest',
+        'device_label',
+        'country_code',
+        'city',
+        'new_device',
       ]);
       const unchecked = await admin`
         select c.column_name from information_schema.columns c

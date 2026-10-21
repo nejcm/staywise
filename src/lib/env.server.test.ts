@@ -113,6 +113,17 @@ describe('parseServerEnv', () => {
     expect(() => parseServerEnv({ APP_ENV: 'local', MFA_REQUIRED: 'no' })).toThrow(/MFA_REQUIRED/);
   });
 
+  it('trusts the Netlify geo header only on a deployed Netlify runtime', () => {
+    const appDbUrl =
+      'postgresql://user:pass@db.example.test:5432/postgres?sslmode=verify-full&sslrootcert=/etc/staywise/db-root-ca.pem';
+    expect(parseServerEnv({ ...remoteEnv(appDbUrl), SITE_ID: 'synthetic-site' }).trustNetlifyGeo).toBe(true);
+    expect(parseServerEnv(remoteEnv(appDbUrl)).trustNetlifyGeo).toBe(false);
+    expect(
+      parseServerEnv({ ...remoteEnv(appDbUrl), SITE_ID: 'synthetic-site', NETLIFY_DEV: 'true' }).trustNetlifyGeo,
+    ).toBe(false);
+    expect(parseServerEnv({ APP_ENV: 'local', SITE_ID: 'synthetic-site' }).trustNetlifyGeo).toBe(false);
+  });
+
   it('accepts only an sb_secret_ Supabase secret key and leaves it unset by default', () => {
     expect(parseServerEnv({ APP_ENV: 'local' }).supabaseSecretKey).toBeNull();
     expect(parseServerEnv({ APP_ENV: 'local', SUPABASE_SECRET_KEY: 'sb_secret_synthetic' }).supabaseSecretKey).toBe(

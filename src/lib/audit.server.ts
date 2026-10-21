@@ -9,6 +9,7 @@ const auditActions = [
   'callback_failure',
   'mfa_enrolled',
   'mfa_unenrolled',
+  'mfa_verified',
   'publish',
   'unpublish',
   'link_created',

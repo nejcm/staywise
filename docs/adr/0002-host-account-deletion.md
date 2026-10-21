@@ -12,7 +12,7 @@ Hosts need to delete their own account from `/host/settings` (`src/routes/host_.
 - **Immediate, no grace period.** No pending state, scheduled purge, or undo.
 - **Confirmation:** an inline form in the Delete account section where the host types their account email to enable the button. If a TOTP factor is verified, a fresh code is also required and verified server-side in the same request; an existing AAL2 session alone is not enough. No email confirmation loop.
 - **Order:** same-origin check and `aal2Session` → typed email matches `getUser()` → fresh TOTP if enrolled → `deleteUser` → `recordAudit(null, 'account_deleted')` (failure is logged, never reported as a failed deletion) → clear auth cookies → redirect to sign-in with an "Account deleted" notice. "User not found" from `deleteUser` counts as success (double submit); the button is disabled while in flight.
-- **Audit:** one `account_deleted` row with a null actor; earlier rows lose their actor via `set null`. All expire with the 90-day window. A migration adds `account_deleted` to the action check.
+- **Audit:** one `account_deleted` row with a null actor; earlier rows lose their actor via `set null`, and a trigger clears sign-in device and place with it. All expire with the 90-day window. A migration adds `account_deleted` to the action check.
 - **Guests:** links and sessions die with the cascade and guests get the existing generic denial. Unread messages are deleted without export; the dialog says so.
 - **Setup events** cascade; the host leaves the pilot setup-time measurements.
 - **No confirmation email** after deletion.

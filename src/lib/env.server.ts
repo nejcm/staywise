@@ -41,6 +41,7 @@ export type ServerEnv = {
   guestAccessDisabled: boolean;
   agentAccessDisabled: boolean;
   mfaRequired: boolean;
+  trustNetlifyGeo: boolean;
   // Absent means translation egress is not configured; a malformed value fails closed at boot.
   googleTranslateServiceAccount: GoogleTranslateCredentials | null;
 };
@@ -115,6 +116,8 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     guestAccessDisabled: parseGuestAccessDisabled(env.GUEST_ACCESS_DISABLED),
     agentAccessDisabled: parseAgentAccessDisabled(env.AGENT_ACCESS_DISABLED, appEnv),
     mfaRequired: parseMfaRequired(env.MFA_REQUIRED),
+    // SITE_ID is a read-only Netlify runtime variable; elsewhere a client could forge `x-nf-geo`.
+    trustNetlifyGeo: appEnv !== 'local' && Boolean(env.SITE_ID) && !env.NETLIFY_DEV,
     googleTranslateServiceAccount: parseGoogleTranslateServiceAccount(env.GOOGLE_TRANSLATE_SERVICE_ACCOUNT),
   };
 }

@@ -20,6 +20,7 @@ const localEnv: ServerEnv = {
   agentAccessDisabled: false,
   supabaseSecretKey: null,
   mfaRequired: true,
+  trustNetlifyGeo: false,
   googleTranslateServiceAccount: null,
 };
 

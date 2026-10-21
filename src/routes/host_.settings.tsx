@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from 'react';
 import { HostShell, SignOutButton } from '../components/app-shell';
 import { Button } from '../components/button';
 import { Field } from '../components/field';
+import { Pill } from '../components/pill';
 import { useHostAction } from '../components/host-action';
 import { Toast } from '../components/toast';
 import { ThemePicker } from '../features/guide/theme-picker';
@@ -317,6 +318,8 @@ function securityLabel({ action, grantName }: SecurityEvent) {
       return 'Two-step sign-in turned on';
     case 'mfa_unenrolled':
       return 'Two-step sign-in removed';
+    case 'mfa_verified':
+      return 'Two-step sign-in verified';
     case 'agent_grant_created':
       return `${grant} created`;
     case 'agent_grant_revoked':
@@ -324,6 +327,18 @@ function securityLabel({ action, grantName }: SecurityEvent) {
     case 'agent_grants_revoked_all':
       return 'All agent access revoked';
   }
+}
+
+const regionNames = new Intl.DisplayNames(['en'], { type: 'region' });
+const signInMethods: Partial<Record<SecurityEvent['action'], string>> = {
+  sign_in: 'Email link',
+  mfa_verified: 'Authenticator code',
+};
+
+function securityDetails(event: SecurityEvent) {
+  const country = event.countryCode ? (regionNames.of(event.countryCode) ?? event.countryCode) : null;
+  const place = [event.city, country].filter(Boolean).join(', ');
+  return [event.device, place, signInMethods[event.action]].filter(Boolean);
 }
 
 function SecurityActivity({ events }: { events: SecurityEvent[] | null }) {
@@ -344,9 +359,22 @@ function SecurityActivity({ events }: { events: SecurityEvent[] | null }) {
         <ol className={styles.rows}>
           {events.map((event) => (
             <li key={event.id}>
-              <p>{securityLabel(event)}</p>
+              <p>
+                {securityLabel(event)}
+                {event.newDevice ? (
+                  <>
+                    {' '}
+                    <Pill tone="attention" testId="security-new-device">
+                      New device
+                    </Pill>
+                  </>
+                ) : null}
+              </p>
               <p className="small muted">
                 <time dateTime={event.at}>{utcDateTime(event.at)}</time>
+                {securityDetails(event)
+                  .map((detail) => ` · ${detail}`)
+                  .join('')}
               </p>
             </li>
           ))}

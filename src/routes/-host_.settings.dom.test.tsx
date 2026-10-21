@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routeTree } from '../routeTree.gen';
 import { deleteAccount, getHostAuthState, mfaUnenroll, mfaVerify, restartEnrollment } from '../features/host/host-fns';
 import { getHostSettings, getSecurityActivity, saveHostSettings } from '../features/host/settings-fns';
-import { builtInHostSettings, type HostSettings } from '../features/host/settings.server';
+import { builtInHostSettings, type HostSettings, type SecurityEvent } from '../features/host/settings.server';
 import { createAgentToken, getAgentAccess, revokeAgentToken, revokeAllAgentTokens } from '../features/agent/agent-fns';
 
 vi.mock('../features/host/host-fns', () => ({
@@ -283,6 +283,10 @@ describe('host settings agent access', () => {
   });
 });
 
+function securityEvent(event: Pick<SecurityEvent, 'id' | 'action' | 'at'> & Partial<SecurityEvent>): SecurityEvent {
+  return { grantName: null, device: null, countryCode: null, city: null, newDevice: false, ...event };
+}
+
 describe('host settings security activity', () => {
   it('shows an empty state without events', async () => {
     await renderSettings();
@@ -299,9 +303,14 @@ describe('host settings security activity', () => {
   it('lists events newest first with UTC times and grant names', async () => {
     vi.mocked(getSecurityActivity).mockResolvedValue({
       events: [
-        { id: '3', action: 'agent_grant_revoked', at: '2026-10-21T09:15:42.000Z', grantName: 'Claude Code laptop' },
-        { id: '2', action: 'agent_grant_created', at: '2026-10-20T08:00:00.000Z', grantName: null },
-        { id: '1', action: 'sign_in', at: '2026-10-19T07:05:00.000Z', grantName: null },
+        securityEvent({
+          id: '3',
+          action: 'agent_grant_revoked',
+          at: '2026-10-21T09:15:42.000Z',
+          grantName: 'Claude Code laptop',
+        }),
+        securityEvent({ id: '2', action: 'agent_grant_created', at: '2026-10-20T08:00:00.000Z' }),
+        securityEvent({ id: '1', action: 'sign_in', at: '2026-10-19T07:05:00.000Z' }),
       ],
     });
     await renderSettings();
@@ -310,9 +319,33 @@ describe('host settings security activity', () => {
     expect(items.map((item) => item.textContent)).toEqual([
       'Agent access “Claude Code laptop” revoked2026-10-21 09:15',
       'Agent access created2026-10-20 08:00',
-      'Signed in2026-10-19 07:05',
+      'Signed in2026-10-19 07:05 · Email link',
     ]);
     expect(items[0]?.querySelector('time')?.getAttribute('dateTime')).toBe('2026-10-21T09:15:42.000Z');
     expect(screen.queryByTestId('security-activity-empty')).toBeNull();
+  });
+
+  it('shows device, place, and method for sign-ins and flags a new device', async () => {
+    vi.mocked(getSecurityActivity).mockResolvedValue({
+      events: [
+        securityEvent({
+          id: '2',
+          action: 'mfa_verified',
+          at: '2026-10-21T09:16:00.000Z',
+          device: 'Safari on iOS',
+          countryCode: 'AT',
+          city: 'Vienna',
+          newDevice: true,
+        }),
+        securityEvent({ id: '1', action: 'sign_in', at: '2026-10-21T09:15:00.000Z', device: 'Firefox on Linux' }),
+      ],
+    });
+    await renderSettings();
+    const items = within(screen.getByRole('region', { name: 'Security activity' })).getAllByRole('listitem');
+    expect(items.map((item) => item.textContent)).toEqual([
+      'Two-step sign-in verified New device2026-10-21 09:16 · Safari on iOS · Vienna, Austria · Authenticator code',
+      'Signed in2026-10-21 09:15 · Firefox on Linux · Email link',
+    ]);
+    expect(screen.getAllByTestId('security-new-device')).toHaveLength(1);
   });
 });
