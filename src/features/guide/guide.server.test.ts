@@ -184,7 +184,7 @@ describe('hero writes', () => {
     expect(queries[2]?.values).toEqual([propertyId, objectPath, 'Lake view', 1600, 1067, 900000]);
   });
 
-  it('refuses an expired reservation or a key outside the property prefix', async () => {
+  it('refuses a reservation the drain already took, or a key outside the property prefix', async () => {
     const expired = fakeTx([{}], []);
     await expect(upsertHero(expired.tx, objectPath, input)).rejects.toThrow('upload_reservation_expired');
     expect(expired.queries).toHaveLength(2);

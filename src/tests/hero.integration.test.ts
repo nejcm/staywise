@@ -3,7 +3,9 @@
 import crypto from 'node:crypto';
 import { readFileSync } from 'node:fs';
 import { afterAll, describe, expect, it } from 'vitest';
+import { reserveHeroUpload, upsertHero } from '../features/guide/guide.server';
 import { sql, withOwnerContext } from '../lib/db.server';
+import { serverEnv } from '../lib/env.server';
 import {
   createStayLink,
   exchangeGuestLink,
@@ -67,6 +69,18 @@ async function guestToken(ownerId: string, propertyId: string, kind: 'property' 
   const token = await exchangeGuestLink({ shareId: link.id, secret: link.secret });
   if (!token) throw new Error('synthetic exchange failed');
   return { ...link, token, reservationId };
+}
+
+async function drainWaitsOnLock(): Promise<boolean> {
+  for (let attempt = 0; attempt < 100; attempt += 1) {
+    const rows = await admin`
+      select 1 from pg_stat_activity
+      where wait_event_type = 'Lock' and query like '%delete from app.storage_deletions where object_path in%'
+    `;
+    if (rows.length > 0) return true;
+    await new Promise((resolve) => setTimeout(resolve, 50));
+  }
+  return false;
 }
 
 async function storedObjects(propertyId: string) {
@@ -149,6 +163,48 @@ describeLocal('hero image routes against the local stack', () => {
     } finally {
       await admin`delete from app.properties where id = ${propertyId}`;
       await admin`delete from app.storage_deletions where object_path like ${`${propertyId}/%`}`;
+    }
+  });
+
+  it('makes a drain wait for a publish that claimed a due reservation, then keeps its bytes', async (ctx) => {
+    const secretKey = (localStack as LocalStack).secretKey;
+    if (!secretKey.startsWith('sb_secret_')) ctx.skip();
+    // The test process has no .env; the Storage client reads the key when the module loads.
+    serverEnv.supabaseSecretKey = secretKey;
+    const { drainStorageDeletions, putImage } = await import('../lib/storage.server');
+    const ownerId = crypto.randomUUID();
+    const propertyId = crypto.randomUUID();
+    await admin`insert into auth.users (id, email) values (${ownerId}, ${`hero-race-${ownerId}@example.test`})`;
+    await admin`insert into app.properties (id, owner_id, display_name) values (${propertyId}, ${ownerId}, 'Race villa (synthetic)')`;
+    try {
+      const objectPath = await withOwnerContext(ownerId, (tx) => reserveHeroUpload(tx, propertyId));
+      if (!objectPath) throw new Error('synthetic reservation failed');
+      expect(await putImage(objectPath, jpeg)).toBe(true);
+      await admin`update app.storage_deletions set not_before = now() - interval '1 second' where object_path = ${objectPath}`;
+
+      let claimed = () => {};
+      let release = () => {};
+      const claimedSignal = new Promise<void>((resolve) => (claimed = resolve));
+      const releaseSignal = new Promise<void>((resolve) => (release = resolve));
+      const input = { propertyId, alt: 'Race (synthetic)', width: 24, height: 16, bytes: jpeg.byteLength };
+      const publish = withOwnerContext(ownerId, async (tx) => {
+        const hero = await upsertHero(tx, objectPath, input);
+        claimed();
+        await releaseSignal;
+        return hero;
+      });
+      await claimedSignal;
+      const drain = drainStorageDeletions();
+      expect(await drainWaitsOnLock()).toBe(true);
+      release();
+      expect(await publish).not.toBeNull();
+      await drain;
+      expect(await storedObjects(propertyId)).toEqual({ objects: 1, queued: 0 });
+    } finally {
+      await admin`delete from auth.users where id = ${ownerId}`;
+      await admin`update app.storage_deletions set not_before = now() where object_path like ${`${propertyId}/%`}`;
+      await drainStorageDeletions();
+      expect(await storedObjects(propertyId)).toEqual({ objects: 0, queued: 0 });
     }
   });
 });

@@ -31,18 +31,25 @@ export async function getImage(path: string): Promise<ReadableStream<Uint8Array>
   return error ? null : (data as ReadableStream<Uint8Array>);
 }
 
-// Storage reports only the objects it removed, so a path already gone still clears its queue row.
+// Deleting the rows first locks them through the Storage call, so a publish that claims the same path
+// either commits first (the row is then skipped) or finds nothing to claim; a failed removal rolls back.
 export async function drainStorageDeletions(limit = 50): Promise<number> {
-  if (!bucket) return 0;
-  const rows = await sql<{ object_path: string }[]>`
-    select object_path from app.storage_deletions where not_before <= now() order by queued_at limit ${limit}
-  `;
-  if (rows.length === 0) return 0;
-  const paths = rows.map((row) => row.object_path);
-  const { error } = await bucket.remove(paths);
-  if (error) return 0;
-  await sql`delete from app.storage_deletions where object_path in ${sql(paths)}`;
-  return paths.length;
+  const storage = bucket;
+  if (!storage) return 0;
+  return sql
+    .begin(async (tx) => {
+      const rows = await tx<{ object_path: string }[]>`
+        delete from app.storage_deletions where object_path in (
+          select object_path from app.storage_deletions where not_before <= now() order by queued_at limit ${limit}
+        ) returning object_path
+      `;
+      if (rows.length === 0) return 0;
+      const paths = rows.map((row) => row.object_path);
+      const { error } = await storage.remove(paths);
+      if (error) throw new Error('storage_remove_failed');
+      return paths.length;
+    })
+    .catch(() => 0);
 }
 
 // Stops at an empty queue or the first failed batch; a failure stays queued for the next drain.

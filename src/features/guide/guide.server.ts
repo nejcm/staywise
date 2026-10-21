@@ -203,12 +203,8 @@ export async function upsertHero(
   const parsed = canonicalInput(heroWriteInput, input);
   if (!objectPath.startsWith(`${parsed.propertyId}/`)) throw new Error('invalid_input');
   if (!(await ownsProperty(tx, parsed.propertyId))) return null;
-  // Claims only well before not_before, so a drain can never remove bytes this commit will reference.
-  const claimed = await tx`
-    delete from app.storage_deletions
-    where object_path = ${objectPath} and not_before > clock_timestamp() + interval '5 minutes'
-    returning object_path
-  `;
+  // The delete's row lock serializes with the drain's: if the drain took the path first, nothing is claimed.
+  const claimed = await tx`delete from app.storage_deletions where object_path = ${objectPath} returning object_path`;
   if (claimed.length !== 1) throw new Error('upload_reservation_expired');
   const [row] = await tx<HeroRow[]>`
     insert into app.property_images (property_id, object_path, alt, width, height, bytes)

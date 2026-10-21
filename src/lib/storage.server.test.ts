@@ -1,9 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-const { sql, bucket, createClient, env } = vi.hoisted(() => {
+const { sql, tx, bucket, createClient, env } = vi.hoisted(() => {
   const storageBucket = { upload: vi.fn(), download: vi.fn(), remove: vi.fn() };
+  const txFn = vi.fn();
   return {
-    sql: vi.fn(),
+    sql: { begin: vi.fn() },
+    tx: txFn,
     bucket: storageBucket,
     createClient: vi.fn((..._args: unknown[]) => ({ storage: { from: () => storageBucket } })),
     env: { supabaseUrl: 'http://127.0.0.1:54321', supabaseSecretKey: 'sb_secret_SYNTHETIC' as string | null },
@@ -18,12 +20,10 @@ const queued = [{ object_path: 'p/a.jpg' }, { object_path: 'p/b.jpg' }];
 beforeEach(() => {
   vi.resetModules();
   env.supabaseSecretKey = 'sb_secret_SYNTHETIC';
-  sql.mockReset();
+  tx.mockReset().mockReturnValue(queued);
   createClient.mockClear();
   for (const fn of Object.values(bucket)) fn.mockReset();
-  sql.mockImplementation((strings: unknown) =>
-    Array.isArray(strings) && 'raw' in strings && String(strings[0]).includes('select') ? queued : [],
-  );
+  sql.begin.mockReset().mockImplementation(async (work: (t: typeof tx) => Promise<unknown>) => work(tx));
 });
 
 describe('storage', () => {
@@ -52,25 +52,31 @@ describe('storage', () => {
     expect(seen.map((signal) => signal instanceof AbortSignal)).toEqual([true, true, false]);
   });
 
-  it('drains due paths and clears them only after Storage accepts the removal', async () => {
+  it('deletes due rows and removes their objects in one transaction, rolling back on a failed removal', async () => {
     const { drainStorageDeletions } = await import('./storage.server');
     bucket.remove.mockResolvedValue({ data: [{ name: 'p/a.jpg' }], error: null });
     expect(await drainStorageDeletions()).toBe(2);
-    expect(String(sql.mock.calls[0]?.[0])).toContain('where not_before <= now()');
+    const statement = String(tx.mock.calls[0]?.[0]);
+    expect(statement).toContain('delete from app.storage_deletions');
+    expect(statement).toContain('where not_before <= now()');
     expect(bucket.remove).toHaveBeenCalledWith(['p/a.jpg', 'p/b.jpg']);
-    expect(sql).toHaveBeenCalledWith(['p/a.jpg', 'p/b.jpg']);
 
-    sql.mockClear();
     bucket.remove.mockResolvedValue({ data: null, error: new Error('storage down SYNTHETIC') });
+    let rolledBack = false;
+    sql.begin.mockImplementationOnce(async (work: (t: typeof tx) => Promise<unknown>) =>
+      work(tx).catch((error: unknown) => {
+        rolledBack = true;
+        throw error;
+      }),
+    );
     expect(await drainStorageDeletions()).toBe(0);
-    expect(sql).toHaveBeenCalledTimes(1);
+    expect(rolledBack).toBe(true);
   });
 
   it('drains every batch until the queue is empty or a batch fails', async () => {
     const { drainAllStorageDeletions } = await import('./storage.server');
     let selects = 0;
-    sql.mockImplementation((strings: unknown) => {
-      if (!(Array.isArray(strings) && String(strings[0]).includes('select'))) return [];
+    tx.mockImplementation(() => {
       selects += 1;
       return selects <= 2 ? queued : [];
     });
@@ -98,7 +104,7 @@ describe('storage', () => {
     expect(await putImage('p/a.jpg', new Uint8Array([1]))).toBe(false);
     expect(await getImage('p/a.jpg')).toBeNull();
     expect(await drainStorageDeletions()).toBe(0);
-    expect(sql).not.toHaveBeenCalled();
+    expect(sql.begin).not.toHaveBeenCalled();
     expect(bucket.upload).not.toHaveBeenCalled();
   });
 });

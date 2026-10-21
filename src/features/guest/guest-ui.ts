@@ -130,7 +130,7 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'help.privacy.seen': 'Who sees it: only the host of this property.',
     'help.privacy.retention': 'Deleted automatically after {days} days, or earlier if your host deletes it.',
     'help.privacy.photo':
-      "The cover photo is your host's, stored with our hosting provider and shown only to people with this link. When the host removes it, the property or the account, access ends at once; the stored file is deleted soon after.",
+      "The cover photo is your host's, stored with our hosting provider and shown only to people with this link. When the host removes it, the property or the account, access ends at once; the stored file is queued for deletion, and a failed removal waits for a later retry.",
     'help.privacy.link': 'Full privacy notice',
     'form.kind': 'What do you need?',
     'form.kind.question': 'I have a question',
@@ -233,7 +233,7 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'help.privacy.retention':
       'Wird nach {days} Tagen automatisch gelöscht, oder früher, wenn Ihr Gastgeber sie löscht.',
     'help.privacy.photo':
-      'Das Titelfoto stammt von Ihrem Gastgeber, liegt bei unserem Hosting-Anbieter und ist nur für Personen mit diesem Link sichtbar. Entfernt der Gastgeber das Foto, die Unterkunft oder das Konto, endet der Zugriff sofort; die gespeicherte Datei wird kurz danach gelöscht.',
+      'Das Titelfoto stammt von Ihrem Gastgeber, liegt bei unserem Hosting-Anbieter und ist nur für Personen mit diesem Link sichtbar. Entfernt der Gastgeber das Foto, die Unterkunft oder das Konto, endet der Zugriff sofort; die gespeicherte Datei wird zur Löschung vorgemerkt, und ein fehlgeschlagenes Entfernen wartet auf einen späteren Versuch.',
     'help.privacy.link': 'Vollständige Datenschutzerklärung',
     'form.kind': 'Was brauchen Sie?',
     'form.kind.question': 'Ich habe eine Frage',
@@ -339,7 +339,7 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'help.privacy.seen': 'Kdo ga vidi: samo gostitelj te nastanitve.',
     'help.privacy.retention': 'Samodejno izbrisano po {days} dneh ali prej, če ga izbriše gostitelj.',
     'help.privacy.photo':
-      'Naslovno fotografijo je dodal gostitelj, hrani jo naš ponudnik gostovanja in vidijo jo le osebe s to povezavo. Ko gostitelj odstrani fotografijo, nastanitev ali račun, dostop takoj preneha; shranjena datoteka se izbriše kmalu zatem.',
+      'Naslovno fotografijo je dodal gostitelj, hrani jo naš ponudnik gostovanja in vidijo jo le osebe s to povezavo. Ko gostitelj odstrani fotografijo, nastanitev ali račun, dostop takoj preneha; shranjena datoteka se uvrsti v čakalno vrsto za izbris, neuspel izbris pa počaka na poznejši poskus.',
     'help.privacy.link': 'Celotno obvestilo o zasebnosti',
     'form.kind': 'Kaj potrebujete?',
     'form.kind.question': 'Imam vprašanje',
@@ -442,7 +442,7 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'help.privacy.seen': "Qui le voit : uniquement l'hôte de ce logement.",
     'help.privacy.retention': 'Supprimé automatiquement après {days} jours, ou plus tôt si votre hôte le supprime.',
     'help.privacy.photo':
-      "La photo de couverture vient de votre hôte, est stockée chez notre hébergeur et n'est visible que par les personnes ayant ce lien. Si l'hôte retire la photo, le logement ou le compte, l'accès cesse aussitôt ; le fichier stocké est supprimé peu après.",
+      "La photo de couverture vient de votre hôte, est stockée chez notre hébergeur et n'est visible que par les personnes ayant ce lien. Si l'hôte retire la photo, le logement ou le compte, l'accès cesse aussitôt ; le fichier stocké est mis en file pour suppression, et un échec attend une nouvelle tentative ultérieure.",
     'help.privacy.link': 'Politique de confidentialité complète',
     'form.kind': 'De quoi avez-vous besoin ?',
     'form.kind.question': "J'ai une question",
@@ -545,7 +545,7 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'help.privacy.seen': 'Quién lo ve: solo el anfitrión de este alojamiento.',
     'help.privacy.retention': 'Se elimina automáticamente tras {days} días, o antes si tu anfitrión lo borra.',
     'help.privacy.photo':
-      'La foto de portada es de tu anfitrión, se guarda en nuestro proveedor de alojamiento y solo la ven quienes tienen este enlace. Si el anfitrión quita la foto, el alojamiento o la cuenta, el acceso termina al momento; el archivo guardado se borra poco después.',
+      'La foto de portada es de tu anfitrión, se guarda en nuestro proveedor de alojamiento y solo la ven quienes tienen este enlace. Si el anfitrión quita la foto, el alojamiento o la cuenta, el acceso termina al momento; el archivo guardado queda en cola para borrarse, y un borrado fallido espera un reintento posterior.',
     'help.privacy.link': 'Aviso de privacidad completo',
     'form.kind': '¿Qué necesitas?',
     'form.kind.question': 'Tengo una pregunta',
