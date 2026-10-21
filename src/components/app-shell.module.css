@@ -102,7 +102,7 @@
 }
 
 .foot > :last-child {
-  align-self: flex-start;
+  justify-content: flex-start;
   padding: 0 10px;
   font-weight: 400;
   color: var(--muted);

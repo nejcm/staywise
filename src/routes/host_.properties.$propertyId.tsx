@@ -92,7 +92,12 @@ function PropertyEditorPage() {
         / <span aria-current="page">{editor.property.displayName}</span>
       </nav>
       <div className={styles.head}>
-        <h1 data-testid="editor-property-name">{editor.property.displayName}</h1>
+        <div className={styles.title}>
+          <h1 data-testid="editor-property-name">{editor.property.displayName}</h1>
+          <Pill tone={editor.property.published ? 'positive' : 'neutral'} testId="guide-status">
+            {editor.property.published ? 'Guide is live' : 'Guide is offline'}
+          </Pill>
+        </div>
         <div className="actions">
           <Link
             to="/host/preview/$propertyId"
@@ -135,12 +140,12 @@ function PropertyEditorPage() {
             )}
             <AddSectionForm propertyId={editor.property.id} />
           </section>
+          <PropertyForm property={editor.property} timeZones={editor.timeZones} />
+          <PropertyDangerZone propertyId={editor.property.id} />
         </div>
         <div className={`${styles.column} ${styles.side}`}>
           <GuestLinkPanel propertyId={editor.property.id} share={share} />
           <TranslationPanel property={editor.property} sections={editor.sections} />
-          <PropertyForm property={editor.property} timeZones={editor.timeZones} />
-          <PropertyDangerZone propertyId={editor.property.id} />
         </div>
       </div>
     </HostShell>
@@ -175,9 +180,6 @@ function GuidePublish({ propertyId, published }: { propertyId: string; published
 
   return (
     <>
-      <Pill tone={published ? 'positive' : 'neutral'} testId="guide-status">
-        {published ? 'Guide is live' : 'Guide is offline'}
-      </Pill>
       <Button
         type="button"
         variant={published ? undefined : 'primary'}
@@ -472,63 +474,65 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
   return (
     <form onSubmit={submit} noValidate className={`${styles.panel} stack`} data-testid="property-form">
       <h2>Property settings</h2>
-      <Field
-        label="Property name"
-        error={errors.displayName}
-        errorId="property-name-error"
-        errorTestId="property-name-error"
-      >
-        <input
-          name="displayName"
-          defaultValue={property.displayName}
-          maxLength={120}
-          required
-          aria-invalid={Boolean(errors.displayName)}
-          aria-describedby={errors.displayName ? 'property-name-error' : undefined}
-          data-testid="property-name"
-        />
-      </Field>
-      <Field
-        label="Guide language"
-        error={errors.sourceLocale}
-        errorId="property-locale-error"
-        errorTestId="property-locale-error"
-      >
-        <select
-          name="sourceLocale"
-          value={sourceLocale}
-          onChange={(event) => setSourceLocale(event.target.value)}
-          aria-invalid={Boolean(errors.sourceLocale)}
-          aria-describedby={errors.sourceLocale ? 'property-locale-error' : undefined}
-          data-testid="property-locale"
+      <div className={editorStyles.fieldGrid}>
+        <Field
+          label="Property name"
+          error={errors.displayName}
+          errorId="property-name-error"
+          errorTestId="property-name-error"
         >
-          {guestLocales.map((code) => (
-            <option key={code} value={code}>
-              {languageNames[code]}
-            </option>
-          ))}
-        </select>
-      </Field>
-      <Field
-        label="Time zone"
-        error={errors.timezone}
-        errorId="property-timezone-error"
-        errorTestId="property-timezone-error"
-      >
-        <select
-          name="timezone"
-          defaultValue={property.timezone}
-          aria-invalid={Boolean(errors.timezone)}
-          aria-describedby={errors.timezone ? 'property-timezone-error' : undefined}
-          data-testid="property-timezone"
+          <input
+            name="displayName"
+            defaultValue={property.displayName}
+            maxLength={120}
+            required
+            aria-invalid={Boolean(errors.displayName)}
+            aria-describedby={errors.displayName ? 'property-name-error' : undefined}
+            data-testid="property-name"
+          />
+        </Field>
+        <Field
+          label="Guide language"
+          error={errors.sourceLocale}
+          errorId="property-locale-error"
+          errorTestId="property-locale-error"
         >
-          {timeZoneOptions.map((zone) => (
-            <option key={zone} value={zone}>
-              {zone}
-            </option>
-          ))}
-        </select>
-      </Field>
+          <select
+            name="sourceLocale"
+            value={sourceLocale}
+            onChange={(event) => setSourceLocale(event.target.value)}
+            aria-invalid={Boolean(errors.sourceLocale)}
+            aria-describedby={errors.sourceLocale ? 'property-locale-error' : undefined}
+            data-testid="property-locale"
+          >
+            {guestLocales.map((code) => (
+              <option key={code} value={code}>
+                {languageNames[code]}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field
+          label="Time zone"
+          error={errors.timezone}
+          errorId="property-timezone-error"
+          errorTestId="property-timezone-error"
+        >
+          <select
+            name="timezone"
+            defaultValue={property.timezone}
+            aria-invalid={Boolean(errors.timezone)}
+            aria-describedby={errors.timezone ? 'property-timezone-error' : undefined}
+            data-testid="property-timezone"
+          >
+            {timeZoneOptions.map((zone) => (
+              <option key={zone} value={zone}>
+                {zone}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
       <fieldset data-testid="property-locales">
         <legend>Guest languages</legend>
         <p className="small muted">
@@ -561,27 +565,29 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
       <fieldset className="stack" data-testid="property-essentials">
         <legend>Essentials</legend>
         <p className="small muted">Guests see these after opening their link; they are never sent for translation.</p>
-        {essentialInputs.map(({ name, label, type, maxLength, credential }) => {
-          const errorId = `essentials-${name}-error`;
-          const describedBy = [credential ? 'essentials-credential-warning' : '', errors[name] ? errorId : '']
-            .filter(Boolean)
-            .join(' ');
-          return (
-            <Field key={name} label={label} error={errors[name]} errorId={errorId} errorTestId={errorId}>
-              <input
-                name={name}
-                type={type}
-                defaultValue={property[name] ?? ''}
-                maxLength={maxLength}
-                autoComplete="off"
-                spellCheck={false}
-                aria-invalid={Boolean(errors[name])}
-                aria-describedby={describedBy || undefined}
-                data-testid={`essentials-${name}`}
-              />
-            </Field>
-          );
-        })}
+        <div className={editorStyles.fieldGrid}>
+          {essentialInputs.map(({ name, label, type, maxLength, credential }) => {
+            const errorId = `essentials-${name}-error`;
+            const describedBy = [credential ? 'essentials-credential-warning' : '', errors[name] ? errorId : '']
+              .filter(Boolean)
+              .join(' ');
+            return (
+              <Field key={name} label={label} error={errors[name]} errorId={errorId} errorTestId={errorId}>
+                <input
+                  name={name}
+                  type={type}
+                  defaultValue={property[name] ?? ''}
+                  maxLength={maxLength}
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-invalid={Boolean(errors[name])}
+                  aria-describedby={describedBy || undefined}
+                  data-testid={`essentials-${name}`}
+                />
+              </Field>
+            );
+          })}
+        </div>
         <p className="small" id="essentials-credential-warning" data-testid="essentials-credential-warning">
           Guests who already saw a Wi-Fi password or key-box code keep it. Changing the code is the only way to revoke
           it.
@@ -593,27 +599,29 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
           Guests see your phone and hours after opening their link, never on error pages; they are never sent for
           translation. Hours use the property time zone.
         </p>
-        {contactInputs.map(({ name, label, type, maxLength, credential }) => {
-          const errorId = `essentials-${name}-error`;
-          const describedBy = [credential ? 'essentials-credential-warning' : '', errors[name] ? errorId : '']
-            .filter(Boolean)
-            .join(' ');
-          return (
-            <Field key={name} label={label} error={errors[name]} errorId={errorId} errorTestId={errorId}>
-              <input
-                name={name}
-                type={type}
-                defaultValue={property[name] ?? ''}
-                maxLength={maxLength}
-                autoComplete="off"
-                spellCheck={false}
-                aria-invalid={Boolean(errors[name])}
-                aria-describedby={describedBy || undefined}
-                data-testid={`essentials-${name}`}
-              />
-            </Field>
-          );
-        })}
+        <div className={editorStyles.fieldGrid}>
+          {contactInputs.map(({ name, label, type, maxLength, credential }) => {
+            const errorId = `essentials-${name}-error`;
+            const describedBy = [credential ? 'essentials-credential-warning' : '', errors[name] ? errorId : '']
+              .filter(Boolean)
+              .join(' ');
+            return (
+              <Field key={name} label={label} error={errors[name]} errorId={errorId} errorTestId={errorId}>
+                <input
+                  name={name}
+                  type={type}
+                  defaultValue={property[name] ?? ''}
+                  maxLength={maxLength}
+                  autoComplete="off"
+                  spellCheck={false}
+                  aria-invalid={Boolean(errors[name])}
+                  aria-describedby={describedBy || undefined}
+                  data-testid={`essentials-${name}`}
+                />
+              </Field>
+            );
+          })}
+        </div>
       </fieldset>
       <section aria-labelledby="alert-email-heading" className="stack">
         <h3 id="alert-email-heading">New-message alerts</h3>

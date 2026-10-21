@@ -132,3 +132,9 @@
   background: #fff;
   border-radius: var(--space-2);
 }
+
+.fieldGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr));
+  gap: var(--space-4);
+}

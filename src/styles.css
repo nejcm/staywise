@@ -38,7 +38,7 @@
   --fs-small: 13px;
   --radius-card: 14px;
   --radius-control: 8px;
-  --control-height: 44px;
+  --control-height: 40px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -143,8 +143,9 @@ textarea {
   display: block;
   width: 100%;
   min-height: var(--control-height);
-  padding: 10px 12px;
+  padding: 7px 12px;
   font-size: 16px;
+  line-height: 24px;
   background: var(--surface);
   border: 1px solid var(--control);
   border-radius: var(--radius-control);
