@@ -44,7 +44,7 @@ Environment: copy `.env.example` to `.env.local`; never commit real values. `APP
 |---|---|---|
 | `APP_ENV` | when `NODE_ENV=production` | `local` \| `preview` \| `production`; outside `local` every variable marked "outside local" must be set |
 | `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` | outside local | Supabase API URL and publishable key |
-| `SUPABASE_SECRET_KEY` | no | Server-only; lets Auth rate-limit magic links per end-user IP |
+| `SUPABASE_SECRET_KEY` | outside local | Server-only service-role key; lets Auth rate-limit magic links per end-user IP and deletes host accounts. Unset locally, account deletion is unavailable |
 | `APP_DB_URL` | outside local | `app_runtime` Postgres URL; must use `sslmode=verify-full` and `sslrootcert` outside local |
 | `SMTP_URL`, `SMTP_FROM` | outside local | Reviewed SMTP provider and sender for Auth and host alerts; TLS required outside local |
 | `APP_ORIGIN` | outside local | Public origin, used for same-origin checks and links |
@@ -63,7 +63,7 @@ Each property stores an `alert_email` snapshot of the host's sign-in address whe
 
 ### Privacy and data handling
 
-The local app serves a synthetic-data notice at `/privacy`, linked from the home page, sign-in, host workspace, and guest Help. It describes stored fields, 90-day message/audit/setup retention with earlier host deletion, the property-deletion cascade, the bearer-link capability, log/counter minimization, conditional translation egress, and the missing host account-deletion screen. The guest Help page also shows a localized summary in English, German, Slovenian, French, or Spanish. This is implemented local behavior, not a completed legal policy: a named controller/contact, processor/DPA and transfer review, production regions, and real-data approval remain unexecuted external gates.
+The local app serves a synthetic-data notice at `/privacy`, linked from the home page, sign-in, host workspace, and guest Help. It describes stored fields, 90-day message/audit/setup retention with earlier host deletion, the property-deletion cascade, the bearer-link capability, log/counter minimization, conditional translation egress, and immediate host account deletion from `/host/settings` (ADR 0002) with what it does not erase. The guest Help page also shows a localized summary in English, German, Slovenian, French, or Spanish. This is implemented local behavior, not a completed legal policy: a named controller/contact, processor/DPA and transfer review, production regions, and real-data approval remain unexecuted external gates.
 
 ### Pilot measurement
 
@@ -141,7 +141,7 @@ Setup time is the interval between a host's first `sign_in` and first `publish_c
 psql "postgresql://<owner role>:<password>@<host>:5432/postgres" -c "select app.retention_cleanup();"
 ```
 
-Production must either enable `pg_cron` in the Supabase project (the guarded migration block then creates the job) or run that statement nightly as the database owner. Provider backup/PITR retention is separate from these windows and must be confirmed in the provider console before real data; after any restore, run the overdue cleanup before reopening guest traffic. `app.guest_counters` has no age-based window: it remains while the property exists and cascades on property deletion. API-token tables are schema-only in this tree; property-bound rows cascade with the property, owner-level rows remain until account deletion, and there is no token-management UI. Details and rehearsal evidence: `plans/implementation_plan.md`, Phase 7a progress.
+Production must either enable `pg_cron` in the Supabase project (the guarded migration block then creates the job) or run that statement nightly as the database owner. Provider backup/PITR retention is separate from these windows and must be confirmed in the provider console before real data; after any restore, run the overdue cleanup before reopening guest traffic. `app.guest_counters` has no age-based window: it remains while the property exists and cascades on property deletion. API-token tables are schema-only in this tree; property-bound rows cascade with the property, owner-level rows cascade with account deletion, and there is no token-management UI. Details and rehearsal evidence: `plans/implementation_plan.md`, Phase 7a progress.
 
 `supabase/migrations/20261019170000_phase7d_auth_limits.sql` adds `app.auth_rate_limits` (HMAC-keyed magic-link windows: 5 per client IP and 3 per address per 15 minutes, IP read from Netlify's `x-nf-client-connection-ip`), purges it in the same cleanup, and raises a migration warning when the retention job is not scheduled in that database.
 

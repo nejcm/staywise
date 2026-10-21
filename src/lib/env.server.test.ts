@@ -24,6 +24,7 @@ function remoteEnv(appDbUrl: string): Record<string, string> {
     APP_ENV: 'preview',
     SUPABASE_URL: 'https://project.supabase.co',
     SUPABASE_PUBLISHABLE_KEY: 'sb_publishable_x',
+    SUPABASE_SECRET_KEY: 'sb_secret_synthetic',
     APP_DB_URL: appDbUrl,
     SMTP_URL: 'smtp://mail.example.test:587?requireTLS=true',
     SMTP_FROM: 'hosts@example.test',
@@ -120,6 +121,13 @@ describe('parseServerEnv', () => {
     expect(() => parseServerEnv({ APP_ENV: 'local', SUPABASE_SECRET_KEY: 'eyJ.service.role' })).toThrow(
       /SUPABASE_SECRET_KEY/,
     );
+  });
+
+  it('requires the Supabase secret key outside local', () => {
+    const { SUPABASE_SECRET_KEY: _omitted, ...env } = remoteEnv(
+      'postgresql://user:pass@db.example.test:5432/postgres?sslmode=verify-full&sslrootcert=/etc/staywise/db-root-ca.pem',
+    );
+    expect(() => parseServerEnv(env)).toThrow(/SUPABASE_SECRET_KEY/);
   });
 
   it('parses the guest kill switch strictly and defaults it off', () => {

@@ -4,6 +4,8 @@ import { z } from 'zod';
 import { appEnv, serverEnv } from '../../lib/env.server';
 import {
   aal2Session,
+  deleteAuthUser,
+  freshTotpPassed,
   getHostAuthState as readHostAuthState,
   restartTotpEnrollment,
   verifiedSession,
@@ -19,6 +21,13 @@ import { logEvent } from '../../lib/log.server';
 const emailInput = z.object({ email: z.email() });
 const mfaVerifyInput = z.object({ factorId: z.uuid(), code: z.string().regex(/^\d{6}$/) });
 const factorIdInput = z.object({ factorId: z.uuid() });
+const deleteAccountInput = z.object({
+  email: z.string().trim().max(320),
+  code: z
+    .string()
+    .regex(/^\d{6}$/)
+    .optional(),
+});
 
 export const requestMagicLink = createServerFn({ method: 'POST' })
   // Call-site typing only: handlers re-validate with zod so bad input stays a generic result.
@@ -169,6 +178,32 @@ export const signOut = createServerFn({ method: 'POST' })
       const auth = requestAuth();
       await auth.client.auth.signOut();
       applyAuthCookies(auth);
+      return { ok: true as const };
+    }),
+  );
+
+// Typed email and, when enrolled, a fresh TOTP code guard the one irreversible host action (ADR 0002).
+export const deleteAccount = createServerFn({ method: 'POST' })
+  .validator((value: unknown) => value as { email: string; code?: string })
+  .handler(async ({ data }) =>
+    runGuarded(async () => {
+      if (!isGuardedMutation()) return { error: 'invalid_input' } satisfies FnError;
+      const input = deleteAccountInput.safeParse(data);
+      if (!input.success) return { error: 'invalid_input' } satisfies FnError;
+      const auth = requestAuth();
+      const gate = await aal2Session(auth.client);
+      applyAuthCookies(auth, gate.outcome === 'invalid');
+      if (gate.outcome !== 'ok') return { error: 'auth_required' } satisfies FnError;
+      if (!gate.session.email || gate.session.email.toLowerCase() !== input.data.email.toLowerCase()) {
+        return { error: 'invalid_input' } satisfies FnError;
+      }
+      const passed = await freshTotpPassed(auth.client, input.data.code);
+      applyAuthCookies(auth);
+      if (!passed) return { error: 'invalid_code' } satisfies FnError;
+      if (!(await deleteAuthUser(gate.session.userId))) return { error: 'unexpected' } satisfies FnError;
+      await recordAudit(null, 'account_deleted');
+      await auth.client.auth.signOut({ scope: 'local' });
+      applyAuthCookies(auth, true);
       return { ok: true as const };
     }),
   );

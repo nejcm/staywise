@@ -111,8 +111,12 @@ function PrivacyNotice() {
               exists. Reservations are empty in this pilot; the schema deletes them 90 days after the stay end date.
             </li>
             <li>
-              No account-deletion screen or published operator contact is implemented for hosts. Host sign-in data is
-              held by the local Supabase Auth service.
+              A host can delete their account from Settings. Deletion is immediate and cannot be undone: it removes the
+              sign-in account, every property and everything stored for it, host defaults, and setup events. Earlier
+              audit rows lose their link to the host, and one <code>account_deleted</code> row without identity remains
+              for the 90-day audit window. Records outside the app database are not erased by this step: the Supabase
+              Auth service&apos;s own audit log (which can contain the email address), mail-delivery logs, and provider
+              backups follow the provider&apos;s retention. No published operator contact is implemented yet.
             </li>
           </ul>
 

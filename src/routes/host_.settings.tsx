@@ -1,4 +1,4 @@
-import { createFileRoute, redirect, useRouter } from '@tanstack/react-router';
+import { createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router';
 import { useEffect, useState, type FormEvent } from 'react';
 import { HostShell, SignOutButton } from '../components/app-shell';
 import { Button } from '../components/button';
@@ -8,7 +8,7 @@ import { Toast } from '../components/toast';
 import { ThemePicker } from '../features/guide/theme-picker';
 import { collectFieldErrors, guestLocales, hostSettingsInput } from '../features/guide/guide-validation';
 import { languageNames } from '../features/guest/guest-ui';
-import { getHostAuthState, mfaUnenroll, restartEnrollment } from '../features/host/host-fns';
+import { deleteAccount, getHostAuthState, mfaUnenroll, restartEnrollment } from '../features/host/host-fns';
 import { getHostSettings, saveHostSettings } from '../features/host/settings-fns';
 import type { HostSettings } from '../features/host/settings.server';
 import { TotpEnrollment } from '../features/host/totp-enrollment';
@@ -28,13 +28,14 @@ export const Route = createFileRoute('/host_/settings')({
       settings: result.settings,
       saved: result.saved,
       timeZones: result.timeZones,
+      accountDeletion: result.accountDeletion,
     };
   },
   component: SettingsPage,
 });
 
 function SettingsPage() {
-  const { totpFactorIds, email, settings, saved, timeZones } = Route.useLoaderData();
+  const { totpFactorIds, email, settings, saved, timeZones, accountDeletion } = Route.useLoaderData();
   return (
     <HostShell email={email}>
       <div className={styles.head}>
@@ -57,6 +58,14 @@ function SettingsPage() {
         <p className="actions">
           <SignOutButton />
         </p>
+      </section>
+      <section
+        className={`${styles.panel} ${styles.danger} stack`}
+        aria-labelledby="delete-account-heading"
+        data-testid="account-delete-zone"
+      >
+        <h2 id="delete-account-heading">Delete account</h2>
+        <DeleteAccount email={email} needsCode={totpFactorIds.length > 0} available={accountDeletion} />
       </section>
     </HostShell>
   );
@@ -272,5 +281,88 @@ function TwoStep({ factorIds }: { factorIds: string[] }) {
         {notice.text}
       </Toast>
     </>
+  );
+}
+
+const deleteFailures: Record<string, string> = {
+  invalid_input: 'Type the email address of this account exactly.',
+  invalid_code: 'That code did not work. Enter a new code from your authenticator app.',
+};
+
+function DeleteAccount({
+  email,
+  needsCode,
+  available,
+}: {
+  email: string | null;
+  needsCode: boolean;
+  available: boolean;
+}) {
+  const navigate = useNavigate();
+  const [typed, setTyped] = useState('');
+  const [code, setCode] = useState('');
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const matches = Boolean(email) && typed.trim().toLowerCase() === email?.toLowerCase();
+
+  if (!available) {
+    return <p className="muted">Account deletion is not available in this environment.</p>;
+  }
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    setMessage('');
+    try {
+      const result = await deleteAccount({ data: { email: typed, ...(needsCode ? { code } : {}) } });
+      if ('error' in result) {
+        setMessage(deleteFailures[result.error ?? ''] ?? 'Something went wrong. Try again.');
+        return;
+      }
+      await navigate({ to: '/auth/sign-in', search: { status: 'deleted' } });
+    } catch {
+      setMessage('Something went wrong. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <form onSubmit={submit} className="stack" data-testid="account-delete-form">
+      <p className="small muted">
+        Deletes your account and every property right away; this cannot be undone. Guest links stop working at once, and
+        unread guest messages are deleted without export.
+      </p>
+      <Field label={`Type ${email ?? 'your account email'} to confirm`}>
+        <input
+          type="email"
+          autoComplete="off"
+          value={typed}
+          onChange={(event) => setTyped(event.target.value)}
+          data-testid="account-delete-email"
+        />
+      </Field>
+      {needsCode ? (
+        <Field label="Six-digit code from your authenticator app">
+          <input
+            inputMode="numeric"
+            autoComplete="one-time-code"
+            pattern="\d{6}"
+            required
+            value={code}
+            onChange={(event) => setCode(event.target.value)}
+            data-testid="account-delete-code"
+          />
+        </Field>
+      ) : null}
+      <div className="actions">
+        <Button type="submit" variant="danger" disabled={busy || !matches} data-testid="account-delete">
+          Delete account
+        </Button>
+        <Toast testId="account-delete-message" tone="error">
+          {message}
+        </Toast>
+      </div>
+    </form>
   );
 }
