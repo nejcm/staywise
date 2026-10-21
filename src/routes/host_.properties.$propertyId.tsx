@@ -507,13 +507,10 @@ const contactInputs: typeof essentialInputs = [
 ];
 
 function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZones: string[] }) {
-  const router = useRouter();
+  const { busy, notice, setNotice, run } = useHostAction();
   const [sourceLocale, setSourceLocale] = useState(property.sourceLocale);
   const [enabledLocales, setEnabledLocales] = useState<readonly string[]>(property.enabledLocales);
   const [errors, setErrors] = useState<Record<string, string>>({});
-  const [message, setMessage] = useState('');
-  const [messageFailed, setMessageFailed] = useState(false);
-  const [busy, setBusy] = useState(false);
   const timeZoneOptions = timeZones.includes(property.timezone) ? timeZones : [property.timezone, ...timeZones];
 
   async function submit(event: FormEvent<HTMLFormElement>) {
@@ -534,36 +531,21 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
     const timezoneError = timeZoneOptions.includes(timezone) ? null : { timezone: 'Choose a time zone from the list' };
     if (!parsed.success || timezoneError) {
       setErrors({ ...(parsed.success ? {} : collectFieldErrors(parsed.error)), ...timezoneError });
-      setMessage('Check the highlighted fields.');
-      setMessageFailed(true);
+      setNotice({ text: 'Check the highlighted fields.', failed: true });
       return;
     }
     setErrors({});
-    setBusy(true);
-    setMessage('');
-    setMessageFailed(false);
-    try {
-      const result = await saveProperty({
-        data: {
-          propertyId: property.id,
-          ...parsed.data,
-          ...(timezone === property.timezone ? {} : { timezone }),
-        },
-      });
-      if ('error' in result) {
-        setMessage('Something went wrong. Try again.');
-        setMessageFailed(true);
-        return;
-      }
-      setMessage('Saved.');
-      setMessageFailed(false);
-      await router.invalidate();
-    } catch {
-      setMessage('Something went wrong. Try again.');
-      setMessageFailed(true);
-    } finally {
-      setBusy(false);
-    }
+    await run(
+      () =>
+        saveProperty({
+          data: {
+            propertyId: property.id,
+            ...parsed.data,
+            ...(timezone === property.timezone ? {} : { timezone }),
+          },
+        }),
+      () => 'Saved.',
+    );
   }
 
   return (
@@ -722,8 +704,8 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
         <Button type="submit" variant="primary" disabled={busy} data-testid="property-save">
           Save property
         </Button>
-        <Toast testId="property-save-status" tone={messageFailed ? 'error' : undefined}>
-          {message}
+        <Toast testId="property-save-status" tone={notice.failed ? 'error' : undefined}>
+          {notice.text}
         </Toast>
       </div>
     </form>
@@ -731,33 +713,17 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
 }
 
 function AlertPanel({ property }: { property: EditorProperty }) {
-  const router = useRouter();
   const [alertEmail, setAlertEmail] = useState(property.alertEmail);
-  const [alertMessage, setAlertMessage] = useState('');
-  const [alertMessageFailed, setAlertMessageFailed] = useState(false);
-  const [alertBusy, setAlertBusy] = useState(false);
+  const { busy, notice, run } = useHostAction();
 
-  async function resyncEmail() {
-    setAlertBusy(true);
-    setAlertMessage('');
-    setAlertMessageFailed(false);
-    try {
-      const result = await resyncAlertEmail({ data: { propertyId: property.id } });
-      if ('error' in result) {
-        setAlertMessage('Something went wrong. Try again.');
-        setAlertMessageFailed(true);
-        return;
-      }
-      setAlertEmail(result.alertEmail);
-      setAlertMessage('Alert address updated to your current sign-in address.');
-      setAlertMessageFailed(false);
-      await router.invalidate();
-    } catch {
-      setAlertMessage('Something went wrong. Try again.');
-      setAlertMessageFailed(true);
-    } finally {
-      setAlertBusy(false);
-    }
+  function resyncEmail() {
+    return run(
+      () => resyncAlertEmail({ data: { propertyId: property.id } }),
+      (result) => {
+        setAlertEmail(result.alertEmail);
+        return 'Alert address updated to your current sign-in address.';
+      },
+    );
   }
 
   return (
@@ -773,13 +739,13 @@ function AlertPanel({ property }: { property: EditorProperty }) {
         )}
       </p>
       <div className="actions">
-        <Button type="button" onClick={() => void resyncEmail()} disabled={alertBusy} data-testid="alert-email-resync">
+        <Button type="button" onClick={() => void resyncEmail()} disabled={busy} data-testid="alert-email-resync">
           Use my current sign-in address
         </Button>
       </div>
       <p className="small muted">Only the alert goes there. Messages stay in your inbox.</p>
-      <Toast testId="alert-email-message" tone={alertMessageFailed ? 'error' : undefined}>
-        {alertMessage}
+      <Toast testId="alert-email-message" tone={notice.failed ? 'error' : undefined}>
+        {notice.text}
       </Toast>
     </section>
   );
