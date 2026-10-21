@@ -8,6 +8,7 @@ import {
   collectMessageFieldErrors,
   guestMessageFields,
   messageLimits,
+  readBoundedBytes,
   readBoundedText,
 } from './message-validation';
 import { duplicateFingerprint, messageRateFingerprints, readGuideGaps } from './messages.server';
@@ -185,6 +186,17 @@ describe('guest message byte bound', () => {
       text: 'Gdje je Wi-Fi? 你好 ünë — OK',
     });
     expect(source.state().cancelled).toBe(false);
+  });
+
+  it('returns the raw bytes joined across chunks, and denies one byte more', async () => {
+    const accepted = instrumented([Uint8Array.from([0xff, 0xd8]), Uint8Array.from([0x00, 0xff, 0xd9])]);
+    expect(await readBoundedBytes(accepted.stream, 5)).toEqual({
+      state: 'ok',
+      bytes: Uint8Array.from([0xff, 0xd8, 0x00, 0xff, 0xd9]),
+    });
+    const over = instrumented([new Uint8Array(3), new Uint8Array(3)]);
+    expect(await readBoundedBytes(over.stream, 5)).toEqual({ state: 'denied' });
+    expect(over.state().cancelled).toBe(true);
   });
 
   it('treats an absent body as empty and a failing stream as denied', async () => {

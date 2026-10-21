@@ -17,34 +17,47 @@ const MESSAGE_EMAIL_MAX = 254;
 // Bounds the raw request in bytes before JSON parsing, well above the largest valid payload.
 export const MESSAGE_REQUEST_MAX = 8192;
 
-// Reads at most maxBytes of incoming bytes, cancelling the reader instead of buffering more, then
-// decodes only the bounded buffer. Content-Length is an optional early rejection, never the control.
-export async function readBoundedText(
+// Reads at most maxBytes of incoming bytes, cancelling the reader instead of buffering more.
+// Content-Length is an optional early rejection, never the control.
+export async function readBoundedBytes(
   body: ReadableStream<Uint8Array> | null,
   maxBytes: number,
-): Promise<{ state: 'ok'; text: string } | { state: 'denied' }> {
-  if (!body) return { state: 'ok', text: '' };
+): Promise<{ state: 'ok'; bytes: Uint8Array } | { state: 'denied' }> {
+  if (!body) return { state: 'ok', bytes: new Uint8Array() };
   const reader = body.getReader();
-  const decoder = new TextDecoder();
-  let bytes = 0;
-  let text = '';
+  const chunks: Uint8Array[] = [];
+  let length = 0;
   try {
     for (;;) {
       const { done, value } = await reader.read();
       if (done) break;
-      bytes += value.byteLength;
-      if (bytes > maxBytes) {
+      length += value.byteLength;
+      if (length > maxBytes) {
         await reader.cancel().catch(() => {});
         return { state: 'denied' };
       }
-      text += decoder.decode(value, { stream: true });
+      chunks.push(value);
     }
-    text += decoder.decode();
-    return { state: 'ok', text };
   } catch {
     await reader.cancel().catch(() => {});
     return { state: 'denied' };
   }
+  const bytes = new Uint8Array(length);
+  let offset = 0;
+  for (const chunk of chunks) {
+    bytes.set(chunk, offset);
+    offset += chunk.byteLength;
+  }
+  return { state: 'ok', bytes };
+}
+
+// Decodes only the bounded buffer.
+export async function readBoundedText(
+  body: ReadableStream<Uint8Array> | null,
+  maxBytes: number,
+): Promise<{ state: 'ok'; text: string } | { state: 'denied' }> {
+  const read = await readBoundedBytes(body, maxBytes);
+  return read.state === 'ok' ? { state: 'ok', text: new TextDecoder().decode(read.bytes) } : read;
 }
 
 // Fixed-window submission limits, keyed by HMAC fingerprints, never raw identifiers.

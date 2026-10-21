@@ -4,7 +4,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(22);
+select plan(24);
 
 do $$ begin execute format('grant app_runtime to %I with set true', current_user); end $$;
 
@@ -23,6 +23,8 @@ insert into app.share_links (id, secret_hmac, property_id, kind, reservation_id,
   ('pgtapStayOver000001', '\x0102', '5c5c0000-0000-4000-8000-0000000000a2', 'stay', '5c5c0000-0000-4000-8000-0000000000c2', now() - interval '1 second');
 insert into app.share_links (id, secret_hmac, property_id) values
   ('pgtapStayProp000001', '\x0102', '5c5c0000-0000-4000-8000-0000000000a2');
+insert into app.property_images (property_id, object_path, alt, width, height, bytes) values
+  ('5c5c0000-0000-4000-8000-0000000000a2', '5c5c0000-0000-4000-8000-0000000000a2/hero.jpg', 'Hero', 1600, 1067, 1000);
 insert into app.guest_counters (property_id, day, guide_opens) values
   ('5c5c0000-0000-4000-8000-0000000000a2', current_date - 1, 1);
 
@@ -40,6 +42,7 @@ begin
   insert into probes select p_link, 'share_links_guest_read', count(*)::integer from app.share_links;
   insert into probes select p_link, 'property_credentials_guest_read', count(*)::integer from app.property_credentials;
   insert into probes select p_link, 'guest_counters_guest_select', count(*)::integer from app.guest_counters;
+  insert into probes select p_link, 'property_images_guest_read', count(*)::integer from app.property_images;
   update app.guest_counters set guide_opens = guide_opens + 1 where day = current_date - 1;
   get diagnostics v = row_count;
   insert into probes values (p_link, 'guest_counters_guest_update', v);
@@ -67,12 +70,14 @@ select pg_temp.probe('pgtapStayOver000001');
 select is((select n from probes where link = 'pgtapStayLive000001' and name = 'share_links_guest_read'), 1, 'a live stay link reads its own row');
 select is((select n from probes where link = 'pgtapStayLive000001' and name = 'property_credentials_guest_read'), 1, 'a live stay link reads credentials');
 select is((select n from probes where link = 'pgtapStayLive000001' and name = 'guest_counters_guest_select'), 1, 'a live stay link reads counters');
+select is((select n from probes where link = 'pgtapStayLive000001' and name = 'property_images_guest_read'), 1, 'a live stay link reads the hero');
 select is((select n from probes where link = 'pgtapStayLive000001' and name = 'guest_counters_guest_update'), 1, 'a live stay link bumps counters');
 select is((select n from probes where link = 'pgtapStayLive000001' and name = 'guest_counters_guest_insert'), 1, 'a live stay link inserts counters');
 select is((select n from probes where link = 'pgtapStayLive000001' and name = 'guest_messages_guest_insert'), 1, 'a live stay link submits messages');
 select is((select n from probes where link = 'pgtapStayOver000001' and name = 'share_links_guest_read'), 0, 'share_links_guest_read hides an expired link');
 select is((select n from probes where link = 'pgtapStayOver000001' and name = 'property_credentials_guest_read'), 0, 'property_credentials_guest_read denies an expired link');
 select is((select n from probes where link = 'pgtapStayOver000001' and name = 'guest_counters_guest_select'), 0, 'guest_counters_guest_select denies an expired link');
+select is((select n from probes where link = 'pgtapStayOver000001' and name = 'property_images_guest_read'), 0, 'property_images_guest_read denies an expired link');
 select is((select n from probes where link = 'pgtapStayOver000001' and name = 'guest_counters_guest_update'), 0, 'guest_counters_guest_update denies an expired link');
 select is((select n from probes where link = 'pgtapStayOver000001' and name = 'guest_counters_guest_insert'), 0, 'guest_counters_guest_insert denies an expired link');
 select is((select n from probes where link = 'pgtapStayOver000001' and name = 'guest_messages_guest_insert'), 0, 'guest_messages_guest_insert denies an expired link');
@@ -91,7 +96,7 @@ begin
   return v;
 end $$;
 select is(pg_temp.owner_probe(), 1, 'share_links_owner and guest_sessions_owner still serve the host an expired link');
-select is((select count(*)::integer from pg_policies where schemaname = 'app' and (qual like '%app.share_links%' or with_check like '%app.share_links%')), 6, 'six policies read app.share_links in a subquery; each is probed above');
+select is((select count(*)::integer from pg_policies where schemaname = 'app' and (qual like '%app.share_links%' or with_check like '%app.share_links%')), 7, 'seven policies read app.share_links in a subquery; each is probed above');
 
 select throws_ok(
   $$insert into app.share_links (id, secret_hmac, property_id) values ('pgtapStayProp000002', '\x0102', '5c5c0000-0000-4000-8000-0000000000a2')$$,

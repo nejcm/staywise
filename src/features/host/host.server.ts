@@ -1,4 +1,5 @@
 import type postgres from 'postgres';
+import { toHeroImage } from '../guide/guide.server';
 
 // Owner context: RLS limits the rows to the signed-in host's properties.
 export async function readOwnProperties(tx: postgres.TransactionSql) {
@@ -22,8 +23,10 @@ export async function readOwnProperties(tx: postgres.TransactionSql) {
         where c.property_id = p.id and c.day > current_date - 30), 0)::int as opens_30d,
       coalesce((select sum(c.submissions) from app.guest_counters c
         where c.property_id = p.id and c.day > current_date - 30), 0)::int as messages_30d,
-      (select count(*) from app.guest_messages m where m.property_id = p.id and m.state = 'new')::int as waiting
+      (select count(*) from app.guest_messages m where m.property_id = p.id and m.state = 'new')::int as waiting,
+      i.alt as hero_alt, i.width as hero_width, i.height as hero_height, i.created_at as hero_created_at
     from app.properties p
+    left join app.property_images i on i.property_id = p.id
     order by p.created_at desc
   `;
   return rows.map((row) => ({
@@ -43,5 +46,13 @@ export async function readOwnProperties(tx: postgres.TransactionSql) {
     opens30d: row.opens_30d as number,
     messages30d: row.messages_30d as number,
     waiting: row.waiting as number,
+    hero: row.hero_created_at
+      ? toHeroImage({
+          alt: row.hero_alt as string,
+          width: row.hero_width as number,
+          height: row.hero_height as number,
+          created_at: row.hero_created_at as Date,
+        })
+      : null,
   }));
 }

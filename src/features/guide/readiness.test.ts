@@ -3,6 +3,7 @@ import type { GuideEditorData } from './guide.server';
 import { readiness } from './readiness';
 
 const empty: GuideEditorData = {
+  hero: null,
   property: {
     id: 'p1',
     displayName: 'Synthetic villa',

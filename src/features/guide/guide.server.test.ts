@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { toGuestGuideDto, type GuestGuideRow } from './guide.server';
+import type postgres from 'postgres';
+import {
+  deleteHero,
+  readHeroPath,
+  toGuestGuideDto,
+  updateHeroAlt,
+  upsertHero,
+  type GuestGuideRow,
+} from './guide.server';
 
 const property = {
   display_name: 'Synthetic villa',
@@ -39,6 +47,7 @@ describe('toGuestGuideDto', () => {
       locale: 'en',
       locales: ['en'],
       theme: 'staywise',
+      hero: null,
       sections: [
         { category: 'wifi', title: 'First', body: 'Synthetic body', provenance: 'source' },
         { category: 'wifi', title: 'Second', body: 'Synthetic body', provenance: 'source' },
@@ -47,6 +56,11 @@ describe('toGuestGuideDto', () => {
     for (const section of dto.sections) {
       expect(Object.keys(section)).toEqual(['category', 'title', 'body', 'provenance']);
     }
+  });
+
+  it('carries the hero metadata', () => {
+    const hero = { alt: 'Lake view', width: 1600, height: 1067, version: '1792576800000' };
+    expect(toGuestGuideDto(property, [], 'en', hero).hero).toEqual(hero);
   });
 
   it('carries the property theme', () => {
@@ -126,5 +140,67 @@ describe('toGuestGuideDto', () => {
 
   it('falls back to source when the requested language is not enabled', () => {
     expect(toGuestGuideDto({ ...property, enabled_locales: ['de'] }, [], 'sl').locale).toBe('en');
+  });
+});
+
+// Answers each query in order and records its text and parameters.
+function fakeTx(...results: unknown[][]) {
+  const queries: { text: string; values: unknown[] }[] = [];
+  const tx = (strings: TemplateStringsArray, ...values: unknown[]) => {
+    queries.push({ text: strings.join('?'), values });
+    return Promise.resolve(results.shift() ?? []);
+  };
+  return { tx: tx as unknown as postgres.TransactionSql, queries };
+}
+
+describe('hero writes', () => {
+  const propertyId = '11111111-1111-4111-8111-111111111111';
+  const created = new Date('2026-10-21T10:00:00.000Z');
+  const input = { propertyId, alt: '  Lake view  ', width: 1600, height: 1067, bytes: 900000 };
+
+  it('stores a new key under the property prefix and returns no path to guests', async () => {
+    const { tx, queries } = fakeTx([{}], [{ alt: 'Lake view', width: 1600, height: 1067, created_at: created }]);
+    const result = await upsertHero(tx, input);
+    expect(result?.objectPath).toMatch(new RegExp(`^${propertyId}/[0-9a-f-]{36}\\.jpg$`));
+    expect(result?.hero).toEqual({ alt: 'Lake view', width: 1600, height: 1067, version: String(created.getTime()) });
+    expect(queries[1]?.values).toEqual([propertyId, result?.objectPath, 'Lake view', 1600, 1067, 900000]);
+  });
+
+  it('gives every upload a fresh key', async () => {
+    const stored = { alt: 'Lake view', width: 1, height: 1, created_at: created };
+    const first = await upsertHero(fakeTx([{}], [stored]).tx, input);
+    const second = await upsertHero(fakeTx([{}], [stored]).tx, input);
+    expect(first?.objectPath).not.toBe(second?.objectPath);
+  });
+
+  it('writes nothing for a property the owner context cannot see', async () => {
+    const { tx, queries } = fakeTx([]);
+    expect(await upsertHero(tx, input)).toBeNull();
+    expect(queries).toHaveLength(1);
+  });
+
+  it('rejects invalid input before any query', async () => {
+    for (const bad of [
+      { ...input, alt: '   ' },
+      { ...input, alt: 'x'.repeat(201) },
+      { ...input, alt: 'a\u0000b' },
+      { ...input, bytes: 1048577 },
+      { ...input, width: 0 },
+      { ...input, propertyId: '../other' },
+    ]) {
+      const { tx, queries } = fakeTx();
+      await expect(upsertHero(tx, bad)).rejects.toThrow('invalid_input');
+      expect(queries).toHaveLength(0);
+    }
+    await expect(updateHeroAlt(fakeTx().tx, propertyId, '')).rejects.toThrow('invalid_input');
+  });
+
+  it('reports whether an alt edit, removal, or path read found the row', async () => {
+    expect(await updateHeroAlt(fakeTx([{ property_id: propertyId }]).tx, propertyId, 'Dusk')).toBe(true);
+    expect(await deleteHero(fakeTx([]).tx, propertyId)).toBe(false);
+    expect(await readHeroPath(fakeTx([{ object_path: `${propertyId}/a.jpg` }]).tx, propertyId)).toBe(
+      `${propertyId}/a.jpg`,
+    );
+    expect(await readHeroPath(fakeTx([]).tx, propertyId)).toBeNull();
   });
 });

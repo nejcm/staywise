@@ -6,6 +6,8 @@ import {
   copyPropertyInput,
   createPropertyInput,
   createSectionInput,
+  heroAltSchema,
+  heroWriteInput,
   moveSectionInput,
   propertyIdInput,
   savePropertyInput,
@@ -34,7 +36,11 @@ export type GuideTranslation = {
   reviewedAt: string | null;
 };
 
+// Object paths never leave the server; version changes with every upload so URLs can be cached.
+export type HeroImage = { alt: string; width: number; height: number; version: string };
+
 export type GuideEditorData = {
+  hero: HeroImage | null;
   property: {
     id: string;
     displayName: string;
@@ -81,6 +87,7 @@ export type GuestGuideDto = {
   locale: string;
   locales: string[];
   theme: GuestTheme;
+  hero: HeroImage | null;
   sections: { category: SectionCategory; title: string; body: string; provenance: GuestProvenance }[];
 };
 
@@ -117,6 +124,7 @@ export function toGuestGuideDto(
   property: { display_name: string; source_locale: string; enabled_locales: string[]; theme: string },
   rows: GuestGuideRow[],
   locale: string,
+  hero: HeroImage | null = null,
 ): GuestGuideDto {
   const sourceLocale = property.source_locale;
   const locales = [...new Set([sourceLocale, ...property.enabled_locales])].sort();
@@ -127,6 +135,7 @@ export function toGuestGuideDto(
     locale: served,
     locales,
     theme: property.theme as GuestTheme,
+    hero,
     sections: rows
       .filter((row) => row.published && row.visibility === 'guest')
       .sort((a, b) => a.display_order - b.display_order)
@@ -151,6 +160,61 @@ export function toGuestGuideDto(
 
 export async function ownsProperty(tx: postgres.TransactionSql, propertyId: string): Promise<boolean> {
   const rows = await tx`select 1 from app.properties where id = ${propertyId}`;
+  return rows.length === 1;
+}
+
+type HeroRow = { alt: string; width: number; height: number; created_at: Date };
+
+export function toHeroImage(row: HeroRow): HeroImage {
+  return { alt: row.alt, width: row.width, height: row.height, version: String(row.created_at.getTime()) };
+}
+
+// RLS picks the owner or the live guest link view, so the same read serves editor, preview, and guide.
+async function readHero(tx: postgres.TransactionSql, propertyId: string): Promise<HeroImage | null> {
+  const [row] = await tx<HeroRow[]>`
+    select alt, width, height, created_at from app.property_images where property_id = ${propertyId}
+  `;
+  return row ? toHeroImage(row) : null;
+}
+
+export async function readHeroPath(tx: postgres.TransactionSql, propertyId: string): Promise<string | null> {
+  const [row] = await tx<{ object_path: string }[]>`
+    select object_path from app.property_images where property_id = ${propertyId}
+  `;
+  return row?.object_path ?? null;
+}
+
+// A new key per upload; replacing the row queues the old object for the drain (ADR 0005).
+export async function upsertHero(
+  tx: postgres.TransactionSql,
+  input: { propertyId: string; alt: string; width: number; height: number; bytes: number },
+): Promise<{ objectPath: string; hero: HeroImage } | null> {
+  const parsed = canonicalInput(heroWriteInput, input);
+  if (!(await ownsProperty(tx, parsed.propertyId))) return null;
+  const objectPath = `${parsed.propertyId}/${crypto.randomUUID()}.jpg`;
+  const [row] = await tx<HeroRow[]>`
+    insert into app.property_images (property_id, object_path, alt, width, height, bytes)
+    values (${parsed.propertyId}, ${objectPath}, ${parsed.alt}, ${parsed.width}, ${parsed.height}, ${parsed.bytes})
+    on conflict (property_id) do update set
+      object_path = excluded.object_path, alt = excluded.alt, width = excluded.width,
+      height = excluded.height, bytes = excluded.bytes, created_at = now()
+    returning alt, width, height, created_at
+  `;
+  return row ? { objectPath, hero: toHeroImage(row) } : null;
+}
+
+export async function updateHeroAlt(tx: postgres.TransactionSql, propertyId: string, alt: string): Promise<boolean> {
+  const parsed = canonicalInput(propertyIdInput, { propertyId });
+  const text = canonicalInput(heroAltSchema, alt);
+  const rows = await tx`
+    update app.property_images set alt = ${text} where property_id = ${parsed.propertyId} returning property_id
+  `;
+  return rows.length === 1;
+}
+
+export async function deleteHero(tx: postgres.TransactionSql, propertyId: string): Promise<boolean> {
+  const parsed = canonicalInput(propertyIdInput, { propertyId });
+  const rows = await tx`delete from app.property_images where property_id = ${parsed.propertyId} returning property_id`;
   return rows.length === 1;
 }
 
@@ -230,6 +294,7 @@ export async function readGuideEditor(
     bySection.set(row.section_id, list);
   }
   return {
+    hero: await readHero(tx, propertyId),
     property: {
       id: property.id,
       displayName: property.display_name,
@@ -323,7 +388,7 @@ export async function readGuestGuide(
     order by s.display_order, s.created_at, s.id
   `;
   return {
-    guest: toGuestGuideDto(property, rows, locale ?? property.source_locale),
+    guest: toGuestGuideDto(property, rows, locale ?? property.source_locale, await readHero(tx, propertyId)),
     guidePublished: property.published,
   };
 }

@@ -2,6 +2,7 @@ import { createServerFn } from '@tanstack/react-start';
 import { aal2Host, isGuardedMutation, runGuarded, type FnError } from '../../lib/fn-guards.server';
 import { insertAudit } from '../../lib/audit.server';
 import { withOwnerContext } from '../../lib/db.server';
+import { serverEnv } from '../../lib/env.server';
 import { recordSetupEvent } from '../../lib/setup-events.server';
 import {
   copyPropertyInput,
@@ -238,7 +239,13 @@ export const getPropertyEditor = createServerFn({ method: 'POST' })
       if ('error' in host) return host;
       const read = await withOwnerContext(host.userId, async (tx) => {
         const editor = await readGuideEditor(tx, input.data.propertyId);
-        return editor && { editor, gaps: await readGuideGaps(tx, input.data.propertyId) };
+        return (
+          editor && {
+            editor,
+            gaps: await readGuideGaps(tx, input.data.propertyId),
+            heroUpload: serverEnv.supabaseSecretKey !== null,
+          }
+        );
       });
       if (!read) return { error: 'invalid_input' } satisfies FnError;
       return read;

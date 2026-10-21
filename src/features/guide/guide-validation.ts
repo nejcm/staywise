@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { HERO_MAX_BYTES } from './image-validation';
 
 export const sectionCategories = [
   'arrival',
@@ -164,6 +165,19 @@ export const moveSectionInput = z.object({
   direction: z.enum(['up', 'down']),
 });
 export const propertyIdInput = z.object({ propertyId: z.uuid() });
+export const heroAltSchema = z
+  .string()
+  .trim()
+  .min(1, 'Describe the photo for guests who cannot see it')
+  .max(200, 'Photo description must be 200 characters or fewer')
+  .refine((value) => !hasControlCharacters(value), 'Remove control characters');
+export const heroWriteInput = z.object({
+  propertyId: z.uuid(),
+  alt: heroAltSchema,
+  width: z.number().int().positive(),
+  height: z.number().int().positive(),
+  bytes: z.number().int().min(1).max(HERO_MAX_BYTES),
+});
 export const previewGuideInput = z.object({ propertyId: z.uuid(), locale: z.string().max(16).optional() });
 
 // C0 controls other than tab, newline, and carriage return are never legitimate in prose or
