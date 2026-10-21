@@ -10,6 +10,8 @@ import { collectFieldErrors, guestLocales, hostSettingsInput } from '../features
 import { languageNames } from '../features/guest/guest-ui';
 import { deleteAccount, getHostAuthState, mfaUnenroll, restartEnrollment } from '../features/host/host-fns';
 import { getHostSettings, saveHostSettings } from '../features/host/settings-fns';
+import { createAgentToken, getAgentAccess, revokeAgentToken, revokeAllAgentTokens } from '../features/agent/agent-fns';
+import { agentScopes, createGrantInput, grantLifetimes, scopeLabels } from '../features/agent/agent-validation';
 import type { HostSettings } from '../features/host/settings.server';
 import { TotpEnrollment } from '../features/host/totp-enrollment';
 import styles from '../features/host/host.module.css';
@@ -22,7 +24,10 @@ export const Route = createFileRoute('/host_/settings')({
     if (state.state !== 'workspace') throw redirect({ to: '/host' });
     const result = await getHostSettings();
     if ('error' in result) throw redirect({ to: '/host' });
+    const agent = await getAgentAccess();
+    if ('error' in agent) throw redirect({ to: '/host' });
     return {
+      agent,
       totpFactorIds: state.totpFactorIds,
       email: result.email,
       settings: result.settings,
@@ -35,7 +40,7 @@ export const Route = createFileRoute('/host_/settings')({
 });
 
 function SettingsPage() {
-  const { totpFactorIds, email, settings, saved, timeZones, accountDeletion } = Route.useLoaderData();
+  const { agent, totpFactorIds, email, settings, saved, timeZones, accountDeletion } = Route.useLoaderData();
   return (
     <HostShell email={email}>
       <div className={styles.head}>
@@ -52,6 +57,12 @@ function SettingsPage() {
         <h2 id="mfa-heading">Two-step sign-in</h2>
         <TwoStep factorIds={totpFactorIds} />
       </section>
+      {agent.enabled ? (
+        <section className={`${styles.panel} stack`} aria-labelledby="agent-heading" data-testid="agent-access">
+          <h2 id="agent-heading">Agent access</h2>
+          <AgentAccess grants={agent.grants} properties={agent.properties} endpoint={agent.endpoint} />
+        </section>
+      ) : null}
       <section className={`${styles.panel} stack`} aria-labelledby="session-heading">
         <h2 id="session-heading">Sign out</h2>
         <p className="muted">Ends the session in this browser.</p>
@@ -278,6 +289,172 @@ function TwoStep({ factorIds }: { factorIds: string[] }) {
         </Button>
       </p>
       <Toast testId="host-message" tone={notice.failed ? 'error' : undefined}>
+        {notice.text}
+      </Toast>
+    </>
+  );
+}
+
+type AgentData = Extract<Awaited<ReturnType<typeof getAgentAccess>>, { enabled: true }>;
+
+const utcDate = (iso: string) => iso.slice(0, 10);
+
+function AgentAccess({ grants, properties, endpoint }: Omit<AgentData, 'enabled'>) {
+  const { busy, notice, setNotice, run } = useHostAction();
+  const [token, setToken] = useState('');
+  const [errors, setErrors] = useState<Record<string, string>>({});
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const parsed = createGrantInput.safeParse({
+      name: formData.get('name'),
+      scopes: formData.getAll('scopes').map(String),
+      propertyId: formData.get('propertyId') || null,
+      days: Number(formData.get('days')),
+    });
+    if (!parsed.success) {
+      setErrors(collectFieldErrors(parsed.error));
+      setNotice({ text: 'Check the highlighted fields.', failed: true });
+      return;
+    }
+    setErrors({});
+    setToken('');
+    await run(
+      () => createAgentToken({ data: parsed.data }),
+      (result) => {
+        setToken(result.token);
+        form.reset();
+        return 'Token created. Copy it now; it is shown only once.';
+      },
+    );
+  }
+
+  return (
+    <>
+      <p className="muted">
+        Personal tokens let your own AI agent read your properties at <code>{endpoint}</code>. Agents never see guest
+        messages, link secrets, Wi-Fi passwords or key-box codes.
+      </p>
+      <form onSubmit={submit} noValidate className="stack" data-testid="agent-token-form">
+        <div className={editorStyles.fieldGrid}>
+          <Field label="Token name" error={errors.name} errorId="agent-name-error">
+            <input
+              name="name"
+              maxLength={100}
+              autoComplete="off"
+              aria-invalid={Boolean(errors.name)}
+              aria-describedby={errors.name ? 'agent-name-error' : undefined}
+              data-testid="agent-token-name"
+            />
+          </Field>
+          <Field label="Property">
+            <select name="propertyId" defaultValue="" data-testid="agent-token-property">
+              <option value="">All properties</option>
+              {properties.map((property) => (
+                <option key={property.id} value={property.id}>
+                  {property.name}
+                </option>
+              ))}
+            </select>
+          </Field>
+          <Field label="Expires after">
+            <select name="days" defaultValue="30" data-testid="agent-token-days">
+              {grantLifetimes.map((days) => (
+                <option key={days} value={days}>
+                  {days} days
+                </option>
+              ))}
+            </select>
+          </Field>
+        </div>
+        <fieldset data-testid="agent-token-scopes">
+          <legend>Permissions</legend>
+          {agentScopes.map((scope) => (
+            <p key={scope} style={{ marginTop: 8 }}>
+              <label>
+                <input
+                  type="checkbox"
+                  name="scopes"
+                  value={scope}
+                  defaultChecked={scope === 'read'}
+                  data-testid={`agent-scope-${scope}`}
+                />
+                {scopeLabels[scope]}
+              </label>
+            </p>
+          ))}
+          {errors.scopes ? <p className="small">{errors.scopes}</p> : null}
+        </fieldset>
+        <div className="actions">
+          <Button type="submit" variant="primary" disabled={busy} data-testid="agent-token-create">
+            Create token
+          </Button>
+        </div>
+      </form>
+      {token ? (
+        <Field label="New token (shown once)">
+          <input readOnly value={token} onFocus={(event) => event.target.select()} data-testid="agent-token-value" />
+        </Field>
+      ) : null}
+      {grants.length ? (
+        <ul className={styles.rows} data-testid="agent-grants">
+          {grants.map((grant) => (
+            <li key={grant.id} data-testid="agent-grant">
+              <p>
+                <strong>{grant.name}</strong>
+              </p>
+              <p className="small muted">
+                {grant.scopes.join(', ')} · {grant.propertyName ?? 'All properties'} · expires{' '}
+                {utcDate(grant.expiresAt)}
+                {' · '}
+                {grant.lastUsedAt ? `last used ${utcDate(grant.lastUsedAt)}` : 'never used'}
+                {grant.clientLabel ? ` by ${grant.clientLabel}` : ''}
+              </p>
+              <p className="actions">
+                <Button
+                  type="button"
+                  variant="danger"
+                  disabled={busy}
+                  onClick={() =>
+                    run(
+                      () => revokeAgentToken({ data: { grantId: grant.id } }),
+                      () => 'Token revoked.',
+                    )
+                  }
+                  data-testid="agent-grant-revoke"
+                >
+                  Revoke
+                </Button>
+              </p>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p className="small muted" data-testid="agent-grants-empty">
+          No active tokens.
+        </p>
+      )}
+      {grants.length ? (
+        <p className="actions">
+          <Button
+            type="button"
+            variant="danger"
+            disabled={busy}
+            onClick={() =>
+              run(
+                () => revokeAllAgentTokens({ data: {} }),
+                () => 'All tokens revoked.',
+              )
+            }
+            data-testid="agent-grants-revoke-all"
+          >
+            Revoke all
+          </Button>
+        </p>
+      ) : null}
+      <Toast testId="agent-status" tone={notice.failed ? 'error' : undefined}>
         {notice.text}
       </Toast>
     </>

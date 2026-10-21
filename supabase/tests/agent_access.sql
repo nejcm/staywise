@@ -169,11 +169,10 @@ select throws_ok(
 
 select is(pg_temp.state_as('a6e00000-0000-4000-8000-0000000000a1',
   $$insert into app.audit_events (actor_id, action) values
-    ('a6e00000-0000-4000-8000-0000000000a1', 'agent_tool_call'),
     ('a6e00000-0000-4000-8000-0000000000a1', 'agent_grant_created'),
     ('a6e00000-0000-4000-8000-0000000000a1', 'agent_grant_revoked'),
     ('a6e00000-0000-4000-8000-0000000000a1', 'agent_grants_revoked_all')$$),
-  'ok', 'the runtime appends the agent audit actions');
+  'ok', 'the runtime appends the agent grant audit actions (tool calls: agent_runtime.sql)');
 select throws_ok(
   $$insert into app.audit_events (actor_id, action) values ('a6e00000-0000-4000-8000-0000000000a1', 'agent_token_rotated')$$,
   '23514', null, 'unknown audit actions are still rejected');

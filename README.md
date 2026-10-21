@@ -50,6 +50,7 @@ Environment: copy `.env.example` to `.env.local`; never commit real values. `APP
 | `APP_ORIGIN` | outside local | Public origin, used for same-origin checks and links |
 | `SHARE_HMAC_KEY` | outside local | At least 32 characters; keys guest link hashes and rate-limit windows |
 | `GUEST_ACCESS_DISABLED` | no | Operator kill switch (below) |
+| `AGENT_ACCESS_DISABLED` | no | Agent kill switch: `true` denies every token at `/mcp` and hides the settings tokens section; defaults to `true` outside `local` |
 | `MFA_REQUIRED` | no | `true` forces every host to enroll TOTP; default lets hosts opt in from `/host/settings` |
 | `GOOGLE_TRANSLATE_SERVICE_ACCOUNT` | no | Enables guide translation egress; unset means nothing is sent |
 

@@ -136,4 +136,15 @@ describe('parseServerEnv', () => {
     expect(parseServerEnv({ APP_ENV: 'local', GUEST_ACCESS_DISABLED: 'true' }).guestAccessDisabled).toBe(true);
     expect(() => parseServerEnv({ APP_ENV: 'local', GUEST_ACCESS_DISABLED: 'yes' })).toThrow(/GUEST_ACCESS_DISABLED/);
   });
+
+  it('keeps agent access off outside local unless explicitly enabled', () => {
+    const remote = remoteEnv(
+      'postgresql://app_runtime:x@db.example.test:5432/postgres?sslmode=verify-full&sslrootcert=/ca.pem',
+    );
+    expect(parseServerEnv({ APP_ENV: 'local' }).agentAccessDisabled).toBe(false);
+    expect(parseServerEnv(remote).agentAccessDisabled).toBe(true);
+    expect(parseServerEnv({ ...remote, AGENT_ACCESS_DISABLED: 'false' }).agentAccessDisabled).toBe(false);
+    expect(parseServerEnv({ APP_ENV: 'local', AGENT_ACCESS_DISABLED: 'true' }).agentAccessDisabled).toBe(true);
+    expect(() => parseServerEnv({ APP_ENV: 'local', AGENT_ACCESS_DISABLED: '1' })).toThrow(/AGENT_ACCESS_DISABLED/);
+  });
 });

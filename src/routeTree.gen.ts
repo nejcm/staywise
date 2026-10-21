@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HostRouteImport } from './routes/host'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AuthSignInRouteImport } from './routes/auth.sign-in'
@@ -35,6 +36,11 @@ const IndexRoute = IndexRouteImport.update({
 const HostRoute = HostRouteImport.update({
   id: '/host',
   path: '/host',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PrivacyRoute = PrivacyRouteImport.update({
@@ -118,6 +124,7 @@ const HostPropertiesPropertyIdHeroRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/host': typeof HostRoute
+  '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
@@ -137,6 +144,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/host': typeof HostRoute
+  '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
@@ -156,6 +164,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/host': typeof HostRoute
+  '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
@@ -177,6 +186,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/host'
+    | '/mcp'
     | '/privacy'
     | '/auth/callback'
     | '/auth/sign-in'
@@ -196,6 +206,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/host'
+    | '/mcp'
     | '/privacy'
     | '/auth/callback'
     | '/auth/sign-in'
@@ -214,6 +225,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/host'
+    | '/mcp'
     | '/privacy'
     | '/auth/callback'
     | '/auth/sign-in'
@@ -234,6 +246,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HostRoute: typeof HostRoute
+  McpRoute: typeof McpRoute
   PrivacyRoute: typeof PrivacyRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthSignInRoute: typeof AuthSignInRoute
@@ -261,6 +274,13 @@ declare module '@tanstack/react-router' {
       path: '/host'
       fullPath: '/host'
       preLoaderRoute: typeof HostRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/privacy': {
@@ -392,6 +412,7 @@ const GShareIdRouteWithChildren = GShareIdRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HostRoute: HostRoute,
+  McpRoute: McpRoute,
   PrivacyRoute: PrivacyRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthSignInRoute: AuthSignInRoute,

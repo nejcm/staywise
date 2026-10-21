@@ -796,12 +796,24 @@ describeLocal('guest message intake and host inbox against the local stack', () 
       expect(retagged?.ok).toBe(true);
       expect(await tagAuditCount()).toBe(2);
 
-      // The audit row carries actor, action, and time only — there is no payload to leak into.
+      // Actor, action, time and check-constrained agent call metadata only — no free-text payload to leak into.
       const [cols] = await admin<{ cols: string[] }[]>`
         select array_agg(column_name order by ordinal_position)::text[] as cols
         from information_schema.columns where table_schema = 'app' and table_name = 'audit_events'
       `;
-      expect(cols?.cols).toEqual(['id', 'actor_id', 'action', 'created_at']);
+      expect(cols?.cols).toEqual([
+        'id',
+        'actor_id',
+        'action',
+        'created_at',
+        'grant_id',
+        'tool',
+        'property_ids',
+        'row_count',
+        'outcome',
+        'latency_ms',
+        'args_digest',
+      ]);
     } finally {
       await admin.unsafe('drop trigger if exists phase6_reject_tag_audit on app.audit_events');
       await admin.end({ timeout: 0 });

@@ -12,7 +12,18 @@ export type ReadinessItem = {
   optional?: boolean;
 };
 
-export function readiness(editor: GuideEditorData, linkIssued: boolean, heroAvailable = false): ReadinessItem[] {
+type ReadinessInput = {
+  hero: unknown;
+  property: Pick<
+    GuideEditorData['property'],
+    'checkinTime' | 'checkoutTime' | 'address' | 'contactPhone' | 'published'
+  > & {
+    wifiPassword: unknown;
+  };
+  sections: Pick<GuideEditorData['sections'][number], 'id' | 'category' | 'visibility' | 'published'>[];
+};
+
+export function readiness(editor: ReadinessInput, linkIssued: boolean, heroAvailable = false): ReadinessItem[] {
   const { property, sections } = editor;
   const live = (category: SectionCategory) =>
     sections.some((section) => section.category === category && section.visibility === 'guest' && section.published);

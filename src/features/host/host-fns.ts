@@ -17,6 +17,7 @@ import { otpSendAllowed } from '../auth/auth-limits.server';
 import { sendSecurityNotice } from '../../lib/mail.server';
 import { withOwnerContext } from '../../lib/db.server';
 import { drainAllStorageDeletions } from '../../lib/storage.server';
+import { revokeAllGrants } from '../agent/agent-auth.server';
 import { readOwnProperties } from './host.server';
 import { logEvent } from '../../lib/log.server';
 
@@ -163,6 +164,8 @@ export const mfaUnenroll = createServerFn({ method: 'POST' })
       const gate = await aal2Session(auth.client);
       applyAuthCookies(auth, gate.outcome === 'invalid');
       if (gate.outcome !== 'ok') return { error: 'auth_required' } satisfies FnError;
+      // Before the unenroll, so a failure after it can never leave agent grants alive without TOTP (Q24).
+      await withOwnerContext(gate.session.userId, (tx) => revokeAllGrants(tx, gate.session.userId));
       const { error } = await auth.client.auth.mfa.unenroll({ factorId: input.data.factorId });
       applyAuthCookies(auth);
       if (error) return { error: 'unexpected' } satisfies FnError;
