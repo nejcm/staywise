@@ -3,6 +3,7 @@ import type { ReactNode } from 'react';
 import { buttonClass } from '../components/button';
 import { Mark } from '../components/mark';
 import styles from '../features/host/public.module.css';
+import '@fontsource/alegreya-sans/500.css';
 import '@fontsource-variable/dm-sans';
 import '@fontsource-variable/source-serif-4';
 import '../styles.css';
@@ -14,6 +15,10 @@ export const Route = createRootRoute({
       { charSet: 'utf-8' },
       { name: 'viewport', content: 'width=device-width, initial-scale=1' },
       { title: 'Staywise' },
+    ],
+    links: [
+      { rel: 'icon', href: '/favicon.svg', type: 'image/svg+xml' },
+      { rel: 'apple-touch-icon', href: '/apple-touch-icon.png' },
     ],
   }),
   component: RootComponent,
