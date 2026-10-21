@@ -62,7 +62,7 @@ async function createProperty(host: VerifiedHost): Promise<string> {
   const created = decode<{ propertyId: string }>(
     await guideFn('createProperty', {
       jar: host.jar,
-      data: { displayName: 'Phase 6 inbox villa (synthetic)', sourceLocale: 'en' },
+      data: { displayName: 'Phase 6 inbox villa (synthetic)' },
     }),
   )?.result;
   if (!created?.propertyId) throw new Error('synthetic property creation failed');

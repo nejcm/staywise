@@ -1,13 +1,7 @@
 import { Link, createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
-import {
-  getHostAuthState,
-  listOwnProperties,
-  mfaEnroll,
-  mfaUnenroll,
-  mfaVerify,
-  restartEnrollment,
-} from '../features/host/host-fns';
+import { getHostAuthState, listOwnProperties, mfaEnroll } from '../features/host/host-fns';
+import { TotpEnrollment } from '../features/host/totp-enrollment';
 import { HostShell, SignOutButton } from '../components/app-shell';
 import { Button, buttonClass } from '../components/button';
 import { Field } from '../components/field';
@@ -17,8 +11,8 @@ import { Toast } from '../components/toast';
 import { copyProperty, createProperty, requestSetupSupport } from '../features/guide/guide-fns';
 import {
   collectFieldErrors,
+  createPropertyInput,
   guestLocales,
-  propertyFields,
   sectionCategories,
   sectionCategoryLabels,
   type SectionCategory,
@@ -31,10 +25,8 @@ type Workspace = Extract<Awaited<ReturnType<typeof listOwnProperties>>, { proper
 type PropertySummary = Workspace['properties'][number];
 
 export const Route = createFileRoute('/host')({
-  validateSearch: (search: Record<string, unknown>): { setup?: true } => (search.setup === true ? { setup: true } : {}),
-  loaderDeps: ({ search }) => ({ setup: search.setup === true }),
-  loader: async ({ deps }) => {
-    const state = await getHostAuthState({ data: { setup: deps.setup } });
+  loader: async () => {
+    const state = await getHostAuthState();
     if ('error' in state || state.state === 'signed_out') {
       throw redirect({ to: '/auth/sign-in' });
     }
@@ -55,16 +47,6 @@ function HostPage() {
   const properties = workspace?.properties ?? [];
   const router = useRouter();
   const navigate = useNavigate();
-  const [factor, setFactor] = useState<{ factorId: string; secret: string | null } | null>(
-    state.state === 'enroll' && state.factorId
-      ? { factorId: state.factorId, secret: null }
-      : state.state === 'verify'
-        ? { factorId: state.factorId, secret: null }
-        : null,
-  );
-  const [code, setCode] = useState('');
-  const [message, setMessage] = useState('');
-  const [messageFailed, setMessageFailed] = useState(false);
   const [busy, setBusy] = useState(false);
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
   const [createMessage, setCreateMessage] = useState('');
@@ -76,7 +58,7 @@ function HostPage() {
 
   async function create(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const parsed = propertyFields.safeParse(Object.fromEntries(new FormData(event.currentTarget)));
+    const parsed = createPropertyInput.safeParse(Object.fromEntries(new FormData(event.currentTarget)));
     if (!parsed.success) {
       setCreateErrors(collectFieldErrors(parsed.error));
       setCreateMessage('Check the highlighted fields.');
@@ -141,93 +123,6 @@ function HostPage() {
     }
   }
 
-  async function startEnroll() {
-    setBusy(true);
-    setMessage('');
-    setMessageFailed(false);
-    try {
-      const result = await mfaEnroll({ data: {} });
-      if ('error' in result) {
-        setMessage('Something went wrong. Try again.');
-        setMessageFailed(true);
-        return;
-      }
-      setFactor({ factorId: result.factorId, secret: result.secret });
-    } catch {
-      setMessage('Something went wrong. Try again.');
-      setMessageFailed(true);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function restart() {
-    setBusy(true);
-    setMessage('');
-    setMessageFailed(false);
-    try {
-      const result = await restartEnrollment({ data: {} });
-      if ('error' in result) {
-        setMessage('Something went wrong. Try again.');
-        setMessageFailed(true);
-        return;
-      }
-      setFactor({ factorId: result.factorId, secret: result.secret });
-    } catch {
-      setMessage('Something went wrong. Try again.');
-      setMessageFailed(true);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function verify(event: FormEvent) {
-    event.preventDefault();
-    if (!factor) return;
-    setBusy(true);
-    setMessage('');
-    setMessageFailed(false);
-    try {
-      const result = await mfaVerify({ data: { factorId: factor.factorId, code } });
-      if ('error' in result) {
-        setMessage(
-          result.error === 'invalid_code' ? 'That code did not match. Try again.' : 'Something went wrong. Try again.',
-        );
-        setMessageFailed(true);
-        return;
-      }
-      setCode('');
-      setFactor(null);
-      await navigate({ to: '/host', search: {} });
-      await router.invalidate();
-    } catch {
-      setMessage('Something went wrong. Try again.');
-      setMessageFailed(true);
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function removeMfa(factorId: string) {
-    setBusy(true);
-    setMessage('');
-    setMessageFailed(false);
-    try {
-      const result = await mfaUnenroll({ data: { factorId } });
-      if ('error' in result) {
-        setMessage('Something went wrong. Try again.');
-        setMessageFailed(true);
-        return;
-      }
-      await router.invalidate();
-    } catch {
-      setMessage('Something went wrong. Try again.');
-      setMessageFailed(true);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   if (state.state !== 'workspace') {
     return (
       <div className={publicStyles.page}>
@@ -243,64 +138,15 @@ function HostPage() {
             <p className={publicStyles.lede}>
               {state.state === 'verify'
                 ? 'Enter the six-digit code from your authenticator app to continue.'
-                : state.optional
-                  ? 'Add an authenticator app. After this, every sign-in asks for a six-digit code as well as the email link.'
-                  : 'Set up an authenticator app. The host workspace stays locked until two-factor authentication is active.'}
+                : 'Set up an authenticator app. The host workspace stays locked until two-factor authentication is active.'}
             </p>
-            <div>
-              {factor ? (
-                <form onSubmit={verify} className="stack" data-testid="host-verify-form">
-                  {factor.secret ? (
-                    <p>
-                      Add this secret to your authenticator app: <code data-testid="host-secret">{factor.secret}</code>
-                    </p>
-                  ) : state.state === 'enroll' ? (
-                    <div className="stack" data-testid="host-enroll-interrupted">
-                      <p>
-                        Enrollment was not finished. Enter a current code if the secret was already saved, or restart to
-                        get a new one.
-                      </p>
-                      <Button type="button" onClick={restart} disabled={busy} data-testid="host-enroll-start">
-                        Restart enrollment
-                      </Button>
-                    </div>
-                  ) : null}
-                  <Field label="Six-digit code">
-                    <input
-                      inputMode="numeric"
-                      autoComplete="one-time-code"
-                      pattern="\d{6}"
-                      required
-                      value={code}
-                      onChange={(event) => setCode(event.target.value)}
-                      data-testid="host-code"
-                    />
-                  </Field>
-                  <Button type="submit" variant="primary" disabled={busy} data-testid="host-verify-submit">
-                    Verify
-                  </Button>
-                </form>
-              ) : (
-                <Button
-                  type="button"
-                  variant="primary"
-                  onClick={startEnroll}
-                  disabled={busy}
-                  data-testid="host-enroll-start"
-                >
-                  Set up authenticator
-                </Button>
-              )}
-              <Toast testId="host-message" tone={messageFailed ? 'error' : undefined}>
-                {message}
-              </Toast>
-            </div>
+            <TotpEnrollment
+              factorId={state.factorId}
+              interrupted={state.state === 'enroll'}
+              start={() => mfaEnroll({ data: {} })}
+              onVerified={() => router.invalidate()}
+            />
             <p className="actions">
-              {state.state === 'enroll' && state.optional ? (
-                <Link to="/host" search={{}} className={buttonClass('ghost')} data-testid="host-enroll-skip">
-                  Not now
-                </Link>
-              ) : null}
               <SignOutButton variant="ghost" />
             </p>
           </div>
@@ -343,7 +189,7 @@ function HostPage() {
               <span>1</span>
               <div>
                 <strong>Name the property</strong>
-                <p className="muted">And the language you write the guide in.</p>
+                <p className="muted">Language, theme and contact details start from your settings.</p>
               </div>
             </li>
             <li>
@@ -428,26 +274,6 @@ function HostPage() {
                 data-testid="host-create-name"
               />
             </Field>
-            <Field
-              label="Guide language"
-              error={createErrors.sourceLocale}
-              errorId="create-locale-error"
-              errorTestId="host-create-locale-error"
-            >
-              <select
-                name="sourceLocale"
-                defaultValue="en"
-                aria-invalid={Boolean(createErrors.sourceLocale)}
-                aria-describedby={createErrors.sourceLocale ? 'create-locale-error' : undefined}
-                data-testid="host-create-locale"
-              >
-                {guestLocales.map((locale) => (
-                  <option key={locale} value={locale}>
-                    {guestLocaleName(locale)}
-                  </option>
-                ))}
-              </select>
-            </Field>
             <div className="actions">
               <Button type="submit" variant="primary" disabled={busy} data-testid="host-create-submit">
                 Create property
@@ -486,7 +312,7 @@ function HostPage() {
           ) : null}
         </section>
         <section className={`${styles.panel} ${styles.side} stack`} aria-labelledby="account-heading">
-          <h2 id="account-heading">Account</h2>
+          <h2 id="account-heading">Setup support</h2>
           <p className="muted">Need a hand with the first guide? The pilot team can set it up with you.</p>
           <div className="actions">
             <Button type="button" onClick={requestSupport} disabled={busy} data-testid="host-support-request">
@@ -495,47 +321,6 @@ function HostPage() {
             <Toast testId="host-support-message" tone={supportMessageFailed ? 'error' : undefined}>
               {supportMessage}
             </Toast>
-          </div>
-          <div className="stack">
-            <h3>Two-step sign-in</h3>
-            {state.totpFactorIds.length ? (
-              <>
-                <p className="muted" data-testid="host-mfa-status">
-                  On. Each sign-in asks for a code from your authenticator app.
-                </p>
-                <p className="actions">
-                  <Button
-                    type="button"
-                    variant="danger"
-                    onClick={() => removeMfa(state.totpFactorIds[0]!)}
-                    disabled={busy}
-                    data-testid="host-remove-mfa"
-                  >
-                    Remove authenticator
-                  </Button>
-                </p>
-                <Toast testId="host-message" tone={messageFailed ? 'error' : undefined}>
-                  {message}
-                </Toast>
-              </>
-            ) : (
-              <>
-                <p className="muted" data-testid="host-mfa-status">
-                  Off. Anyone who can open your email can sign in. An authenticator app adds a six-digit code.
-                </p>
-                <p className="actions">
-                  <Link
-                    to="/host"
-                    search={{ setup: true }}
-                    reloadDocument
-                    className={buttonClass()}
-                    data-testid="host-add-mfa"
-                  >
-                    Set up authenticator
-                  </Link>
-                </p>
-              </>
-            )}
           </div>
         </section>
       </div>

@@ -12,6 +12,7 @@ export const APP = 'http://localhost:3000';
 const LOCAL_DB_URL = 'postgresql://postgres:postgres@127.0.0.1:54322';
 export const HOST_FNS = '/src/features/host/host-fns.ts?tss-serverfn-split';
 export const GUIDE_FNS = '/src/features/guide/guide-fns.ts?tss-serverfn-split';
+export const SETTINGS_FNS = '/src/features/host/settings-fns.ts?tss-serverfn-split';
 export const SYNTHETIC_PASSWORD = 'synthetic-integration-pw-1';
 
 export type LocalStack = { apiUrl: string; serviceKey: string; anonKey: string; mailpitUrl: string };

@@ -40,6 +40,12 @@ export function HostShell({ email, children }: { email?: string | null; children
             </svg>
             Properties
           </Link>
+          <Link to="/host/settings" data-testid="host-settings-link">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M4 7h10M18 7h2M4 17h4M12 17h8M16 5v4M10 15v4" />
+            </svg>
+            Settings
+          </Link>
           <Link to="/privacy">
             <svg viewBox="0 0 24 24" aria-hidden="true">
               <path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z" />
@@ -56,7 +62,6 @@ export function HostShell({ email, children }: { email?: string | null; children
               <span className={styles.email}>{email}</span>
             </p>
           ) : null}
-          <SignOutButton variant="ghost" />
         </div>
       </header>
       <main className={styles.main}>{children}</main>

@@ -1,0 +1,276 @@
+import { createFileRoute, redirect, useRouter } from '@tanstack/react-router';
+import { useEffect, useState, type FormEvent } from 'react';
+import { HostShell, SignOutButton } from '../components/app-shell';
+import { Button } from '../components/button';
+import { Field } from '../components/field';
+import { useHostAction } from '../components/host-action';
+import { Toast } from '../components/toast';
+import { ThemePicker } from '../features/guide/theme-picker';
+import { collectFieldErrors, guestLocales, hostSettingsInput } from '../features/guide/guide-validation';
+import { languageNames } from '../features/guest/guest-ui';
+import { getHostAuthState, mfaUnenroll, restartEnrollment } from '../features/host/host-fns';
+import { getHostSettings, saveHostSettings } from '../features/host/settings-fns';
+import type { HostSettings } from '../features/host/settings.server';
+import { TotpEnrollment } from '../features/host/totp-enrollment';
+import styles from '../features/host/host.module.css';
+import editorStyles from '../features/host/editor.module.css';
+
+export const Route = createFileRoute('/host_/settings')({
+  loader: async () => {
+    const state = await getHostAuthState();
+    if ('error' in state || state.state === 'signed_out') throw redirect({ to: '/auth/sign-in' });
+    if (state.state !== 'workspace') throw redirect({ to: '/host' });
+    const result = await getHostSettings();
+    if ('error' in result) throw redirect({ to: '/host' });
+    return {
+      totpFactorIds: state.totpFactorIds,
+      email: result.email,
+      settings: result.settings,
+      saved: result.saved,
+      timeZones: result.timeZones,
+    };
+  },
+  component: SettingsPage,
+});
+
+function SettingsPage() {
+  const { totpFactorIds, email, settings, saved, timeZones } = Route.useLoaderData();
+  return (
+    <HostShell email={email}>
+      <div className={styles.head}>
+        <div>
+          <h1>Settings</h1>
+          <p className={styles.sub}>Your account and the starting point for new properties.</p>
+        </div>
+      </div>
+      <section className={`${styles.panel} stack`} aria-labelledby="defaults-heading">
+        <h2 id="defaults-heading">Defaults for new properties</h2>
+        <DefaultsForm settings={settings} saved={saved} timeZones={timeZones} />
+      </section>
+      <section className={`${styles.panel} stack`} aria-labelledby="mfa-heading">
+        <h2 id="mfa-heading">Two-step sign-in</h2>
+        <TwoStep factorIds={totpFactorIds} />
+      </section>
+      <section className={`${styles.panel} stack`} aria-labelledby="session-heading">
+        <h2 id="session-heading">Sign out</h2>
+        <p className="muted">Ends the session in this browser.</p>
+        <p className="actions">
+          <SignOutButton />
+        </p>
+      </section>
+    </HostShell>
+  );
+}
+
+const timeInputs = [
+  { name: 'checkinTime', label: 'Check-in time', type: 'time' },
+  { name: 'checkoutTime', label: 'Checkout time', type: 'time' },
+  { name: 'contactPhone', label: 'Phone (international format, e.g. +38641234567)', type: 'tel', maxLength: 16 },
+  { name: 'answerFrom', label: 'Usually answers from', type: 'time' },
+  { name: 'answerTo', label: 'Usually answers until', type: 'time' },
+] as const;
+
+function DefaultsForm({
+  settings: initial,
+  saved,
+  timeZones,
+}: {
+  settings: HostSettings;
+  saved: boolean;
+  timeZones: string[];
+}) {
+  const { busy, notice, setNotice, run } = useHostAction();
+  const [sourceLocale, setSourceLocale] = useState<string>(initial.sourceLocale);
+  const [enabledLocales, setEnabledLocales] = useState<readonly string[]>(initial.enabledLocales);
+  const [timezone, setTimezone] = useState(initial.timezone);
+  const [suggested, setSuggested] = useState(false);
+  const [errors, setErrors] = useState<Record<string, string>>({});
+  const zones = timeZones.includes(timezone) ? timeZones : [timezone, ...timeZones];
+
+  // Suggestion only: nothing is stored until the host saves.
+  useEffect(() => {
+    const browserZone = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    if (saved || browserZone === initial.timezone || !timeZones.includes(browserZone)) return;
+    setTimezone(browserZone);
+    setSuggested(true);
+  }, [saved, initial.timezone, timeZones]);
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const formData = new FormData(event.currentTarget);
+    const parsed = hostSettingsInput.safeParse({
+      theme: formData.get('theme'),
+      sourceLocale: formData.get('sourceLocale'),
+      enabledLocales: formData.getAll('enabledLocales').map(String),
+      timezone: formData.get('timezone'),
+      ...Object.fromEntries(timeInputs.map(({ name }) => [name, formData.get(name) ?? ''])),
+    });
+    if (!parsed.success) {
+      setErrors(collectFieldErrors(parsed.error));
+      setNotice({ text: 'Check the highlighted fields.', failed: true });
+      return;
+    }
+    setErrors({});
+    await run(
+      () => saveHostSettings({ data: parsed.data }),
+      () => {
+        setSuggested(false);
+        return 'Saved. New properties start with these values.';
+      },
+    );
+  }
+
+  return (
+    <form onSubmit={submit} noValidate className="stack" data-testid="settings-form">
+      <p className="small muted">
+        Copied into each property when you create it. Changing them later does not touch existing properties; copies
+        keep the values of the property they come from.
+      </p>
+      <div className={editorStyles.fieldGrid}>
+        <Field label="Guide language" error={errors.sourceLocale} errorId="settings-locale-error">
+          <select
+            name="sourceLocale"
+            value={sourceLocale}
+            onChange={(event) => setSourceLocale(event.target.value)}
+            aria-invalid={Boolean(errors.sourceLocale)}
+            aria-describedby={errors.sourceLocale ? 'settings-locale-error' : undefined}
+            data-testid="settings-locale"
+          >
+            {guestLocales.map((code) => (
+              <option key={code} value={code}>
+                {languageNames[code]}
+              </option>
+            ))}
+          </select>
+        </Field>
+        <Field label="Time zone" error={errors.timezone} errorId="settings-timezone-error">
+          <select
+            name="timezone"
+            value={timezone}
+            onChange={(event) => {
+              setTimezone(event.target.value);
+              setSuggested(false);
+            }}
+            aria-invalid={Boolean(errors.timezone)}
+            aria-describedby={
+              [suggested ? 'settings-timezone-hint' : '', errors.timezone ? 'settings-timezone-error' : '']
+                .filter(Boolean)
+                .join(' ') || undefined
+            }
+            data-testid="settings-timezone"
+          >
+            {zones.map((zone) => (
+              <option key={zone} value={zone}>
+                {zone}
+              </option>
+            ))}
+          </select>
+        </Field>
+      </div>
+      {suggested ? (
+        <p className="small muted" id="settings-timezone-hint" data-testid="settings-timezone-hint">
+          Suggested from this browser. Save to use it.
+        </p>
+      ) : null}
+      <fieldset data-testid="settings-locales">
+        <legend>Guest languages</legend>
+        {guestLocales
+          .filter((code) => code !== sourceLocale)
+          .map((code) => (
+            <p key={code} style={{ marginTop: 8 }}>
+              <label>
+                <input
+                  type="checkbox"
+                  name="enabledLocales"
+                  value={code}
+                  checked={enabledLocales.includes(code)}
+                  onChange={(event) =>
+                    setEnabledLocales((current) =>
+                      event.target.checked ? [...current, code] : current.filter((entry) => entry !== code),
+                    )
+                  }
+                  data-testid={`settings-enabled-${code}`}
+                />
+                {languageNames[code]}
+              </label>
+            </p>
+          ))}
+        {errors.enabledLocales ? <p className="small">{errors.enabledLocales}</p> : null}
+      </fieldset>
+      <div className={editorStyles.fieldGrid}>
+        {timeInputs.map((input) => {
+          const errorId = `settings-${input.name}-error`;
+          return (
+            <Field
+              key={input.name}
+              label={input.label}
+              error={errors[input.name]}
+              errorId={errorId}
+              errorTestId={errorId}
+            >
+              <input
+                name={input.name}
+                type={input.type}
+                defaultValue={initial[input.name] ?? ''}
+                maxLength={'maxLength' in input ? input.maxLength : undefined}
+                autoComplete="off"
+                aria-invalid={Boolean(errors[input.name])}
+                aria-describedby={errors[input.name] ? errorId : undefined}
+                data-testid={`settings-${input.name}`}
+              />
+            </Field>
+          );
+        })}
+      </div>
+      <ThemePicker defaultValue={initial.theme} />
+      <div className="actions">
+        <Button type="submit" variant="primary" disabled={busy} data-testid="settings-save">
+          Save defaults
+        </Button>
+        <Toast testId="settings-save-status" tone={notice.failed ? 'error' : undefined}>
+          {notice.text}
+        </Toast>
+      </div>
+    </form>
+  );
+}
+
+function TwoStep({ factorIds }: { factorIds: string[] }) {
+  const router = useRouter();
+  const { busy, notice, run } = useHostAction();
+  if (!factorIds.length) {
+    return (
+      <>
+        <p className="muted" data-testid="host-mfa-status">
+          Off. Anyone who can open your email can sign in. An authenticator app adds a six-digit code.
+        </p>
+        <TotpEnrollment
+          factorId={null}
+          start={() => restartEnrollment({ data: {} })}
+          onVerified={() => router.invalidate()}
+        />
+      </>
+    );
+  }
+  return (
+    <>
+      <p className="muted" data-testid="host-mfa-status">
+        On. Each sign-in asks for a code from your authenticator app.
+      </p>
+      <p className="actions">
+        <Button
+          type="button"
+          variant="danger"
+          onClick={() => run(() => mfaUnenroll({ data: { factorId: factorIds[0]! } }))}
+          disabled={busy}
+          data-testid="host-remove-mfa"
+        >
+          Remove authenticator
+        </Button>
+      </p>
+      <Toast testId="host-message" tone={notice.failed ? 'error' : undefined}>
+        {notice.text}
+      </Toast>
+    </>
+  );
+}

@@ -101,13 +101,6 @@
   border-radius: 50%;
 }
 
-.foot > :last-child {
-  justify-content: flex-start;
-  padding: 0 10px;
-  font-weight: 400;
-  color: var(--muted);
-}
-
 .main {
   display: flex;
   flex: 1 1 0;

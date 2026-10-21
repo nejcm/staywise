@@ -14,7 +14,7 @@ Terms with a specific meaning in this project.
 | Inbox | Host view of guest questions and issue reports, with handled state. | `src/features/messages/` |
 | Setup events | Privacy-bounded host funnel rows used to measure pilot setup time. | [README.md](README.md) |
 | Theme | Preset look of a property's guest page and preview (`staywise`, `coast`, `alpine`, `terracotta`, `classic`); keys are permanent and copies keep the theme. | [ADR 0003](docs/adr/0003-guest-themes-are-presets.md) |
-| Host settings | Planned per-host defaults for new properties at `/host/settings`, snapshot into each property at creation; not built yet. | [ADR 0003](docs/adr/0003-guest-themes-are-presets.md) |
+| Host settings | Per-host defaults for new properties at `/host/settings` (`app.host_settings`), copied into each property at creation; later changes and copies never pick them up. | [README.md](README.md) |
 
 ## Important boundaries
 
