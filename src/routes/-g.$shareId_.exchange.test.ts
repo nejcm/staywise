@@ -4,6 +4,19 @@ import { withLinkContext } from '../lib/db.server';
 import { Route } from './g.$shareId_.exchange';
 
 vi.mock('../lib/db.server', () => ({ withLinkContext: vi.fn() }));
+const killSwitch = vi.hoisted(() => ({ on: false }));
+vi.mock('../lib/env.server', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('../lib/env.server')>();
+  return {
+    ...actual,
+    serverEnv: {
+      ...actual.serverEnv,
+      get guestAccessDisabled() {
+        return killSwitch.on;
+      },
+    },
+  };
+});
 
 type Handler = (ctx: { request: Request; params: { shareId: string } }) => Promise<Response> | Response;
 const { POST, GET } = (Route.options as unknown as { server: { handlers: { POST: Handler; GET: Handler } } }).server
@@ -23,6 +36,7 @@ function post(body: unknown, headers: Record<string, string> = {}) {
 
 beforeEach(() => {
   vi.mocked(withLinkContext).mockReset();
+  killSwitch.on = false;
 });
 
 describe('guest link exchange', () => {
@@ -49,6 +63,18 @@ describe('guest link exchange', () => {
       bodies.push(await response.text());
     }
     expect(new Set(bodies).size).toBe(1);
+  });
+
+  it('denies a valid secret with the same body while the kill switch is on', async () => {
+    vi.mocked(withLinkContext).mockResolvedValue(null);
+    const baseline = await (await post({ secret: 'short' })).text();
+    killSwitch.on = true;
+    vi.mocked(withLinkContext).mockResolvedValue({ token: 'session-token', propertyId: 'p1' });
+    const response = await post({ secret });
+    expect(response.status).toBe(403);
+    expect(response.headers.get('set-cookie')).toBeNull();
+    expect(await response.text()).toBe(baseline);
+    expect(withLinkContext).not.toHaveBeenCalled();
   });
 
   it('returns a generic 500 when the exchange throws', async () => {
