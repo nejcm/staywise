@@ -185,16 +185,59 @@ export const listOwnProperties = createServerFn({ method: 'GET' }).handler(async
     if (gate.outcome !== 'ok') {
       return { error: 'auth_required' } satisfies FnError;
     }
-    const rows = await withOwnerContext(
-      gate.session.userId,
-      (tx) => tx`select id, display_name, published, created_at from app.properties order by created_at desc`,
-    );
+    const { rows, waiting } = await withOwnerContext(gate.session.userId, async (tx) => ({
+      rows: await tx`
+        select p.id, p.display_name, p.address, p.published, p.source_locale, p.enabled_locales,
+          greatest(p.updated_at, (select max(s.updated_at) from app.guide_sections s where s.property_id = p.id)) as edited_at,
+          coalesce((select array_agg(distinct s.category) from app.guide_sections s where s.property_id = p.id), '{}') as categories,
+          (select count(*) from app.guide_sections s
+            where s.property_id = p.id and s.visibility = 'guest' and not s.published)::int as unpublished_sections,
+          coalesce((select array_agg(l) from unnest(p.enabled_locales) l
+            where not exists (
+              select 1 from app.guide_sections s
+              where s.property_id = p.id and s.visibility = 'guest' and s.published
+                and not exists (
+                  select 1 from app.guide_translations t
+                  where t.section_id = s.id and t.locale = l and t.state = 'approved'
+                    and t.source_revision = s.source_revision and t.source_locale = p.source_locale)
+            )), '{}') as reviewed_locales,
+          exists (select 1 from app.share_links k where k.property_id = p.id and k.enabled) as link_on,
+          (select count(*) from app.guest_messages m where m.property_id = p.id and m.state = 'new')::int as waiting
+        from app.properties p
+        order by p.created_at desc
+      `,
+      waiting: await tx`
+        select m.id, m.property_id, p.display_name, m.kind, m.locale, left(m.body, 160) as excerpt, m.created_at
+        from app.guest_messages m join app.properties p on p.id = m.property_id
+        where m.state = 'new'
+        order by m.created_at desc
+        limit 3
+      `,
+    }));
     return {
+      email: gate.session.email,
       properties: rows.map((row) => ({
         id: row.id as string,
         displayName: row.display_name as string,
+        address: row.address as string | null,
         published: row.published as boolean,
-        createdAt: row.created_at as Date,
+        editedAt: (row.edited_at as Date).toISOString(),
+        sourceLocale: row.source_locale as string,
+        enabledLocales: row.enabled_locales as string[],
+        reviewedLocales: row.reviewed_locales as string[],
+        categories: row.categories as string[],
+        unpublishedSections: row.unpublished_sections as number,
+        linkOn: row.link_on as boolean,
+        waiting: row.waiting as number,
+      })),
+      waiting: waiting.map((row) => ({
+        id: row.id as string,
+        propertyId: row.property_id as string,
+        propertyName: row.display_name as string,
+        kind: row.kind as 'issue' | 'question',
+        locale: row.locale as string,
+        excerpt: row.excerpt as string,
+        createdAt: (row.created_at as Date).toISOString(),
       })),
     };
   }),

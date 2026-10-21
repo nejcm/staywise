@@ -31,3 +31,8 @@
   color: var(--accent-ink);
   background: var(--accent-soft);
 }
+
+.negative {
+  color: var(--negative-ink);
+  background: var(--negative-soft);
+}

@@ -9,6 +9,7 @@
   display: flex;
   flex: 0 0 248px;
   flex-direction: column;
+  min-width: 0;
   gap: 22px;
   align-self: flex-start;
   height: 100vh;
@@ -30,6 +31,7 @@
 .nav a {
   display: flex;
   align-items: center;
+  gap: 10px;
   min-height: var(--control-height);
   padding: 0 10px;
   font-size: var(--fs-body);
@@ -49,8 +51,58 @@
   background: var(--accent-soft);
 }
 
+.nav svg {
+  flex: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
 .foot {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
   margin-top: auto;
+}
+
+.account {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+  min-height: 38px;
+  padding: 0 10px;
+  font-size: var(--fs-body);
+  color: var(--pill-neutral-ink);
+}
+
+.email {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.avatar {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  font-size: 10px;
+  font-weight: 700;
+  color: var(--accent-ink);
+  background: var(--accent-track);
+  border-radius: 50%;
+}
+
+.foot > :last-child {
+  align-self: flex-start;
 }
 
 .main {
@@ -86,6 +138,10 @@
 
   .foot {
     margin: 0 0 0 auto;
+  }
+
+  .account {
+    display: none;
   }
 
   .main {

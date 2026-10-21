@@ -6,7 +6,7 @@ export function Pill({
   testId,
   children,
 }: {
-  tone?: 'positive' | 'attention' | 'neutral' | 'accent';
+  tone?: 'positive' | 'attention' | 'neutral' | 'accent' | 'negative';
   testId?: string;
   children: ReactNode;
 }) {

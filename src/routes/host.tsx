@@ -15,11 +15,20 @@ import { Mark } from '../components/mark';
 import { Pill } from '../components/pill';
 import { Toast } from '../components/toast';
 import { copyProperty, createProperty, requestSetupSupport } from '../features/guide/guide-fns';
-import { collectFieldErrors, propertyFields } from '../features/guide/guide-validation';
+import {
+  collectFieldErrors,
+  guestLocales,
+  propertyFields,
+  sectionCategories,
+  sectionCategoryLabels,
+  type SectionCategory,
+} from '../features/guide/guide-validation';
 import styles from '../features/host/host.module.css';
 import publicStyles from '../features/host/public.module.css';
+import { guestLocaleName } from '../features/guest/guest-ui';
 
-type PropertySummary = { id: string; displayName: string; published: boolean; createdAt: Date };
+type Workspace = Extract<Awaited<ReturnType<typeof listOwnProperties>>, { properties: unknown }>;
+type PropertySummary = Workspace['properties'][number];
 
 export const Route = createFileRoute('/host')({
   validateSearch: (search: Record<string, unknown>): { setup?: true } => (search.setup === true ? { setup: true } : {}),
@@ -30,19 +39,20 @@ export const Route = createFileRoute('/host')({
       throw redirect({ to: '/auth/sign-in' });
     }
     if (state.state !== 'workspace') {
-      return { state, properties: [] as PropertySummary[] };
+      return { state, workspace: null };
     }
     const list = await listOwnProperties();
-    if ('error' in list) {
+    if ('error' in list && list.error === 'auth_required') {
       throw redirect({ to: '/auth/sign-in' });
     }
-    return { state, properties: list.properties as PropertySummary[] };
+    return { state, workspace: 'error' in list ? null : list };
   },
   component: HostPage,
 });
 
 function HostPage() {
-  const { state, properties } = Route.useLoaderData();
+  const { state, workspace } = Route.useLoaderData();
+  const properties = workspace?.properties ?? [];
   const router = useRouter();
   const navigate = useNavigate();
   const [factor, setFactor] = useState<{ factorId: string; secret: string | null } | null>(
@@ -290,59 +300,103 @@ function HostPage() {
   }
 
   return (
-    <HostShell>
+    <HostShell email={workspace?.email}>
       <p hidden data-testid="host-state">
         workspace
       </p>
       <div className={styles.head}>
         <div>
           <h1>Properties</h1>
-          <p className={styles.sub}>
-            {properties.length === 1 ? '1 property' : `${properties.length} properties`}. Each has its own guide, guest
-            link and inbox.
-          </p>
+          <p className={styles.sub}>{workspaceSummary(properties)}</p>
         </div>
+        <a href="#create-heading" className={buttonClass('primary')} data-testid="host-add-property">
+          <PlusIcon />
+          Add property
+        </a>
       </div>
-      <section className={styles.panel} aria-labelledby="properties-heading">
-        <header className={styles.panelHead}>
-          <h2 id="properties-heading">Your properties</h2>
-        </header>
-        {properties.length === 0 ? (
-          <p className={styles.empty} data-testid="host-properties-empty">
-            No properties yet. Create the first one to start its guide.
-          </p>
-        ) : (
-          <>
-            <ul className={styles.rows} data-testid="host-properties">
-              {properties.map((property: PropertySummary) => (
-                <li key={property.id} className={styles.propertyRow} data-testid="host-property">
-                  <Link
-                    to="/host/properties/$propertyId"
-                    params={{ propertyId: property.id }}
-                    data-testid="host-property-name"
-                  >
-                    {property.displayName}
-                  </Link>
-                  <Pill tone={property.published ? 'positive' : 'neutral'} testId="host-property-status">
-                    {property.published ? 'Live' : 'Draft'}
-                  </Pill>
-                  <Button
-                    type="button"
-                    onClick={() => duplicate(property.id)}
-                    disabled={busy}
-                    data-testid="host-property-copy"
-                  >
-                    Make a copy
-                  </Button>
-                </li>
-              ))}
-            </ul>
-            <Toast testId="host-copy-message" tone={copyMessageFailed ? 'error' : undefined}>
-              {copyMessage}
-            </Toast>
-          </>
-        )}
-      </section>
+      {!workspace ? (
+        <div role="alert" className={styles.loadError} data-testid="host-properties-error">
+          <strong>Couldn't load your properties</strong>
+          <p>Your guides are fine and guests can still open them. It's a problem on our side or with the connection.</p>
+          <Button type="button" onClick={() => void router.invalidate()}>
+            Try again
+          </Button>
+        </div>
+      ) : properties.length === 0 ? (
+        <section className={styles.onboarding} aria-labelledby="onboarding-heading" data-testid="host-properties-empty">
+          <div className={styles.onboardingHead}>
+            <h2 id="onboarding-heading">Let's set up your first guide</h2>
+            <p>Three steps. Stop any time and come back.</p>
+          </div>
+          <ol className={styles.steps}>
+            <li>
+              <span>1</span>
+              <div>
+                <strong>Name the property</strong>
+                <p className="muted">And the language you write the guide in.</p>
+              </div>
+            </li>
+            <li>
+              <span>2</span>
+              <div>
+                <strong>Wi-Fi, check-in and contact</strong>
+                <p className="muted">The rest of the guide can wait.</p>
+              </div>
+            </li>
+            <li>
+              <span>3</span>
+              <div>
+                <strong>Publish and share</strong>
+                <p className="muted">Send the link or print the QR card.</p>
+              </div>
+            </li>
+          </ol>
+          <a href="#create-heading" className={buttonClass('primary')}>
+            <PlusIcon />
+            Add your first property
+          </a>
+        </section>
+      ) : (
+        <>
+          <section className={styles.panel} aria-labelledby="properties-heading">
+            <header className={`${styles.panelHead} ${styles.tableHead}`}>
+              <h2 id="properties-heading">{properties.length === 1 ? '1 home' : `${properties.length} homes`}</h2>
+              <ul aria-label="Language key" className={styles.legend}>
+                {(Object.keys(languageStateLabels) as LanguageState[]).map((key) => (
+                  <li key={key}>
+                    <span className={`${styles.lang} ${styles[key]}`} />
+                    {languageStateLabels[key]}
+                  </li>
+                ))}
+              </ul>
+            </header>
+            <div className={styles.tableScroll}>
+              <table className={styles.table} data-testid="host-properties">
+                <thead>
+                  <tr>
+                    <th scope="col">Home</th>
+                    <th scope="col">Guide</th>
+                    <th scope="col">Languages</th>
+                    <th scope="col">Guest link</th>
+                    <th scope="col" className={styles.num}>
+                      Waiting
+                    </th>
+                    <th scope="col" className={styles.num}>
+                      <span className={styles.srOnly}>Actions</span>
+                    </th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {properties.map((property) => (
+                    <PropertyRow key={property.id} property={property} />
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </section>
+          <WaitingAndSetup properties={properties} waiting={workspace.waiting} />
+        </>
+      )}
       <div className={styles.columns}>
         <section className={`${styles.panel} ${styles.wide}`} aria-labelledby="create-heading">
           <header className={styles.panelHead}>
@@ -390,6 +444,33 @@ function HostPage() {
               </Toast>
             </div>
           </form>
+          {properties.length ? (
+            <form
+              onSubmit={(event) => {
+                event.preventDefault();
+                void duplicate(String(new FormData(event.currentTarget).get('source')));
+              }}
+              className={`stack ${styles.copyForm}`}
+            >
+              <Field label="Or start from a copy of">
+                <select name="source" data-testid="host-copy-source">
+                  {properties.map((property) => (
+                    <option key={property.id} value={property.id}>
+                      {property.displayName}
+                    </option>
+                  ))}
+                </select>
+              </Field>
+              <div className="actions">
+                <Button type="submit" disabled={busy} data-testid="host-property-copy">
+                  Make a copy
+                </Button>
+                <Toast testId="host-copy-message" tone={copyMessageFailed ? 'error' : undefined}>
+                  {copyMessage}
+                </Toast>
+              </div>
+            </form>
+          ) : null}
         </section>
         <section className={`${styles.panel} ${styles.side} stack`} aria-labelledby="account-heading">
           <h2 id="account-heading">Account</h2>
@@ -443,5 +524,244 @@ function HostPage() {
         </section>
       </div>
     </HostShell>
+  );
+}
+
+type LanguageState = 'original' | 'reviewed' | 'review' | 'off';
+
+const languageStateLabels: Record<LanguageState, string> = {
+  original: 'Original',
+  reviewed: 'Reviewed',
+  review: 'Needs review',
+  off: 'Not offered',
+};
+
+function languageState(property: PropertySummary, locale: string): LanguageState {
+  if (locale === property.sourceLocale) return 'original';
+  if (!property.enabledLocales.includes(locale)) return 'off';
+  return property.reviewedLocales.includes(locale) ? 'reviewed' : 'review';
+}
+
+const monthFormat = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' });
+const weekdayFormat = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' });
+const dayMs = 24 * 60 * 60_000;
+
+function dayLabel(iso: string): string {
+  const date = new Date(iso);
+  return `${date.getUTCDate()} ${monthFormat.format(date)}`;
+}
+
+function utcDay(time: number): number {
+  return Math.floor(time / dayMs);
+}
+
+function editedLabel(iso: string): string {
+  return utcDay(Date.parse(iso)) === utcDay(Date.now()) ? 'today' : dayLabel(iso);
+}
+
+function ageLabel(iso: string): string {
+  const time = Date.parse(iso);
+  const minutes = Math.max(0, Math.round((Date.now() - time) / 60_000));
+  const days = utcDay(Date.now()) - utcDay(time);
+  if (minutes < 60) return `${minutes} min`;
+  if (days === 0) return `${Math.round(minutes / 60)} h`;
+  if (days === 1) return 'Yesterday';
+  if (days < 7) return weekdayFormat.format(new Date(time));
+  return dayLabel(iso);
+}
+
+function missingCategories(property: PropertySummary): SectionCategory[] {
+  return sectionCategories.filter((category) => !property.categories.includes(category));
+}
+
+function workspaceSummary(properties: PropertySummary[]): string {
+  const waitingAt = properties.filter((property) => property.waiting > 0);
+  const waiting = waitingAt.reduce((total, property) => total + property.waiting, 0);
+  const linksOff = properties.filter((property) => property.published && !property.linkOn);
+  const parts: string[] = [];
+  if (waiting) {
+    const where = waitingAt.length === 1 ? ` at ${waitingAt[0]!.displayName}` : '';
+    parts.push(
+      `${waiting === 1 ? '1 guest' : `${waiting} guests`}${where} ${waiting === 1 ? 'is' : 'are'} waiting for a reply`,
+    );
+  }
+  if (linksOff.length === 1) parts.push(`${linksOff[0]!.displayName}'s link is off`);
+  else if (linksOff.length) parts.push(`${linksOff.length} guest links are off`);
+  return parts.length ? parts.join(' · ') : 'Each property has its own guide, guest link and inbox.';
+}
+
+function PlusIcon() {
+  return (
+    <svg viewBox="0 0 24 24" aria-hidden="true" className={styles.icon}>
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+function PropertyRow({ property }: { property: PropertySummary }) {
+  const params = { propertyId: property.id };
+  const filled = sectionCategories.length - missingCategories(property).length;
+  return (
+    <tr data-testid="host-property">
+      <td>
+        <Link
+          to="/host/properties/$propertyId"
+          params={params}
+          className={styles.homeName}
+          data-testid="host-property-name"
+        >
+          {property.displayName}
+        </Link>
+        <span className={styles.homeMeta}>
+          {property.address ? `${property.address} · ` : ''}edited {editedLabel(property.editedAt)}
+        </span>
+      </td>
+      <td>
+        <span className={styles.pills}>
+          <Pill tone={property.published ? 'positive' : 'neutral'} testId="host-property-status">
+            {property.published ? 'Published' : 'Draft'}
+          </Pill>
+          {property.published && property.unpublishedSections ? (
+            <Pill tone="attention">
+              {property.unpublishedSections === 1
+                ? '1 unpublished section'
+                : `${property.unpublishedSections} unpublished sections`}
+            </Pill>
+          ) : null}
+          {property.published ? null : (
+            <Pill>
+              {filled} of {sectionCategories.length} sections
+            </Pill>
+          )}
+        </span>
+      </td>
+      <td>
+        <span className={styles.langs}>
+          {guestLocales.map((locale) => {
+            const state = languageState(property, locale);
+            return (
+              <span
+                key={locale}
+                className={`${styles.lang} ${styles[state]}`}
+                aria-label={`${guestLocaleName(locale)}, ${languageStateLabels[state].toLowerCase()}`}
+                role="img"
+              >
+                {locale.toUpperCase()}
+              </span>
+            );
+          })}
+        </span>
+      </td>
+      <td data-label="Guest link">
+        {!property.published ? (
+          <span className={styles.none}>—</span>
+        ) : property.linkOn ? (
+          'On'
+        ) : (
+          <Pill tone="negative">Off</Pill>
+        )}
+      </td>
+      <td className={styles.num} data-label="Waiting">
+        {!property.published && !property.waiting ? (
+          <span className={styles.none}>—</span>
+        ) : property.waiting ? (
+          <Link to="/host/properties/$propertyId" params={params} hash="inbox-heading" className={styles.waiting}>
+            {property.waiting}
+          </Link>
+        ) : (
+          <span className={styles.none}>0</span>
+        )}
+      </td>
+      <td className={`${styles.num} ${styles.rowActions}`}>
+        {property.published && property.linkOn ? (
+          <Link
+            to="/host/properties/$propertyId"
+            params={params}
+            hash="guest-link-heading"
+            className={buttonClass('ghost')}
+          >
+            Share
+          </Link>
+        ) : null}
+        {property.published && !property.linkOn ? null : (
+          <Link to="/host/preview/$propertyId" params={params} className={buttonClass('ghost')}>
+            Preview
+          </Link>
+        )}
+        {property.published && !property.linkOn ? (
+          <Link to="/host/properties/$propertyId" params={params} hash="guest-link-heading" className={buttonClass()}>
+            Turn link on
+          </Link>
+        ) : (
+          <Link to="/host/properties/$propertyId" params={params} className={buttonClass()}>
+            {property.published ? 'Edit' : 'Continue setup'}
+          </Link>
+        )}
+      </td>
+    </tr>
+  );
+}
+
+function WaitingAndSetup({ properties, waiting }: { properties: PropertySummary[]; waiting: Workspace['waiting'] }) {
+  const setup = properties.find((property) => !property.published);
+  const missing = setup ? missingCategories(setup) : [];
+  if (!waiting.length && !setup) return null;
+  return (
+    <div className={styles.columns}>
+      {waiting.length ? (
+        <section className={`${styles.panel} ${styles.wide}`} aria-labelledby="waiting-heading">
+          <header className={styles.panelHead}>
+            <h2 id="waiting-heading">Waiting for a reply</h2>
+          </header>
+          <ul className={styles.rows} data-testid="host-waiting">
+            {waiting.map((message) => (
+              <li key={message.id}>
+                <Link
+                  to="/host/properties/$propertyId"
+                  params={{ propertyId: message.propertyId }}
+                  hash="inbox-heading"
+                  className={styles.waitingRow}
+                >
+                  <Pill tone={message.kind === 'issue' ? 'attention' : 'accent'}>
+                    {message.kind === 'issue' ? 'Issue' : 'Question'}
+                  </Pill>
+                  <span className={styles.excerpt}>
+                    <strong>{message.propertyName}</strong> · <span lang={message.locale}>{message.excerpt}</span>
+                  </span>
+                  <span className={styles.age}>{ageLabel(message.createdAt)}</span>
+                </Link>
+              </li>
+            ))}
+          </ul>
+        </section>
+      ) : null}
+      {setup ? (
+        <section className={styles.setup} aria-labelledby="setup-heading">
+          <h2 id="setup-heading">
+            {setup.displayName}: {sectionCategories.length - missing.length} of {sectionCategories.length} sections
+          </h2>
+          <div
+            role="img"
+            aria-label={`${sectionCategories.length - missing.length} of ${sectionCategories.length} sections written`}
+            className={styles.progress}
+          >
+            {sectionCategories.map((category) => (
+              <span key={category} data-filled={!missing.includes(category) || undefined} />
+            ))}
+          </div>
+          {missing.length ? (
+            <p>
+              {missing.map((category) => sectionCategoryLabels[category]).join(', ')}{' '}
+              {missing.length === 1 ? 'is' : 'are'} still empty.
+            </p>
+          ) : (
+            <p>Every section has content. Publish when it reads right.</p>
+          )}
+          <Link to="/host/properties/$propertyId" params={{ propertyId: setup.id }}>
+            Continue setup
+          </Link>
+        </section>
+      ) : null}
+    </div>
   );
 }
