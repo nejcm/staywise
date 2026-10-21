@@ -18,6 +18,7 @@ import { InboxPanel } from '../features/host/host-inbox';
 import { HostShell } from '../components/app-shell';
 import { Button, buttonClass } from '../components/button';
 import { useConfirmDialog } from '../components/confirm-dialog';
+import { useHostAction } from '../components/host-action';
 import { Field } from '../components/field';
 import { Pill } from '../components/pill';
 import { Toast } from '../components/toast';
@@ -323,29 +324,10 @@ function SectionNavRow({
 }
 
 function GuidePublish({ propertyId, published }: { propertyId: string; published: boolean }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState('');
-  const [messageFailed, setMessageFailed] = useState(false);
+  const { busy, notice, run } = useHostAction();
 
-  async function toggle() {
-    setBusy(true);
-    setMessage('');
-    setMessageFailed(false);
-    try {
-      const result = await setGuidePublished({ data: { propertyId, published: !published } });
-      if ('error' in result) {
-        setMessage('Something went wrong. Try again.');
-        setMessageFailed(true);
-        return;
-      }
-      await router.invalidate();
-    } catch {
-      setMessage('Something went wrong. Try again.');
-      setMessageFailed(true);
-    } finally {
-      setBusy(false);
-    }
+  function toggle() {
+    void run(() => setGuidePublished({ data: { propertyId, published: !published } }));
   }
 
   return (
@@ -359,8 +341,8 @@ function GuidePublish({ propertyId, published }: { propertyId: string; published
       >
         {published ? 'Unpublish guide' : 'Publish guide'}
       </Button>
-      <Toast testId="guide-status-message" tone={messageFailed ? 'error' : undefined}>
-        {message}
+      <Toast testId="guide-status-message" tone={notice.failed ? 'error' : undefined}>
+        {notice.text}
       </Toast>
     </>
   );
