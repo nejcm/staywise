@@ -289,7 +289,10 @@ describeLocal('host auth trust boundaries against the local stack', () => {
         values (${propertyId}, 'question', 'wifi', 'Synthetic unread message')
       `;
       await db`insert into app.setup_events (owner_id, event_type) values (${userId}, 'sign_in')`;
-      await db`insert into app.api_tokens (owner_id, token_hash, scopes) values (${userId}, '\\x03', '{content:write}')`;
+      await db`
+        insert into app.agent_grants (owner_id, kind, name, token_hash, scopes, expires_at)
+        values (${userId}, 'pat', 'Synthetic', sha256('\\x03'), '{content:write}', now() + interval '30 days')
+      `;
       await db`insert into app.audit_events (actor_id, action) values (${userId}, 'sign_in')`;
       const [{ since } = { since: new Date(0) }] = await db<{ since: Date }[]>`select now() as since`;
 
@@ -345,7 +348,7 @@ describeLocal('host auth trust boundaries against the local stack', () => {
           (select count(*)::int from app.guest_sessions where share_link_id = ${linkId}) as sessions,
           (select count(*)::int from app.guest_messages where property_id = ${propertyId}) as messages,
           (select count(*)::int from app.setup_events where owner_id = ${userId}) as setup,
-          (select count(*)::int from app.api_tokens where owner_id = ${userId}) as tokens,
+          (select count(*)::int from app.agent_grants where owner_id = ${userId}) as tokens,
           (select count(*)::int from app.audit_events where actor_id = ${userId}) as attributed,
           (select count(*)::int from app.audit_events
             where actor_id is null and action = 'account_deleted' and created_at >= ${since}) as deletions,

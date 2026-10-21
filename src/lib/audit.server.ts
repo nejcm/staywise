@@ -24,6 +24,10 @@ const auditActions = [
   'account_deleted',
   'stay_link_created',
   'stay_link_revoked',
+  'agent_tool_call',
+  'agent_grant_created',
+  'agent_grant_revoked',
+  'agent_grants_revoked_all',
 ] as const;
 export type AuditAction = (typeof auditActions)[number];
 

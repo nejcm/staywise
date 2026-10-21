@@ -4,7 +4,7 @@
 
 ## Context
 
-Hosts need to delete their own account from `/host/settings` (`src/routes/host_.settings.tsx`). Runtime DB access is `app_runtime` (`nobypassrls`, no rights on `auth`), so it cannot delete `auth.users`, and widening it is ruled out. Every owner table already hangs off `auth.users`: `properties`, `api_tokens`, and `setup_events` cascade; everything property-scoped (sections, translations, share links, guest sessions, guest messages, reservations, counters, credentials, property tokens) cascades from `properties`; `audit_events.actor_id` is `on delete set null`. Deleting the `auth.users` row therefore removes all app data in one transaction.
+Hosts need to delete their own account from `/host/settings` (`src/routes/host_.settings.tsx`). Runtime DB access is `app_runtime` (`nobypassrls`, no rights on `auth`), so it cannot delete `auth.users`, and widening it is ruled out. Every owner table already hangs off `auth.users`: `properties`, `agent_grants`, and `setup_events` cascade; everything property-scoped (sections, translations, share links, guest sessions, guest messages, reservations, counters, credentials, property tokens) cascades from `properties`; `audit_events.actor_id` is `on delete set null`. Deleting the `auth.users` row therefore removes all app data in one transaction.
 
 ## Decision
 

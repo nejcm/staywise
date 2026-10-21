@@ -492,8 +492,8 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
         values (${owner.userId}, 'section_saved', ${propertyId}, 'wifi')
       `;
       await admin`
-        insert into app.api_tokens (id, owner_id, token_hash, scopes, property_id)
-        values (${tokenId}, ${owner.userId}, ${crypto.randomBytes(16)}, '{content:write}', ${propertyId})
+        insert into app.agent_grants (id, owner_id, kind, name, token_hash, scopes, property_id, expires_at)
+        values (${tokenId}, ${owner.userId}, 'pat', 'Synthetic', ${crypto.randomBytes(32)}, '{content:write}', ${propertyId}, now() + interval '30 days')
       `;
 
       const [before] = await admin<{ alert_email: string | null }[]>`
@@ -532,7 +532,7 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
           counters: number;
           reservations: number;
           setup_events: number;
-          api_tokens: number;
+          agent_grants: number;
           delete_audits: number;
         }[]
       >`
@@ -547,7 +547,7 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
           (select count(*)::int from app.guest_counters where property_id = ${propertyId}) as counters,
           (select count(*)::int from app.reservations where id = ${reservationId}) as reservations,
           (select count(*)::int from app.setup_events where property_id = ${propertyId}) as setup_events,
-          (select count(*)::int from app.api_tokens where id = ${tokenId}) as api_tokens,
+          (select count(*)::int from app.agent_grants where id = ${tokenId}) as agent_grants,
           (select count(*)::int from app.audit_events where actor_id = ${owner.userId} and action = 'delete') as delete_audits
       `;
       expect(children).toEqual({
@@ -561,7 +561,7 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
         counters: 0,
         reservations: 0,
         setup_events: 0,
-        api_tokens: 0,
+        agent_grants: 0,
         delete_audits: 1,
       });
     } finally {

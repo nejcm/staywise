@@ -25,24 +25,29 @@ insert into app.host_settings (owner_id) values
   ('ad0e0000-0000-4000-8000-0000000000a1'),
   ('ad0e0000-0000-4000-8000-0000000000b1');
 insert into app.setup_events (owner_id, event_type) values ('ad0e0000-0000-4000-8000-0000000000a1', 'sign_in');
-insert into app.api_tokens (owner_id, token_hash, scopes) values ('ad0e0000-0000-4000-8000-0000000000a1', '\x41', '{content:write}');
+insert into app.agent_grants (owner_id, kind, name, token_hash, scopes, expires_at) values
+  ('ad0e0000-0000-4000-8000-0000000000a1', 'pat', 'Delete A', sha256('\x41'), '{content:write}', now() + interval '30 days');
 insert into app.audit_events (actor_id, action) values ('ad0e0000-0000-4000-8000-0000000000a1', 'sign_in');
+
+-- Baselines keep the anonymous-row counts true on a local database that already holds dev audit rows.
+create temp table probe_anonymous on commit drop as
+  select action, count(*)::integer as n from app.audit_events where actor_id is null group by action;
 
 delete from auth.users where id = 'ad0e0000-0000-4000-8000-0000000000a1';
 
 select is((select count(*)::integer from app.properties where owner_id = 'ad0e0000-0000-4000-8000-0000000000a1'), 0, 'deletion removes the host properties');
 select is((select count(*)::integer from app.host_settings where owner_id = 'ad0e0000-0000-4000-8000-0000000000a1'), 0, 'deletion removes the host settings');
 select is((select count(*)::integer from app.setup_events where owner_id = 'ad0e0000-0000-4000-8000-0000000000a1'), 0, 'deletion removes the host setup events');
-select is((select count(*)::integer from app.api_tokens where owner_id = 'ad0e0000-0000-4000-8000-0000000000a1'), 0, 'deletion removes owner-level API tokens');
+select is((select count(*)::integer from app.agent_grants where owner_id = 'ad0e0000-0000-4000-8000-0000000000a1'), 0, 'deletion removes owner-level agent grants');
 select is((select count(*)::integer from app.audit_events where actor_id = 'ad0e0000-0000-4000-8000-0000000000a1'), 0, 'no audit row keeps the deleted actor');
-select is((select count(*)::integer from app.audit_events where actor_id is null and action = 'sign_in'), 1, 'the audit row stays without identity');
+select is((select count(*)::integer from app.audit_events where actor_id is null and action = 'sign_in'), coalesce((select n from probe_anonymous where action = 'sign_in'), 0) + 1, 'the audit row stays without identity');
 select is((select count(*)::integer from app.properties where owner_id = 'ad0e0000-0000-4000-8000-0000000000b1'), 1, 'another host keeps its property');
 select is((select count(*)::integer from app.host_settings where owner_id = 'ad0e0000-0000-4000-8000-0000000000b1'), 1, 'another host keeps its settings');
 
 set local role app_runtime;
 insert into app.audit_events (actor_id, action) values (null, 'account_deleted');
 reset role;
-select is((select count(*)::integer from app.audit_events where actor_id is null and action = 'account_deleted'), 1, 'the runtime records an anonymous account deletion');
+select is((select count(*)::integer from app.audit_events where actor_id is null and action = 'account_deleted'), coalesce((select n from probe_anonymous where action = 'account_deleted'), 0) + 1, 'the runtime records an anonymous account deletion');
 
 select * from finish();
 rollback;

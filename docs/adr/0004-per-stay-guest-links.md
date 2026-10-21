@@ -24,6 +24,6 @@ A share link has a `kind`: `property` (the existing long-lived link, still one e
 - Expired stay links stay in the table until their reservation is deleted, 90 days after the stay ends, and then cascade with their sessions. Their digests remain until then but cannot be used.
 - The kill switch is unchanged: stay links use the same exchange and read entry points.
 - Audit actions `stay_link_created` and `stay_link_revoked`.
-- Not included: iCal import and the `api_tokens` ingestion API. A later change to the property timezone does not move existing stay expiries.
+- Not included: iCal import and the `api_tokens` ingestion API (now `agent_grants`). A later change to the property timezone does not move existing stay expiries.
 
 Code: `supabase/migrations/20261018000000_initial_schema.sql`, `src/features/share/share.server.ts`, `src/features/share/share-fns.ts`, `StaysPanel` in `src/routes/host_.properties.$propertyId.tsx`.

@@ -41,8 +41,8 @@ insert into app.reservations (id, property_id, source, external_id, stay_start, 
   ('7c7c0000-0000-4000-8000-0000000000ad', '7c7c0000-0000-4000-8000-0000000000a2', 'pgtap', '7c-a', '2026-10-01', '2026-10-05');
 insert into app.setup_events (owner_id, event_type, property_id, step) values
   ('7c7c0000-0000-4000-8000-0000000000a1', 'section_saved', '7c7c0000-0000-4000-8000-0000000000a2', 'wifi');
-insert into app.api_tokens (owner_id, token_hash, scopes, property_id) values
-  ('7c7c0000-0000-4000-8000-0000000000a1', '\x31', '{content:write}', '7c7c0000-0000-4000-8000-0000000000a2');
+insert into app.agent_grants (owner_id, kind, name, token_hash, scopes, property_id, expires_at) values
+  ('7c7c0000-0000-4000-8000-0000000000a1', 'pat', 'Delete A', sha256('\x31'), '{content:write}', '7c7c0000-0000-4000-8000-0000000000a2', now() + interval '30 days');
 
 select is((select is_nullable from information_schema.columns where table_schema = 'app' and table_name = 'rate_limits' and column_name = 'property_id'), 'NO', 'every rate fingerprint has a property');
 select is((select confdeltype::text from pg_constraint where conname = 'rate_limits_property_fk'), 'c', 'the rate fingerprint property FK cascades on delete');
@@ -76,7 +76,7 @@ select is((select count(*)::integer from app.rate_limits where property_id = '7c
 select is((select count(*)::integer from app.guest_counters where property_id = '7c7c0000-0000-4000-8000-0000000000a2'), 0, 'deletion removes counters');
 select is((select count(*)::integer from app.reservations where property_id = '7c7c0000-0000-4000-8000-0000000000a2'), 0, 'deletion removes reservations');
 select is((select count(*)::integer from app.setup_events where property_id = '7c7c0000-0000-4000-8000-0000000000a2'), 0, 'deletion removes setup events');
-select is((select count(*)::integer from app.api_tokens where property_id = '7c7c0000-0000-4000-8000-0000000000a2'), 0, 'deletion removes property-scoped API tokens');
+select is((select count(*)::integer from app.agent_grants where property_id = '7c7c0000-0000-4000-8000-0000000000a2'), 0, 'deletion removes property-scoped agent grants');
 select is((select count(*)::integer from app.audit_events where actor_id = '7c7c0000-0000-4000-8000-0000000000a1' and action = 'delete'), 1, 'the delete audit row is allowed and survives the property');
 select is((select count(*)::integer from app.properties where id = '7c7c0000-0000-4000-8000-0000000000b2'), 1, 'another host property is untouched');
 select is((select count(*)::integer from app.rate_limits where property_id = '7c7c0000-0000-4000-8000-0000000000b2'), 1, 'another property rate fingerprint is untouched');
