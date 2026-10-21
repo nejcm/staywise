@@ -1,5 +1,5 @@
 import { createServerClient, parseCookieHeader } from '@supabase/ssr';
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type SupabaseClient } from '@supabase/supabase-js';
 import { serverEnv } from '../../lib/env.server';
 import { authCookieHeaders, clearCodeVerifierCookies, type AuthCookie } from './auth-cookies.server';
 import { recordAudit } from '../../lib/audit.server';
@@ -84,6 +84,29 @@ export async function aal2Session(client: SupabaseClient): Promise<Aal2Session> 
   if (!needsAal2) return { outcome: 'ok', session };
   const { data: aal } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
   return aal?.currentLevel === 'aal2' ? { outcome: 'ok', session } : { outcome: 'aal1' };
+}
+
+// Step-up for irreversible actions: an existing AAL2 session is not enough, so a host with a verified
+// authenticator must present a fresh code; a host without one passes.
+export async function freshTotpPassed(client: SupabaseClient, code: string | undefined): Promise<boolean> {
+  const { data: factors, error } = await client.auth.mfa.listFactors();
+  if (error || !factors) return false;
+  const factor = factors.totp.find((entry) => entry.status === 'verified');
+  if (!factor) return true;
+  if (!code) return false;
+  const { error: verifyError } = await client.auth.mfa.challengeAndVerify({ factorId: factor.id, code });
+  return !verifyError;
+}
+
+// The only service-role call: deleting the auth user cascades every owner row in one transaction.
+// "Not found" counts as done so a repeated submit still signs the browser out.
+export async function deleteAuthUser(userId: string): Promise<boolean> {
+  if (!serverEnv.supabaseSecretKey) return false;
+  const admin = createClient(serverEnv.supabaseUrl, serverEnv.supabaseSecretKey, {
+    auth: { persistSession: false, autoRefreshToken: false },
+  });
+  const { error } = await admin.auth.admin.deleteUser(userId);
+  return !error || error.status === 404;
 }
 
 // Recovery for an interrupted enrollment: discard only this user's unverified TOTP factors and

@@ -23,10 +23,12 @@ export const Route = createFileRoute('/auth/sign-in')({
 const RESTART_MESSAGE =
   'The sign-in link could not be completed in this browser. Request a new link and open it in the same browser.';
 
+const statusMessages: Record<string, string> = { restart: RESTART_MESSAGE, deleted: 'Your account was deleted.' };
+
 function SignInPage() {
   const { status } = Route.useSearch();
   const [email, setEmail] = useState('');
-  const [message, setMessage] = useState(status === 'restart' ? RESTART_MESSAGE : '');
+  const [message, setMessage] = useState(statusMessages[status ?? ''] ?? '');
   const [messageFailed, setMessageFailed] = useState(false);
   const [busy, setBusy] = useState(false);
 

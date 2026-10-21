@@ -4,11 +4,12 @@ import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routeTree } from '../routeTree.gen';
-import { getHostAuthState, mfaUnenroll, mfaVerify, restartEnrollment } from '../features/host/host-fns';
+import { deleteAccount, getHostAuthState, mfaUnenroll, mfaVerify, restartEnrollment } from '../features/host/host-fns';
 import { getHostSettings, saveHostSettings } from '../features/host/settings-fns';
 import { builtInHostSettings, type HostSettings } from '../features/host/settings.server';
 
 vi.mock('../features/host/host-fns', () => ({
+  deleteAccount: vi.fn(),
   getHostAuthState: vi.fn(),
   mfaUnenroll: vi.fn(),
   mfaVerify: vi.fn(),
@@ -19,17 +20,20 @@ vi.mock('../features/host/settings-fns', () => ({ getHostSettings: vi.fn(), save
 
 const timeZones = ['Europe/Ljubljana', 'UTC'];
 
-function loadSettings(settings: HostSettings | null) {
+function loadSettings(settings: HostSettings | null, accountDeletion = true) {
   vi.mocked(getHostSettings).mockResolvedValue({
     email: 'host@example.test',
     settings: settings ?? builtInHostSettings,
     saved: settings !== null,
     timeZones,
+    accountDeletion,
   });
 }
 
+let router: ReturnType<typeof createRouter>;
+
 async function renderSettings() {
-  const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: ['/host/settings'] }) });
+  router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: ['/host/settings'] }) });
   await router.load();
   render(<RouterProvider router={router} />);
   await screen.findByTestId('settings-form');
@@ -48,6 +52,7 @@ beforeEach(() => {
     .mockResolvedValue({ state: 'workspace', totpFactorIds: ['f1'] });
   vi.mocked(saveHostSettings).mockReset();
   vi.mocked(mfaUnenroll).mockReset();
+  vi.mocked(deleteAccount).mockReset();
   loadSettings(null);
 });
 afterEach(() => {
@@ -145,5 +150,42 @@ describe('host settings two-step sign-in', () => {
     await userEvent.click(screen.getByTestId('host-verify-submit'));
     expect(mfaVerify).toHaveBeenCalledWith({ data: { factorId: 'f2', code: '123456' } });
     await waitFor(() => expect(getHostAuthState).toHaveBeenCalledTimes(2));
+  });
+});
+
+describe('host settings account deletion', () => {
+  it('enables deletion only for the typed account email and sends the fresh code', async () => {
+    vi.mocked(deleteAccount).mockResolvedValue({ ok: true });
+    await renderSettings();
+    const button = screen.getByTestId('account-delete') as HTMLButtonElement;
+    await userEvent.type(screen.getByTestId('account-delete-email'), 'other@example.test');
+    expect(button.disabled).toBe(true);
+    await userEvent.clear(screen.getByTestId('account-delete-email'));
+    await userEvent.type(screen.getByTestId('account-delete-email'), 'Host@Example.test');
+    await userEvent.type(screen.getByTestId('account-delete-code'), '123456');
+    expect(button.disabled).toBe(false);
+    await userEvent.click(button);
+    expect(deleteAccount).toHaveBeenCalledWith({ data: { email: 'Host@Example.test', code: '123456' } });
+    await waitFor(() => expect(router.state.location.pathname).toBe('/auth/sign-in'));
+    expect((await screen.findByTestId('signin-message')).textContent).toBe('Your account was deleted.');
+  });
+
+  it('asks for no code without an authenticator and explains a rejected code', async () => {
+    vi.mocked(getHostAuthState).mockResolvedValue({ state: 'workspace', totpFactorIds: [] });
+    vi.mocked(deleteAccount).mockResolvedValue({ error: 'invalid_code' });
+    await renderSettings();
+    expect(screen.queryByTestId('account-delete-code')).toBeNull();
+    await userEvent.type(screen.getByTestId('account-delete-email'), 'host@example.test');
+    await userEvent.click(screen.getByTestId('account-delete'));
+    expect(deleteAccount).toHaveBeenCalledWith({ data: { email: 'host@example.test' } });
+    await waitFor(() => expect(screen.getByTestId('account-delete-message').textContent).toMatch(/code did not work/));
+    expect(router.state.location.pathname).toBe('/host/settings');
+  });
+
+  it('hides the form when the environment has no secret key', async () => {
+    loadSettings(null, false);
+    await renderSettings();
+    expect(screen.queryByTestId('account-delete-form')).toBeNull();
+    expect(screen.getByTestId('account-delete-zone').textContent).toMatch(/not available/);
   });
 });

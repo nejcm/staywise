@@ -1,8 +1,22 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { aal2Session, getHostAuthState, restartTotpEnrollment, verifiedSession } from './auth.server';
+import {
+  aal2Session,
+  deleteAuthUser,
+  freshTotpPassed,
+  getHostAuthState,
+  restartTotpEnrollment,
+  verifiedSession,
+} from './auth.server';
 
 const mfa = vi.hoisted(() => ({ required: true }));
+const admin = vi.hoisted(() => ({
+  secretKey: 'sb_secret_synthetic' as string | null,
+  deleteUser: vi.fn(),
+}));
+vi.mock('@supabase/supabase-js', () => ({
+  createClient: () => ({ auth: { admin: { deleteUser: admin.deleteUser } } }),
+}));
 vi.mock('../../lib/env.server', async (importOriginal) => {
   const actual = await importOriginal<typeof import('../../lib/env.server')>();
   return {
@@ -11,6 +25,9 @@ vi.mock('../../lib/env.server', async (importOriginal) => {
       ...actual.serverEnv,
       get mfaRequired() {
         return mfa.required;
+      },
+      get supabaseSecretKey() {
+        return admin.secretKey;
       },
     },
   };
@@ -25,6 +42,7 @@ type StubOptions = {
   factorsError?: unknown;
   currentLevel?: 'aal1' | 'aal2';
   unenrollErrorFor?: string;
+  verifyError?: unknown;
 };
 
 function stubClient(options: StubOptions) {
@@ -51,6 +69,7 @@ function stubClient(options: StubOptions) {
           data: { id: 'factor-new', totp: { secret: 'SYNTHETICSECRET234567' } },
           error: null,
         }),
+        challengeAndVerify: async () => ({ data: null, error: options.verifyError ?? null }),
         unenroll: async ({ factorId }: { factorId: string }) => {
           if (options.unenrollErrorFor === factorId) return { error: new Error('synthetic unenroll failure') };
           unenrolled.push(factorId);
@@ -173,5 +192,51 @@ describe('restartTotpEnrollment', () => {
   it('returns nothing when an unverified factor cannot be removed', async () => {
     const { client } = stubClient({ user, factors: [unverifiedFactor], unenrollErrorFor: unverifiedFactor.id });
     expect(await restartTotpEnrollment(client)).toBeNull();
+  });
+});
+
+describe('freshTotpPassed', () => {
+  it('passes a host without a verified authenticator without a code', async () => {
+    const { client } = stubClient({ user, factors: [unverifiedFactor] });
+    expect(await freshTotpPassed(client, undefined)).toBe(true);
+  });
+
+  it('requires a code from a host with a verified authenticator, even at AAL2', async () => {
+    const { client } = stubClient({ user, factors: [verifiedFactor], currentLevel: 'aal2' });
+    expect(await freshTotpPassed(client, undefined)).toBe(false);
+    expect(await freshTotpPassed(client, '123456')).toBe(true);
+  });
+
+  it('rejects a code the Auth server does not verify', async () => {
+    const { client } = stubClient({ user, factors: [verifiedFactor], verifyError: new Error('invalid code') });
+    expect(await freshTotpPassed(client, '000000')).toBe(false);
+  });
+
+  it('fails closed when factors cannot be listed', async () => {
+    const { client } = stubClient({ user, factorsError: new Error('down') });
+    expect(await freshTotpPassed(client, '123456')).toBe(false);
+  });
+});
+
+describe('deleteAuthUser', () => {
+  afterEach(() => {
+    admin.secretKey = 'sb_secret_synthetic';
+    admin.deleteUser.mockReset();
+  });
+
+  it('deletes through the admin API and treats an already deleted user as done', async () => {
+    admin.deleteUser.mockResolvedValueOnce({ error: null });
+    expect(await deleteAuthUser(user.id)).toBe(true);
+    expect(admin.deleteUser).toHaveBeenCalledWith(user.id);
+    admin.deleteUser.mockResolvedValueOnce({ error: { status: 404 } });
+    expect(await deleteAuthUser(user.id)).toBe(true);
+  });
+
+  it('reports other admin failures and a missing key', async () => {
+    admin.deleteUser.mockResolvedValueOnce({ error: { status: 500 } });
+    expect(await deleteAuthUser(user.id)).toBe(false);
+    admin.secretKey = null;
+    expect(await deleteAuthUser(user.id)).toBe(false);
+    expect(admin.deleteUser).toHaveBeenCalledTimes(1);
   });
 });

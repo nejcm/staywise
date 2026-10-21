@@ -103,7 +103,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     appEnv,
     supabaseUrl,
     supabasePublishableKey,
-    supabaseSecretKey: parseSupabaseSecretKey(env.SUPABASE_SECRET_KEY),
+    supabaseSecretKey: parseSupabaseSecretKey(env.SUPABASE_SECRET_KEY, appEnv),
     appDbUrl,
     appDbCaPath: parseDbCaPath(appDbUrl, appEnv),
     smtpUrl: parseSmtpUrl(parseValue(env, 'SMTP_URL', appEnv, z.url()), appEnv),
@@ -126,9 +126,13 @@ function parseGuestAccessDisabled(raw: string | undefined): boolean {
   throw new Error('GUEST_ACCESS_DISABLED must be true or false');
 }
 
-// Optional: only the magic-link request uses it, so Auth can trust Sb-Forwarded-For.
-function parseSupabaseSecretKey(raw: string | undefined): string | null {
-  if (raw === undefined || raw === '') return null;
+// Server-only service-role key: magic-link IP forwarding and account deletion. Optional locally,
+// where an unset key only turns account deletion off.
+function parseSupabaseSecretKey(raw: string | undefined, appEnv: AppEnv): string | null {
+  if (raw === undefined || raw === '') {
+    if (appEnv === 'local') return null;
+    throw new Error('SUPABASE_SECRET_KEY must be set explicitly when APP_ENV is not local');
+  }
   if (!raw.startsWith('sb_secret_')) throw new Error('SUPABASE_SECRET_KEY must be an sb_secret_ key');
   return raw;
 }

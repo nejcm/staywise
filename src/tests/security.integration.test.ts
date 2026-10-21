@@ -265,4 +265,95 @@ describeLocal('host auth trust boundaries against the local stack', () => {
       await restored.end({ timeout: 0 });
     }
   }, 60_000);
+  it('deletes an account only with the typed email and a fresh code, leaving no owner row behind', async () => {
+    const local = localStack as LocalStack;
+    const email = `security-delete-${Date.now()}@example.test`;
+    const userId = await adminClient(local).createUser(email, SYNTHETIC_PASSWORD);
+    const db = localAdmin();
+    try {
+      const [property] = await db<{ id: string }[]>`
+        insert into app.properties (owner_id, display_name) values (${userId}, ${PROPERTY_NAME}) returning id
+      `;
+      const propertyId = property!.id;
+      const linkId = `delete${Date.now()}`.slice(0, 20);
+      await db`insert into app.host_settings (owner_id) values (${userId})`;
+      await db`insert into app.share_links (id, secret_hmac, property_id) values (${linkId}, '\\x01', ${propertyId})`;
+      await db`
+        insert into app.guest_sessions (id, session_hash, share_link_id, expires_at)
+        values (gen_random_uuid(), '\\x02', ${linkId}, now() + interval '1 hour')
+      `;
+      await db`
+        insert into app.guest_messages (property_id, kind, category, body)
+        values (${propertyId}, 'question', 'wifi', 'Synthetic unread message')
+      `;
+      await db`insert into app.setup_events (owner_id, event_type) values (${userId}, 'sign_in')`;
+      await db`insert into app.api_tokens (owner_id, token_hash, scopes) values (${userId}, '\\x03', '{content:write}')`;
+      await db`insert into app.audit_events (actor_id, action) values (${userId}, 'sign_in')`;
+      const [{ since } = { since: new Date(0) }] = await db<{ since: Date }[]>`select now() as since`;
+
+      const jar = memoryJar();
+      const client = createServerClient(local.apiUrl, local.anonKey, {
+        cookies: { getAll: jar.getAll, setAll: jar.setAll },
+      });
+      expect((await client.auth.signInWithPassword({ email, password: SYNTHETIC_PASSWORD })).error).toBeNull();
+      const enrolled = decode<{ factorId: string; secret: string }>(
+        await hostFn('mfaEnroll', { jar, data: {} }),
+      )?.result;
+      expect(
+        decode<{ ok?: boolean }>(
+          await hostFn('mfaVerify', {
+            jar,
+            data: { factorId: enrolled?.factorId, code: totp(enrolled?.secret ?? '') },
+          }),
+        )?.result?.ok,
+      ).toBe(true);
+
+      const wrongEmail = await hostFn('deleteAccount', { jar, data: { email: 'someone-else@example.test' } });
+      expect(decode<{ error?: string }>(wrongEmail)?.result?.error).toBe('invalid_input');
+      const noCode = await hostFn('deleteAccount', { jar, data: { email: email.toUpperCase() } });
+      expect(decode<{ error?: string }>(noCode)?.result?.error).toBe('invalid_code');
+      const [{ n: kept } = { n: -1 }] = await db<{ n: number }[]>`
+        select count(*)::int as n from app.properties where owner_id = ${userId}
+      `;
+      expect(kept).toBe(1);
+
+      const deleted = await hostFn('deleteAccount', {
+        jar,
+        data: { email, code: totp(enrolled?.secret ?? '') },
+      });
+      expect(decode<{ ok?: boolean }>(deleted)?.result?.ok).toBe(true);
+      expect(jar.sessionCount()).toBe(0);
+
+      const [left] = await db<Record<string, number>[]>`
+        select
+          (select count(*)::int from auth.users where id = ${userId}) as users,
+          (select count(*)::int from app.properties where owner_id = ${userId}) as properties,
+          (select count(*)::int from app.host_settings where owner_id = ${userId}) as settings,
+          (select count(*)::int from app.share_links where property_id = ${propertyId}) as links,
+          (select count(*)::int from app.guest_sessions where share_link_id = ${linkId}) as sessions,
+          (select count(*)::int from app.guest_messages where property_id = ${propertyId}) as messages,
+          (select count(*)::int from app.setup_events where owner_id = ${userId}) as setup,
+          (select count(*)::int from app.api_tokens where owner_id = ${userId}) as tokens,
+          (select count(*)::int from app.audit_events where actor_id = ${userId}) as attributed,
+          (select count(*)::int from app.audit_events
+            where actor_id is null and action = 'account_deleted' and created_at >= ${since}) as deletions
+      `;
+      expect(left).toEqual({
+        users: 0,
+        properties: 0,
+        settings: 0,
+        links: 0,
+        sessions: 0,
+        messages: 0,
+        setup: 0,
+        tokens: 0,
+        attributed: 0,
+        deletions: 1,
+      });
+      expect((await client.auth.getUser()).error).not.toBeNull();
+    } finally {
+      await adminClient(local).deleteUser(userId);
+      await db.end({ timeout: 0 });
+    }
+  }, 30_000);
 });
