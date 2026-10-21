@@ -1,5 +1,5 @@
 import { Link, createFileRoute, redirect, useBlocker, useNavigate, useRouter } from '@tanstack/react-router';
-import { ArrowDown, ArrowUp, ChevronLeft, Circle, ImageUp, Plus, Trash } from 'lucide-react';
+import { ArrowDown, ArrowUp, Bot, ChevronLeft, Circle, ImageUp, Plus, Trash } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { QrSvg } from '../components/qr-svg';
 import { getHostAuthState } from '../features/host/host-fns';
@@ -344,6 +344,11 @@ function SectionNavRow({
   const [failed, setFailed] = useState(false);
   const name = sectionName(section);
   const note = section.visibility === 'host' ? 'Private note' : section.published ? null : 'Draft · not published';
+  const agentNote = section.agentChange
+    ? section.agentChange.revertible
+      ? 'Changed by agent'
+      : 'Added by agent'
+    : null;
 
   async function move(direction: 'up' | 'down') {
     setBusy(true);
@@ -372,8 +377,14 @@ function SectionNavRow({
         data-testid="section-item"
       >
         {name}
-        {note ? (
-          <small className={section.visibility === 'guest' ? editorStyles.draftNote : undefined}>{note}</small>
+        {note || agentNote ? (
+          <small>
+            {note ? (
+              <span className={section.visibility === 'guest' ? editorStyles.draftNote : undefined}>{note}</span>
+            ) : null}
+            {note && agentNote ? ' · ' : null}
+            {agentNote ? <span data-testid="section-agent-note">{agentNote}</span> : null}
+          </small>
         ) : null}
       </button>
       <span className={editorStyles.navMoves}>
@@ -747,7 +758,7 @@ function StaysPanel({ propertyId, stays }: { propertyId: string; stays: Stay[] |
                   <Button
                     type="button"
                     size="sm"
-                    variant="danger"
+                    variant="danger-outline"
                     onClick={() => void revoke(stay.reservationId)}
                     disabled={busy}
                     data-testid="stay-revoke"
@@ -1265,8 +1276,9 @@ function SectionForm({
       </div>
       <div hidden={tab !== sourceLocale}>
         {section.agentChange ? (
-          <div className={editorStyles.gap} data-testid="agent-change">
+          <div className={`${editorStyles.gap} ${editorStyles.agentNote}`} data-testid="agent-change">
             <span>
+              <Icon icon={Bot} />
               {section.agentChange.revertible ? 'Changed' : 'Added'} via {section.agentChange.grantName} on{' '}
               {section.agentChange.changedAt.slice(0, 10)}
             </span>

@@ -106,7 +106,7 @@ function ConsentForm({ consent, params }: { consent: Ready; params: Record<strin
         </p>
       </div>
       {consent.loopback ? (
-        <p className="small" role="note" data-testid="consent-loopback">
+        <p className={styles.caution} role="note" data-testid="consent-loopback">
           This app returns to a program on your own computer. Approve only if you started this connection yourself just
           now.
         </p>

@@ -264,3 +264,11 @@
 .callout strong {
   color: #fff;
 }
+
+.caution {
+  padding: var(--space-3) 14px;
+  font-size: var(--fs-small);
+  color: var(--pill-warning-ink);
+  background: var(--pill-warning-bg);
+  border-radius: var(--radius-control);
+}

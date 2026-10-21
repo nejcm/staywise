@@ -259,6 +259,23 @@ describe('host settings agent access', () => {
     expect(screen.getByTestId('agent-status').textContent).toMatch(/shown only once/);
   });
 
+  it('copies the new token and announces it', async () => {
+    enableAgentAccess([]);
+    const token = `sw_pat_${'C'.repeat(43)}`;
+    vi.mocked(createAgentToken).mockResolvedValue({ ok: true, token });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    await renderSettings();
+    await userEvent.type(screen.getByTestId('agent-token-name'), 'Cursor');
+    await userEvent.click(screen.getByTestId('agent-token-create'));
+    await userEvent.click(await screen.findByRole('button', { name: 'Copy token' }));
+    expect(writeText).toHaveBeenCalledWith(token);
+    await waitFor(() => expect(screen.getByTestId('agent-status').textContent).toBe('Token copied.'));
+    writeText.mockRejectedValue(new Error('denied'));
+    await userEvent.click(screen.getByTestId('agent-token-copy'));
+    await waitFor(() => expect(screen.getByTestId('agent-status').textContent).toMatch(/^Copy failed/));
+  });
+
   it('requires a name and at least one permission', async () => {
     enableAgentAccess([]);
     await renderSettings();
@@ -269,19 +286,32 @@ describe('host settings agent access', () => {
     expect(createAgentToken).not.toHaveBeenCalled();
   });
 
-  it('revokes one token or all of them', async () => {
+  it('revokes one token or all of them after confirmation', async () => {
     enableAgentAccess();
-    vi.mocked(revokeAgentToken).mockResolvedValue({ ok: true });
-    vi.mocked(revokeAllAgentTokens).mockResolvedValue({ ok: true });
+    vi.mocked(revokeAgentToken).mockReset().mockResolvedValue({ ok: true });
+    vi.mocked(revokeAllAgentTokens).mockReset().mockResolvedValue({ ok: true });
     await renderSettings();
+    await userEvent.click(screen.getByRole('button', { name: 'Revoke Claude Code laptop' }));
+    expect(openDialog().querySelector('h2')?.textContent).toBe('Revoke “Claude Code laptop”?');
+    await userEvent.click(within(openDialog()).getByTestId('confirm-cancel'));
+    expect(revokeAgentToken).not.toHaveBeenCalled();
     await userEvent.click(screen.getByTestId('agent-grant-revoke'));
+    await userEvent.click(within(openDialog()).getByTestId('confirm-accept'));
     expect(revokeAgentToken).toHaveBeenCalledWith({ data: { grantId: activeGrant.id } });
     await waitFor(() => expect(screen.getByTestId('agent-status').textContent).toBe('Token revoked.'));
     await userEvent.click(screen.getByTestId('agent-grants-revoke-all'));
+    expect(openDialog().querySelector('h2')?.textContent).toBe('Revoke all agent access?');
+    await userEvent.click(within(openDialog()).getByTestId('confirm-accept'));
     expect(revokeAllAgentTokens).toHaveBeenCalledWith({ data: {} });
     await waitFor(() => expect(screen.getByTestId('agent-status').textContent).toBe('All tokens revoked.'));
   });
 });
+
+function openDialog() {
+  const dialog = document.querySelector('dialog[open]');
+  if (!dialog) throw new Error('no open dialog');
+  return dialog as HTMLElement;
+}
 
 function securityEvent(event: Pick<SecurityEvent, 'id' | 'action' | 'at'> & Partial<SecurityEvent>): SecurityEvent {
   return { grantName: null, device: null, countryCode: null, city: null, newDevice: false, ...event };
@@ -319,7 +349,7 @@ describe('host settings security activity', () => {
     expect(items.map((item) => item.textContent)).toEqual([
       'Agent access “Claude Code laptop” revoked2026-10-21 09:15',
       'Agent access created2026-10-20 08:00',
-      'Signed in2026-10-19 07:05 · Email link',
+      'Signed in2026-10-19 07:05Email link',
     ]);
     expect(items[0]?.querySelector('time')?.getAttribute('dateTime')).toBe('2026-10-21T09:15:42.000Z');
     expect(screen.queryByTestId('security-activity-empty')).toBeNull();
@@ -343,8 +373,8 @@ describe('host settings security activity', () => {
     await renderSettings();
     const items = within(screen.getByRole('region', { name: 'Security activity' })).getAllByRole('listitem');
     expect(items.map((item) => item.textContent)).toEqual([
-      'Two-step sign-in verified New device2026-10-21 09:16 · Safari on iOS · Vienna, Austria · Authenticator code',
-      'Signed in2026-10-21 09:15 · Firefox on Linux · Email link',
+      'Two-step sign-in verifiedNew device2026-10-21 09:16Safari on iOS · Vienna, Austria · Authenticator code',
+      'Signed in2026-10-21 09:15Firefox on Linux · Email link',
     ]);
     expect(screen.getAllByTestId('security-new-device')).toHaveLength(1);
   });

@@ -1,7 +1,10 @@
 import { createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router';
 import { useEffect, useState, type FormEvent } from 'react';
 import { HostShell, SignOutButton } from '../components/app-shell';
+import { Copy } from 'lucide-react';
 import { Button } from '../components/button';
+import { useConfirmDialog } from '../components/confirm-dialog';
+import { Icon } from '../components/icons';
 import { Field } from '../components/field';
 import { Pill } from '../components/pill';
 import { useHostAction } from '../components/host-action';
@@ -203,11 +206,11 @@ function DefaultsForm({
       ) : null}
       <fieldset data-testid="settings-locales">
         <legend>Guest languages</legend>
-        {guestLocales
-          .filter((code) => code !== sourceLocale)
-          .map((code) => (
-            <p key={code} style={{ marginTop: 8 }}>
-              <label>
+        <div className={editorStyles.localeChoices}>
+          {guestLocales
+            .filter((code) => code !== sourceLocale)
+            .map((code) => (
+              <label key={code}>
                 <input
                   type="checkbox"
                   name="enabledLocales"
@@ -222,8 +225,8 @@ function DefaultsForm({
                 />
                 {languageNames[code]}
               </label>
-            </p>
-          ))}
+            ))}
+        </div>
         {errors.enabledLocales ? <p className="small">{errors.enabledLocales}</p> : null}
       </fieldset>
       <div className={editorStyles.fieldGrid}>
@@ -358,25 +361,7 @@ function SecurityActivity({ events }: { events: SecurityEvent[] | null }) {
       ) : (
         <ol className={styles.rows}>
           {events.map((event) => (
-            <li key={event.id}>
-              <p>
-                {securityLabel(event)}
-                {event.newDevice ? (
-                  <>
-                    {' '}
-                    <Pill tone="attention" testId="security-new-device">
-                      New device
-                    </Pill>
-                  </>
-                ) : null}
-              </p>
-              <p className="small muted">
-                <time dateTime={event.at}>{utcDateTime(event.at)}</time>
-                {securityDetails(event)
-                  .map((detail) => ` · ${detail}`)
-                  .join('')}
-              </p>
-            </li>
+            <SecurityRow key={event.id} event={event} />
           ))}
         </ol>
       )}
@@ -384,8 +369,31 @@ function SecurityActivity({ events }: { events: SecurityEvent[] | null }) {
   );
 }
 
+function SecurityRow({ event }: { event: SecurityEvent }) {
+  const details = securityDetails(event);
+  return (
+    <li className={styles.listRow}>
+      <div>
+        <p className={styles.eventHead}>
+          <span>{securityLabel(event)}</span>
+          {event.newDevice ? (
+            <Pill tone="attention" testId="security-new-device">
+              New device
+            </Pill>
+          ) : null}
+          <time dateTime={event.at} className={styles.eventTime}>
+            {utcDateTime(event.at)}
+          </time>
+        </p>
+        {details.length ? <p className="small muted">{details.join(' · ')}</p> : null}
+      </div>
+    </li>
+  );
+}
+
 function AgentAccess({ grants, properties, endpoint }: Omit<AgentData, 'enabled'>) {
   const { busy, notice, setNotice, run } = useHostAction();
+  const { confirm, dialog } = useConfirmDialog();
   const [token, setToken] = useState('');
   const [errors, setErrors] = useState<Record<string, string>>({});
 
@@ -416,11 +424,47 @@ function AgentAccess({ grants, properties, endpoint }: Omit<AgentData, 'enabled'
     );
   }
 
+  async function copyToken() {
+    try {
+      await navigator.clipboard.writeText(token);
+      setNotice({ text: 'Token copied.', failed: false });
+    } catch {
+      setNotice({ text: 'Copy failed. Select the token and copy it manually.', failed: true });
+    }
+  }
+
+  async function revoke(grant: AgentData['grants'][number]) {
+    const confirmed = await confirm({
+      title: `Revoke “${grant.name}”?`,
+      body: 'Any agent using it loses access right away. This cannot be undone.',
+      confirmLabel: 'Revoke',
+    });
+    if (confirmed)
+      await run(
+        () => revokeAgentToken({ data: { grantId: grant.id } }),
+        () => 'Token revoked.',
+      );
+  }
+
+  async function revokeAll() {
+    const confirmed = await confirm({
+      title: 'Revoke all agent access?',
+      body: 'Every token and connected app listed here loses access right away. This cannot be undone.',
+      confirmLabel: 'Revoke all',
+    });
+    if (confirmed)
+      await run(
+        () => revokeAllAgentTokens({ data: {} }),
+        () => 'All tokens revoked.',
+      );
+  }
+
   return (
     <>
       <p className="muted">
-        Personal tokens let your own AI agent read your properties at <code>{endpoint}</code>. Agents never see guest
-        messages, link secrets, Wi-Fi passwords or key-box codes.
+        Connect your own AI agent at <code>{endpoint}</code> with a personal token, or approve an app that asks to
+        connect. Its permissions decide whether it only reads or can also edit guides, import reservations and mark
+        inbox items handled. Agents never see guest messages, link secrets, Wi-Fi passwords or key-box codes.
       </p>
       <form onSubmit={submit} noValidate className="stack" data-testid="agent-token-form">
         <div className={editorStyles.fieldGrid}>
@@ -479,41 +523,55 @@ function AgentAccess({ grants, properties, endpoint }: Omit<AgentData, 'enabled'
         </div>
       </form>
       {token ? (
-        <Field label="New token (shown once)">
-          <input readOnly value={token} onFocus={(event) => event.target.select()} data-testid="agent-token-value" />
-        </Field>
+        <div className={styles.tokenBox}>
+          <label htmlFor="agent-token-value">New token (shown once)</label>
+          <div className={styles.joined}>
+            <input
+              id="agent-token-value"
+              readOnly
+              value={token}
+              onFocus={(event) => event.target.select()}
+              data-testid="agent-token-value"
+            />
+            <Button
+              type="button"
+              onClick={() => void copyToken()}
+              aria-label="Copy token"
+              data-testid="agent-token-copy"
+            >
+              <Icon icon={Copy} />
+              Copy
+            </Button>
+          </div>
+        </div>
       ) : null}
       {grants.length ? (
         <ul className={styles.rows} data-testid="agent-grants">
           {grants.map((grant) => (
-            <li key={grant.id} data-testid="agent-grant">
-              <p>
-                <strong>{grant.name}</strong>
-                {grant.kind === 'oauth' ? ` · connected app from ${grant.clientHost}` : ''}
-              </p>
-              <p className="small muted">
-                {grant.scopes.join(', ')} · {grant.propertyName ?? 'All properties'} · expires{' '}
-                {utcDate(grant.expiresAt)}
-                {' · '}
-                {grant.lastUsedAt ? `last used ${utcDate(grant.lastUsedAt)}` : 'never used'}
-                {grant.clientLabel ? ` by ${grant.clientLabel}` : ''}
-              </p>
-              <p className="actions">
-                <Button
-                  type="button"
-                  variant="danger"
-                  disabled={busy}
-                  onClick={() =>
-                    run(
-                      () => revokeAgentToken({ data: { grantId: grant.id } }),
-                      () => 'Token revoked.',
-                    )
-                  }
-                  data-testid="agent-grant-revoke"
-                >
-                  Revoke
-                </Button>
-              </p>
+            <li key={grant.id} className={styles.listRow} data-testid="agent-grant">
+              <div>
+                <p>
+                  <strong>{grant.name}</strong>
+                  {grant.kind === 'oauth' ? ` · connected app from ${grant.clientHost}` : ''}
+                </p>
+                <p className="small muted">
+                  {grant.scopes.join(', ')} · {grant.propertyName ?? 'All properties'} · expires{' '}
+                  {utcDate(grant.expiresAt)}
+                  {' · '}
+                  {grant.lastUsedAt ? `last used ${utcDate(grant.lastUsedAt)}` : 'never used'}
+                  {grant.clientLabel ? ` by ${grant.clientLabel}` : ''}
+                </p>
+              </div>
+              <Button
+                type="button"
+                size="sm"
+                disabled={busy}
+                onClick={() => void revoke(grant)}
+                aria-label={`Revoke ${grant.name}`}
+                data-testid="agent-grant-revoke"
+              >
+                Revoke
+              </Button>
             </li>
           ))}
         </ul>
@@ -526,14 +584,9 @@ function AgentAccess({ grants, properties, endpoint }: Omit<AgentData, 'enabled'
         <p className="actions">
           <Button
             type="button"
-            variant="danger"
+            variant="danger-outline"
             disabled={busy}
-            onClick={() =>
-              run(
-                () => revokeAllAgentTokens({ data: {} }),
-                () => 'All tokens revoked.',
-              )
-            }
+            onClick={() => void revokeAll()}
             data-testid="agent-grants-revoke-all"
           >
             Revoke all
@@ -543,6 +596,7 @@ function AgentAccess({ grants, properties, endpoint }: Omit<AgentData, 'enabled'
       <Toast testId="agent-status" tone={notice.failed ? 'error' : undefined}>
         {notice.text}
       </Toast>
+      {dialog}
     </>
   );
 }

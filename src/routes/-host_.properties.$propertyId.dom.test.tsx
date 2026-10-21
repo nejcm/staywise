@@ -296,6 +296,7 @@ describe('Agent changes', () => {
     } as never);
     await renderEditor();
     expect(screen.getByTestId('agent-change').textContent).toContain('Changed via Claude Code on 2026-10-21');
+    expect(screen.getByTestId('section-agent-note').textContent).toBe('Changed by agent');
     vi.mocked(getPropertyEditor).mockResolvedValue({ editor, gaps: [] } as never);
     await userEvent.click(screen.getByTestId('agent-revert'));
     expect(revertAgentChange).toHaveBeenCalledWith({ data: { propertyId, revisionId } });
@@ -314,6 +315,7 @@ describe('Agent changes', () => {
     } as never);
     await renderEditor();
     expect(screen.getByTestId('agent-change').textContent).toContain('Added via Claude Code');
+    expect(screen.getByTestId('section-agent-note').textContent).toBe('Added by agent');
     expect(screen.queryByTestId('agent-revert')).toBeNull();
   });
 
