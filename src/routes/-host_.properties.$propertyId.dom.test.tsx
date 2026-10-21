@@ -144,7 +144,7 @@ async function acceptConfirm() {
 beforeEach(() => {
   vi.clearAllMocks();
   vi.mocked(getHostAuthState).mockResolvedValue({ state: 'workspace', totpFactorIds: [] });
-  vi.mocked(getPropertyEditor).mockResolvedValue({ editor } as never);
+  vi.mocked(getPropertyEditor).mockResolvedValue({ editor, gaps: [] } as never);
   vi.mocked(getGuestLink).mockResolvedValue({
     share: { link: { id: 'l1', createdAt: '2026-10-01T00:00:00.000Z' }, guidePublished: false },
   } as never);
@@ -248,6 +248,45 @@ describe('TranslationBlock', () => {
   });
 });
 
+describe('ReadinessPanel', () => {
+  it('drops an item once the saved property has it', async () => {
+    vi.mocked(saveProperty).mockResolvedValue({ ok: true } as never);
+    await renderEditor();
+    expect(screen.getByTestId('readiness-checkinTime')).toBeTruthy();
+    await userEvent.click(screen.getByTestId('readiness-checkinTime'));
+    await waitFor(() => expect(document.activeElement).toBe(screen.getByTestId('essentials-checkinTime')));
+    vi.mocked(getPropertyEditor).mockResolvedValue({
+      editor: { ...editor, property: { ...editor.property, checkinTime: '15:00' } },
+      gaps: [],
+    } as never);
+    await userEvent.click(screen.getByTestId('property-save'));
+    await waitFor(() => expect(screen.queryByTestId('readiness-checkinTime')).toBeNull());
+    expect(screen.getByTestId('readiness-checkoutTime')).toBeTruthy();
+  });
+});
+
+describe('GapPanel', () => {
+  it('stays hidden without gaps', async () => {
+    await renderEditor();
+    expect(screen.queryByTestId('guide-gaps')).toBeNull();
+  });
+
+  it('adds a section in the asked-about category', async () => {
+    vi.mocked(getPropertyEditor).mockResolvedValue({
+      editor,
+      gaps: [
+        { category: 'parking', asked: 3, lastAsked: '2026-10-20T10:00:00.000Z' },
+        { category: null, asked: 1, lastAsked: '2026-10-19T10:00:00.000Z' },
+      ],
+    } as never);
+    vi.mocked(createSection).mockResolvedValue({ error: 'unexpected' });
+    await renderEditor();
+    expect(screen.getByTestId('guide-gaps').textContent).toContain('Guests asked about Parking 3 times');
+    await userEvent.click(screen.getByTestId('gap-add-parking'));
+    expect(createSection).toHaveBeenCalledWith({ data: { propertyId, category: 'parking', fromGap: true } });
+  });
+});
+
 describe('GuestLinkPanel', () => {
   it('shows a rotated secret once, until the next action replaces it', async () => {
     vi.mocked(rotateGuestLink).mockResolvedValue({ shareId: 'share-new', secret: 'SYNTHETIC-SECRET' } as never);
@@ -265,6 +304,47 @@ describe('GuestLinkPanel', () => {
     );
     expect(screen.getAllByTestId('guest-link-url')).toHaveLength(1);
     await expectInvalidated();
+  });
+
+  async function issue() {
+    vi.mocked(rotateGuestLink).mockResolvedValue({ shareId: 'share-new', secret: 'SYNTHETIC-SECRET' } as never);
+    const router = await renderEditor();
+    await userEvent.click(screen.getByTestId('guest-link-rotate'));
+    await acceptConfirm();
+    await screen.findByTestId('guest-link-url');
+    return router;
+  }
+
+  it('downloads the QR as an SVG blob', async () => {
+    let blob: Blob | undefined;
+    const create = vi.spyOn(URL, 'createObjectURL').mockImplementation((value) => {
+      blob = value as Blob;
+      return 'blob:synthetic';
+    });
+    const revoke = vi.spyOn(URL, 'revokeObjectURL').mockImplementation(() => {});
+    await issue();
+    const path = screen.getByTestId('guest-qr').querySelector('path')!.getAttribute('d')!;
+    await userEvent.click(screen.getByTestId('guest-qr-download'));
+    expect(blob?.type).toBe('image/svg+xml');
+    const svg = await blob!.text();
+    expect(svg).toContain(`<path d="${path}"`);
+    create.mockRestore();
+    revoke.mockRestore();
+  });
+
+  it('blocks leaving until the link is copied', async () => {
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText: vi.fn() }, configurable: true });
+    const router = await issue();
+    void router.navigate({ to: '/host' });
+    await waitFor(() =>
+      expect(document.querySelector('dialog[open] h2')?.textContent).toBe('Leave without saving the link?'),
+    );
+    await userEvent.click(within(document.querySelector('dialog[open]') as HTMLElement).getByTestId('confirm-cancel'));
+    expect(router.state.location.pathname).toBe(`/host/properties/${propertyId}`);
+    await userEvent.click(screen.getByTestId('guest-link-copy'));
+    await router.navigate({ to: '/privacy' });
+    expect(document.querySelector('dialog[open]')).toBeNull();
+    expect(router.state.location.pathname).toBe('/privacy');
   });
 
   it('shows the generic error for an error result and no link', async () => {

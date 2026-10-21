@@ -1,5 +1,5 @@
-import { Link, createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router';
-import { useState, type FormEvent } from 'react';
+import { Link, createFileRoute, redirect, useBlocker, useNavigate, useRouter } from '@tanstack/react-router';
+import { useRef, useState, type FormEvent } from 'react';
 import { QrSvg } from '../components/qr-svg';
 import { getHostAuthState } from '../features/host/host-fns';
 import {
@@ -29,6 +29,8 @@ import {
   rejectGuideTranslation,
 } from '../features/translation/translation-fns';
 import type { ShareLinkState } from '../features/share/share.server';
+import type { GuideGap } from '../features/messages/messages.server';
+import { readiness, type ReadinessItem } from '../features/guide/readiness';
 import {
   approveTranslationInput,
   collectFieldErrors,
@@ -44,7 +46,7 @@ import {
   type SectionCategory,
   type SectionVisibility,
 } from '../features/guide/guide-validation';
-import { languageNames } from '../features/guest/guest-ui';
+import { guestUiText, languageNames, messageRetentionDays } from '../features/guest/guest-ui';
 import type { GuideEditorData, GuideTranslation, PropertyEssentials } from '../features/guide/guide.server';
 import styles from '../features/host/host.module.css';
 import editorStyles from '../features/host/editor.module.css';
@@ -67,6 +69,7 @@ export const Route = createFileRoute('/host_/properties/$propertyId')({
     const inbox = await getInbox({ data: { propertyId: params.propertyId } });
     return {
       editor: result.editor,
+      gaps: result.gaps,
       share: 'error' in share ? null : share.share,
       inbox: 'error' in inbox ? null : inbox.messages,
     };
@@ -84,7 +87,7 @@ function localeName(code: string): string {
 }
 
 function PropertyEditorPage() {
-  const { editor, share, inbox } = Route.useLoaderData();
+  const { editor, gaps, share, inbox } = Route.useLoaderData();
   const { property, sections } = editor;
   const [selected, setSelected] = useState(sections[0]?.id ?? 'basics');
   const [view, setView] = useState<'list' | 'editor'>('list');
@@ -94,6 +97,13 @@ function PropertyEditorPage() {
   function open(id: string) {
     setSelected(id);
     setView('editor');
+  }
+
+  function jump(item: ReadinessItem) {
+    if (item.pane) open(item.pane);
+    const anchor = item.anchor;
+    // The pane un-hides on the next render, so focus after it.
+    if (anchor) requestAnimationFrame(() => document.getElementById(anchor)?.focus());
   }
 
   return (
@@ -133,6 +143,8 @@ function PropertyEditorPage() {
           <GuidePublish propertyId={property.id} published={property.published} />
         </div>
       </div>
+      <ReadinessPanel items={readiness(editor, Boolean(share?.link))} onJump={jump} />
+      <GapPanel propertyId={property.id} gaps={gaps} onCreated={open} />
       <div className={editorStyles.workspace} data-view={view}>
         <nav className={`${styles.panel} ${editorStyles.sectionNav}`} aria-labelledby="sections-heading">
           <h2 id="sections-heading">Guide sections</h2>
@@ -204,7 +216,7 @@ function PropertyEditorPage() {
       <div className={editorStyles.panels}>
         <TranslationPanel property={property} sections={sections} />
         <AlertPanel property={property} />
-        <GuestLinkPanel propertyId={property.id} share={share} />
+        <GuestLinkPanel property={property} share={share} />
       </div>
       <InboxPanel propertyId={property.id} messages={inbox} />
     </HostShell>
@@ -338,6 +350,7 @@ function GuidePublish({ propertyId, published }: { propertyId: string; published
         variant={published ? 'ghost' : 'primary'}
         onClick={toggle}
         disabled={busy}
+        id="guide-publish"
         data-testid="guide-publish"
       >
         {published ? 'Unpublish guide' : 'Publish guide'}
@@ -349,9 +362,12 @@ function GuidePublish({ propertyId, published }: { propertyId: string; published
   );
 }
 
-function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: ShareLinkState | null }) {
+function GuestLinkPanel({ property, share }: { property: EditorProperty; share: ShareLinkState | null }) {
+  const propertyId = property.id;
   const router = useRouter();
   const [issued, setIssued] = useState<{ shareId: string; secret: string } | null>(null);
+  const [saved, setSaved] = useState(false);
+  const qrBox = useRef<HTMLDivElement>(null);
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [messageFailed, setMessageFailed] = useState(false);
@@ -360,6 +376,17 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
   // The raw secret exists in this component state and the one issuance response only; a reload
   // cannot show it again, so the database never holds a replayable capability.
   const url = issued ? `${window.location.origin}/g/${issued.shareId}#${issued.secret}` : null;
+  const unsaved = Boolean(url) && !saved;
+  useBlocker({
+    shouldBlockFn: async () =>
+      !(await confirm({
+        title: 'Leave without saving the link?',
+        body: 'The link is shown only once. Leave without saving it?',
+        confirmLabel: 'Leave',
+      })),
+    enableBeforeUnload: unsaved,
+    disabled: !unsaved,
+  });
 
   async function run(action: 'create' | 'rotate' | 'disable') {
     if (
@@ -388,6 +415,7 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
       }
       if ('secret' in result) {
         setIssued({ shareId: result.shareId, secret: result.secret });
+        setSaved(false);
         setMessage('New guest link ready. Share it now — for security it is never shown again.');
         setMessageFailed(false);
       } else {
@@ -407,12 +435,30 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
   async function copy(value: string) {
     try {
       await navigator.clipboard.writeText(value);
+      setSaved(true);
       setMessage('Link copied.');
       setMessageFailed(false);
     } catch {
       setMessage('Copy failed. Select the link text and copy it manually.');
       setMessageFailed(true);
     }
+  }
+
+  function download() {
+    const svg = qrBox.current?.querySelector('svg');
+    if (!svg) return;
+    const href = URL.createObjectURL(new Blob([new XMLSerializer().serializeToString(svg)], { type: 'image/svg+xml' }));
+    const anchor = document.createElement('a');
+    anchor.href = href;
+    anchor.download = `${property.displayName.replace(/[^\p{L}\p{N}]+/gu, '-')}-guest-qr.svg`;
+    anchor.click();
+    URL.revokeObjectURL(href);
+    setSaved(true);
+  }
+
+  function print() {
+    setSaved(true);
+    window.print();
   }
 
   return (
@@ -439,7 +485,20 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
             Copy link
           </Button>
           {/* Drawn in the browser from the one-time secret, so server-rendered HTML never carries it. */}
-          <QrSvg value={url} label="QR code for the guest link" className={editorStyles.qr} testId="guest-qr" />
+          <div ref={qrBox} className={editorStyles.printCard}>
+            <strong className={editorStyles.printOnly}>{property.displayName}</strong>
+            <p className={editorStyles.printOnly}>{guestUiText(property.sourceLocale, 'card.scan')}</p>
+            <QrSvg value={url} label="QR code for the guest link" className={editorStyles.qr} testId="guest-qr" />
+            <p className={`${editorStyles.printOnly} small`}>{url}</p>
+          </div>
+          <div className="actions">
+            <Button type="button" onClick={download} data-testid="guest-qr-download">
+              Download QR (SVG)
+            </Button>
+            <Button type="button" onClick={print} data-testid="guest-qr-print">
+              Print card
+            </Button>
+          </div>
           <p className="small">
             Rotating creates a new link and immediately stops the old one, including any guest who already opened it.
           </p>
@@ -662,6 +721,7 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
                   spellCheck={false}
                   aria-invalid={Boolean(errors[name])}
                   aria-describedby={describedBy || undefined}
+                  id={`essentials-${name}`}
                   data-testid={`essentials-${name}`}
                 />
               </Field>
@@ -696,6 +756,7 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
                   spellCheck={false}
                   aria-invalid={Boolean(errors[name])}
                   aria-describedby={describedBy || undefined}
+                  id={`essentials-${name}`}
                   data-testid={`essentials-${name}`}
                 />
               </Field>
@@ -1288,6 +1349,93 @@ function TranslationPanel({ property, sections }: { property: EditorProperty; se
       </div>
       <Toast testId="translation-message" tone={messageFailed ? 'error' : undefined}>
         {message}
+      </Toast>
+    </section>
+  );
+}
+
+function ReadinessPanel({ items, onJump }: { items: ReadinessItem[]; onJump: (item: ReadinessItem) => void }) {
+  const pending = items.filter((item) => !item.done);
+  if (!pending.length) return null;
+  return (
+    <details open className={`${styles.panel} stack`} data-testid="readiness">
+      <summary>
+        <h2 className={editorStyles.inlineHeading}>
+          Before guests arrive: {pending.length} of {items.length} left
+        </h2>
+      </summary>
+      <ul className="stack">
+        {pending.map((item) => (
+          <li key={item.key}>
+            <button
+              type="button"
+              className={editorStyles.linkButton}
+              onClick={() => onJump(item)}
+              data-testid={`readiness-${item.key}`}
+            >
+              {item.label}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+function GapPanel({
+  propertyId,
+  gaps,
+  onCreated,
+}: {
+  propertyId: string;
+  gaps: GuideGap[];
+  onCreated: (sectionId: string) => void;
+}) {
+  const { busy, notice, run } = useHostAction();
+  if (!gaps.length) return null;
+
+  function add(category: SectionCategory) {
+    void run(
+      () => createSection({ data: { propertyId, category, fromGap: true } }),
+      (result) => onCreated(result.sectionId),
+    );
+  }
+
+  return (
+    <section className={`${styles.panel} stack`} aria-labelledby="gaps-heading" data-testid="guide-gaps">
+      <h2 id="gaps-heading">Guests asked about things the guide misses</h2>
+      <ul className="stack">
+        {gaps.map((gap) => (
+          <li key={gap.category ?? 'other'} className={editorStyles.gap}>
+            <span>
+              {gap.category ? (
+                <>
+                  Guests asked about <strong>{sectionCategoryLabels[gap.category]}</strong>{' '}
+                  {gap.asked === 1 ? 'once' : `${gap.asked} times`} and you marked it as not in the guide.
+                </>
+              ) : (
+                `Guests asked ${gap.asked === 1 ? '1 question' : `${gap.asked} questions`} that fit no section and you marked as not in the guide.`
+              )}
+            </span>
+            {gap.category ? (
+              <Button
+                type="button"
+                onClick={() => add(gap.category as SectionCategory)}
+                disabled={busy}
+                data-testid={`gap-add-${gap.category}`}
+              >
+                Add a {sectionCategoryLabels[gap.category]} section
+              </Button>
+            ) : null}
+          </li>
+        ))}
+      </ul>
+      <p className="small muted">
+        Counts cover the last {messageRetentionDays} days of messages. Read the questions in the{' '}
+        <a href="#inbox-heading">inbox</a>.
+      </p>
+      <Toast testId="guide-gaps-status" tone="error">
+        {notice.text}
       </Toast>
     </section>
   );

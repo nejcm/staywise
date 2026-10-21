@@ -466,6 +466,20 @@
   font-size: var(--fs-body);
 }
 
+.drift {
+  padding: var(--space-3) var(--space-4);
+  color: var(--pill-warning-ink);
+  background: var(--accent-soft);
+  border-radius: var(--radius-card);
+}
+
+.drift ul {
+  display: grid;
+  gap: var(--space-1);
+  padding: 0;
+  list-style: none;
+}
+
 .onboarding {
   display: grid;
   gap: var(--space-3);

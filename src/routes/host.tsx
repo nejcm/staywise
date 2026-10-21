@@ -170,6 +170,7 @@ function HostPage() {
           Add property
         </a>
       </div>
+      <AlertDrift properties={properties} email={workspace?.email} />
       {!workspace ? (
         <div role="alert" className={styles.loadError} data-testid="host-properties-error">
           <strong>Couldn't load your properties</strong>
@@ -388,7 +389,41 @@ function workspaceSummary(properties: PropertySummary[]): string {
   }
   if (linksOff.length === 1) parts.push(`${linksOff[0]!.displayName}'s link is off`);
   else if (linksOff.length) parts.push(`${linksOff.length} guest links are off`);
+  for (const property of properties) {
+    const linkAge = property.linkCreatedAt ? Date.now() - Date.parse(property.linkCreatedAt) : 0;
+    if (property.published && property.linkOn && linkAge > 30 * dayMs && property.opens30d === 0) {
+      parts.push(`No guest opened ${property.displayName} in 30 days`);
+    }
+  }
   return parts.length ? parts.join(' · ') : 'Each property has its own guide, guest link and inbox.';
+}
+
+function activityLabel(property: PropertySummary): string {
+  const opens = property.opens30d === 1 ? 'Opened once' : `Opened ${property.opens30d} times`;
+  const messages = property.messages30d === 1 ? '1 message' : `${property.messages30d} messages`;
+  return `${opens} · ${messages} in the last 30 days`;
+}
+
+function AlertDrift({ properties, email }: { properties: PropertySummary[]; email: string | null | undefined }) {
+  const drifted = properties.filter(
+    (property) => !property.alertEmail || property.alertEmail.toLowerCase() !== email?.toLowerCase(),
+  );
+  if (!email || !drifted.length) return null;
+  return (
+    <div role="status" className={styles.drift} data-testid="host-alert-drift">
+      <ul>
+        {drifted.map((property) => (
+          <li key={property.id}>
+            Guest alerts for{' '}
+            <Link to="/host/properties/$propertyId" params={{ propertyId: property.id }} hash="alert-email-heading">
+              {property.displayName}
+            </Link>{' '}
+            {property.alertEmail ? `go to ${property.alertEmail}` : 'go nowhere'}, not your sign-in address.
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 function PlusIcon() {
@@ -416,6 +451,11 @@ function PropertyRow({ property }: { property: PropertySummary }) {
         <span className={styles.homeMeta}>
           {property.address ? `${property.address} · ` : ''}edited {editedLabel(property.editedAt)}
         </span>
+        {property.published ? (
+          <span className={styles.homeMeta} data-testid="host-property-activity">
+            {activityLabel(property)}
+          </span>
+        ) : null}
       </td>
       <td>
         <span className={styles.pills}>

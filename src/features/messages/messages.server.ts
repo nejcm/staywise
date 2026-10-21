@@ -179,6 +179,28 @@ export async function readInbox(tx: postgres.TransactionSql, propertyId: string)
   return rows.map(toInboxMessage);
 }
 
+export type GuideGap = { category: SectionCategory | null; asked: number; lastAsked: string };
+
+// Counts only, never bodies: questions tagged "not in the guide" since the newest section in that
+// category, so adding a section clears the gap. Owner context; retention bounds the window.
+export async function readGuideGaps(tx: postgres.TransactionSql, propertyId: string): Promise<GuideGap[]> {
+  const rows = await tx<{ category: string | null; asked: number; last_asked: Date }[]>`
+    select m.category, count(*)::int as asked, max(m.created_at) as last_asked
+    from app.guest_messages m
+    where m.property_id = ${propertyId} and m.kind = 'question' and m.answer_in_guide = false
+      and m.created_at > coalesce(
+        (select max(s.created_at) from app.guide_sections s
+          where s.property_id = m.property_id and s.category = m.category), '-infinity')
+    group by m.category
+    order by asked desc, last_asked desc
+  `;
+  return rows.map((row) => ({
+    category: asSectionCategory(row.category),
+    asked: row.asked,
+    lastAsked: row.last_asked.toISOString(),
+  }));
+}
+
 export async function markMessageHandled(
   tx: postgres.TransactionSql,
   input: { propertyId: string; messageId: string },

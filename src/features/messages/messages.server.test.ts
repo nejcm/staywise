@@ -10,7 +10,7 @@ import {
   messageLimits,
   readBoundedText,
 } from './message-validation';
-import { duplicateFingerprint, messageRateFingerprints } from './messages.server';
+import { duplicateFingerprint, messageRateFingerprints, readGuideGaps } from './messages.server';
 
 describe('guest message validation', () => {
   const valid = {
@@ -219,5 +219,25 @@ describe('guest message copy', () => {
       expect(guestUiText(locale, 'help.form.intro')).not.toMatch(promises);
       expect(guestUiText(locale, 'help.form.privacy')).toMatch(/c[oó]d|kod/i);
     }
+  });
+});
+
+describe('guide gaps', () => {
+  it('maps counts only, keeps a null category, and filters questions tagged not in the guide', async () => {
+    let query = '';
+    const tx = ((strings: TemplateStringsArray) => {
+      query = strings.join('?');
+      return Promise.resolve([
+        { category: 'parking', asked: 3, last_asked: new Date('2026-10-20T10:00:00Z') },
+        { category: null, asked: 1, last_asked: new Date('2026-10-19T10:00:00Z') },
+      ]);
+    }) as never;
+    expect(await readGuideGaps(tx, 'p1')).toEqual([
+      { category: 'parking', asked: 3, lastAsked: '2026-10-20T10:00:00.000Z' },
+      { category: null, asked: 1, lastAsked: '2026-10-19T10:00:00.000Z' },
+    ]);
+    expect(query).toContain("m.kind = 'question' and m.answer_in_guide = false");
+    expect(query).toContain('s.category = m.category');
+    expect(query).not.toMatch(/\bbody\b/);
   });
 });

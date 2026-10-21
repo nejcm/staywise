@@ -195,7 +195,7 @@ describeLocal('phase 7a restore rehearsal (scratch databases)', () => {
           expect(
             await restored<{ n: number }[]>`
               select count(*)::integer as n from pg_policies where schemaname = 'app' and policyname like '%\\_retention\\_%'`,
-          ).toEqual([{ n: 14 }]);
+          ).toEqual([{ n: 16 }]);
           expect(
             await restored<
               { ok: boolean }[]
@@ -232,6 +232,7 @@ describeLocal('phase 7a restore rehearsal (scratch databases)', () => {
             share_links: 1,
             guest_sessions: 1,
             rate_limits: 1,
+            guest_counters: 0,
           });
           const [second] = await restored<{ result: Record<string, number | string> }[]>`
             select app.retention_cleanup(${BOUNDARY}::timestamptz) as result`;
@@ -243,6 +244,7 @@ describeLocal('phase 7a restore rehearsal (scratch databases)', () => {
             share_links: 0,
             guest_sessions: 0,
             rate_limits: 0,
+            guest_counters: 0,
           });
           expect(await restored.unsafe<Counts[]>(COUNT_SQL)).toEqual([
             {

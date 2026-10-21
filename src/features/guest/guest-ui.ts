@@ -103,6 +103,7 @@ export const guestUiKeys = [
   'essentials.hideQr',
   'essentials.qrLabel',
   'essentials.qrHint',
+  'card.scan',
 ] as const;
 export type GuestUiKey = (typeof guestUiKeys)[number];
 
@@ -205,6 +206,7 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'essentials.hideQr': 'Hide QR code',
     'essentials.qrLabel': 'QR code to join {name}',
     'essentials.qrHint': "Scan it with another device's camera to join the Wi-Fi.",
+    'card.scan': 'Scan for the house guide',
   },
   de: {
     'nav.home': 'Start',
@@ -309,6 +311,7 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'essentials.hideQr': 'QR-Code ausblenden',
     'essentials.qrLabel': 'QR-Code zum Verbinden mit {name}',
     'essentials.qrHint': 'Mit der Kamera eines anderen Geräts scannen, um ins WLAN zu kommen.',
+    'card.scan': 'Scannen für den Gästeführer',
   },
   sl: {
     'nav.home': 'Domov',
@@ -409,6 +412,7 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'essentials.hideQr': 'Skrij kodo QR',
     'essentials.qrLabel': 'Koda QR za povezavo z omrežjem {name}',
     'essentials.qrHint': 'Za povezavo z Wi-Fi jo skenirajte s kamero druge naprave.',
+    'card.scan': 'Skenirajte za vodič po hiši',
   },
   fr: {
     'nav.home': 'Accueil',
@@ -509,6 +513,7 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'essentials.hideQr': 'Masquer le code QR',
     'essentials.qrLabel': 'Code QR pour rejoindre {name}',
     'essentials.qrHint': "Scannez-le avec l'appareil photo d'un autre appareil pour rejoindre le Wi-Fi.",
+    'card.scan': 'Scannez pour le guide de la maison',
   },
   es: {
     'nav.home': 'Inicio',
@@ -609,6 +614,7 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'essentials.hideQr': 'Ocultar código QR',
     'essentials.qrLabel': 'Código QR para conectarte a {name}',
     'essentials.qrHint': 'Escanéalo con la cámara de otro dispositivo para conectarte al Wi-Fi.',
+    'card.scan': 'Escanea para ver la guía de la casa',
   },
 };
 

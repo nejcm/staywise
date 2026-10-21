@@ -5,7 +5,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(45);
+select plan(47);
 
 do $$ begin execute format('grant app_migrator to %I with set true', current_user); end $$;
 
@@ -67,6 +67,8 @@ insert into app.rate_limits (property_id, key_hash, window_start, count) values
   ('7a7a0000-0000-4000-8000-0000000000c2', '\x23', '2026-10-19T00:00:00Z', 1);
 insert into app.guest_counters (property_id, day, link_exchanges, guide_opens, submissions) values
   ('7a7a0000-0000-4000-8000-0000000000a2', '2026-10-19', 4, 5, 3),
+  ('7a7a0000-0000-4000-8000-0000000000a2', '2025-09-13', 1, 1, 0),
+  ('7a7a0000-0000-4000-8000-0000000000a2', '2025-09-14', 1, 2, 0),
   ('7a7a0000-0000-4000-8000-0000000000c2', '2026-10-19', 1, 1, 1);
 
 -- The function is a security-definer boundary with an empty search path, and only privileged
@@ -76,7 +78,7 @@ select ok((select proconfig = array['search_path=""'] from pg_proc where oid = '
 select is((select r.rolname from pg_proc p join pg_roles r on r.oid = p.proowner where p.oid = 'app.retention_cleanup(timestamptz)'::regprocedure), 'app_migrator', 'the cleanup function is owned by the migration role');
 select is(has_function_privilege('app_runtime', 'app.retention_cleanup(timestamptz)', 'execute'), false, 'the runtime role cannot execute the cross-tenant cleanup');
 select is(has_function_privilege('app_migrator', 'app.retention_cleanup(timestamptz)', 'execute'), true, 'the migration role can execute the cleanup');
-select is((select count(*)::integer from pg_policies where schemaname = 'app' and policyname like '%\_retention\_%'), 14, 'the migration role gets read and delete retention policies on the seven tables (7d adds auth windows)');
+select is((select count(*)::integer from pg_policies where schemaname = 'app' and policyname like '%\_retention\_%'), 16, 'the migration role gets read and delete retention policies on the eight tables (7d adds auth windows, then counters)');
 
 -- The nightly job is scheduled, active, on this database, and calls the cleanup boundary.
 select is((select count(*)::integer from cron.job where jobname = 'staywise-retention-cleanup'), 1, 'one nightly retention job is scheduled');
@@ -99,7 +101,7 @@ select is((select (result->>'reservations')::integer from probe_retention_first)
 select is((select (result->>'share_links')::integer from probe_retention_first), 1, 'disabled-link metadata past 30 days is deleted');
 select is((select (result->>'guest_sessions')::integer from probe_retention_first), 2, 'expired guest sessions are deleted');
 select is((select (result->>'rate_limits')::integer from probe_retention_first), 1, 'rate windows before the boundary UTC day are deleted');
-select is((select result - 'boundary' from probe_retention_second), '{"guest_messages": 0, "audit_events": 0, "setup_events": 0, "reservations": 0, "share_links": 0, "guest_sessions": 0, "rate_limits": 0, "auth_rate_limits": 0}'::jsonb, 'a second run with the same boundary deletes nothing');
+select is((select result - 'boundary' from probe_retention_second), '{"guest_messages": 0, "audit_events": 0, "setup_events": 0, "reservations": 0, "share_links": 0, "guest_sessions": 0, "rate_limits": 0, "auth_rate_limits": 0, "guest_counters": 0}'::jsonb, 'a second run with the same boundary deletes nothing');
 
 select is((select count(*)::integer from app.guest_messages where property_id in ('7a7a0000-0000-4000-8000-0000000000a2', '7a7a0000-0000-4000-8000-0000000000a3', '7a7a0000-0000-4000-8000-0000000000b2')), 3, 'messages at the cutoff and fresher survive in both hosts properties');
 select is((select count(*)::integer from app.guest_messages where id = '7a7a0000-0000-4000-8000-0000000000a9'), 0, 'the 91-day-old message is gone');
@@ -115,7 +117,9 @@ select is((select count(*)::integer from app.guest_sessions where id = '7a7a0000
 select is((select count(*)::integer from app.guest_sessions where id = '7a7a0000-0000-4000-8000-0000000000a8'), 1, 'a session one second past the boundary survives');
 select is((select count(*)::integer from app.rate_limits where key_hash = '\x21'), 0, 'the previous UTC day rate window is gone');
 select is((select count(*)::integer from app.rate_limits where key_hash = '\x22'), 1, 'the current UTC day rate window is kept');
-select is((select submissions from app.guest_counters where property_id = '7a7a0000-0000-4000-8000-0000000000a2'), 3, 'counters have no plan window and survive cleanup');
+select is((select (result->>'guest_counters')::integer from probe_retention_first), 1, 'counter days older than 400 days are deleted');
+select is((select count(*)::integer from app.guest_counters where property_id = '7a7a0000-0000-4000-8000-0000000000a2' and day = '2025-09-14'), 1, 'the counter day exactly 400 days back survives');
+select is((select submissions from app.guest_counters where property_id = '7a7a0000-0000-4000-8000-0000000000a2' and day = '2026-10-19'), 3, 'recent counters survive cleanup');
 select is((select provider from app.guide_translations where section_id = '7a7a0000-0000-4000-8000-0000000000a4'), 'google-translate-v3', 'translation provider metadata stays with its live translation');
 select is((select body from app.guide_sections where id = '7a7a0000-0000-4000-8000-0000000000a4'), 'Password is on the router', 'guide content is not touched by retention');
 

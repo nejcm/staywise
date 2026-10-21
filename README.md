@@ -67,7 +67,7 @@ The local app serves a synthetic-data notice at `/privacy`, linked from the home
 
 ### Pilot measurement
 
-The raw, privacy-bounded pilot tables are `app.setup_events` (host funnel, 90-day retention), `app.guest_counters` (per-property UTC-day aggregate opens/exchanges/submissions), and `app.guest_messages` (question/report volume and handled timestamps). Run these as an owner-privileged role; no guest identifiers exist in the counters:
+The raw, privacy-bounded pilot tables are `app.setup_events` (host funnel, 90-day retention), `app.guest_counters` (per-property UTC-day aggregate opens/exchanges/submissions, 400-day retention; the `/host` dashboard shows the last 30 days), and `app.guest_messages` (question/report volume and handled timestamps). Run these as an owner-privileged role; no guest identifiers exist in the counters:
 
 ```sql
 -- Per-step setup timing, by host and property. The step separates blank and copy creation.
@@ -141,7 +141,7 @@ Setup time is the interval between a host's first `sign_in` and first `publish_c
 psql "postgresql://<owner role>:<password>@<host>:5432/postgres" -c "select app.retention_cleanup();"
 ```
 
-Production must either enable `pg_cron` in the Supabase project (the guarded migration block then creates the job) or run that statement nightly as the database owner. Provider backup/PITR retention is separate from these windows and must be confirmed in the provider console before real data; after any restore, run the overdue cleanup before reopening guest traffic. `app.guest_counters` has no age-based window: it remains while the property exists and cascades on property deletion. API-token tables are schema-only in this tree; property-bound rows cascade with the property, owner-level rows cascade with account deletion, and there is no token-management UI. Details and rehearsal evidence: `plans/implementation_plan.md`, Phase 7a progress.
+Production must either enable `pg_cron` in the Supabase project (the guarded migration block then creates the job) or run that statement nightly as the database owner. Provider backup/PITR retention is separate from these windows and must be confirmed in the provider console before real data; after any restore, run the overdue cleanup before reopening guest traffic. `supabase/migrations/20261021190000_counter_retention.sql` adds `app.guest_counters` to the same cleanup: UTC-day rows older than 400 days are deleted, and the rest cascade on property deletion. API-token tables are schema-only in this tree; property-bound rows cascade with the property, owner-level rows cascade with account deletion, and there is no token-management UI. Details and rehearsal evidence: `plans/implementation_plan.md`, Phase 7a progress.
 
 `supabase/migrations/20261019170000_phase7d_auth_limits.sql` adds `app.auth_rate_limits` (HMAC-keyed magic-link windows: 5 per client IP and 3 per address per 15 minutes, IP read from Netlify's `x-nf-client-connection-ip`), purges it in the same cleanup, and raises a migration warning when the retention job is not scheduled in that database.
 

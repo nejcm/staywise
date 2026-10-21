@@ -15,6 +15,7 @@ import {
   updateProperty,
   updateSection,
 } from '../features/guide/guide.server';
+import { readGuideGaps } from '../features/messages/messages.server';
 import type { SectionCategory } from '../features/guide/guide-validation';
 import {
   GUIDE_FNS,
@@ -1047,6 +1048,47 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
       const invalid = await settingsFn('saveHostSettings', { jar: owner.jar, data: { ...defaults, answerTo: '' } });
       expect(decode<{ error?: string }>(invalid)?.result?.error).toBe('invalid_input');
     } finally {
+      await adminClient(local).deleteUser(owner.userId);
+      await adminClient(local).deleteUser(other.userId);
+    }
+  }, 60_000);
+
+  it('counts guide gaps per category since the newest section, for the owner only', async () => {
+    const local = localStack as LocalStack;
+    const owner = await verifiedHost(local, 'gaps-owner');
+    const other = await verifiedHost(local, 'gaps-other');
+    const admin = localAdmin();
+    try {
+      const propertyId = await createProperty(owner);
+      const otherProperty = await createProperty(other);
+      await admin`
+        insert into app.guide_sections (property_id, category, title, body, visibility, display_order, created_at)
+        values (${propertyId}, 'wifi', 'Wi-Fi', 'Synthetic', 'guest', 1, now() - interval '2 days')
+      `;
+      await admin`
+        insert into app.guest_messages (property_id, kind, category, body, answer_in_guide, created_at) values
+          (${propertyId}, 'question', 'parking', 'Synthetic gap 1', false, now() - interval '3 days'),
+          (${propertyId}, 'question', 'parking', 'Synthetic gap 2', false, now() - interval '1 day'),
+          (${propertyId}, 'question', 'parking', 'Synthetic in guide', true, now()),
+          (${propertyId}, 'question', 'wifi', 'Synthetic before section', false, now() - interval '3 days'),
+          (${propertyId}, 'question', 'wifi', 'Synthetic after section', false, now() - interval '1 day'),
+          (${propertyId}, 'question', null, 'Synthetic uncategorized', false, now()),
+          (${otherProperty}, 'question', 'parking', 'Synthetic foreign', false, now())
+      `;
+      await admin`
+        insert into app.guest_messages (property_id, kind, category, body) values
+          (${propertyId}, 'issue', 'parking', 'Synthetic issue')
+      `;
+      const gaps = await withOwnerContext(owner.userId, (tx) => readGuideGaps(tx, propertyId));
+      expect(gaps.map(({ category, asked }) => ({ category, asked }))).toEqual([
+        { category: 'parking', asked: 2 },
+        { category: null, asked: 1 },
+        { category: 'wifi', asked: 1 },
+      ]);
+      expect(JSON.stringify(gaps)).not.toContain('Synthetic');
+      expect(await withOwnerContext(owner.userId, (tx) => readGuideGaps(tx, otherProperty))).toEqual([]);
+    } finally {
+      await admin.end({ timeout: 0 });
       await adminClient(local).deleteUser(owner.userId);
       await adminClient(local).deleteUser(other.userId);
     }
