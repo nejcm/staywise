@@ -25,25 +25,18 @@ export async function runGuarded<T>(work: () => Promise<T>): Promise<T | FnError
   }
 }
 
-function isJsonRequest(): boolean {
-  try {
-    return getRequest().headers.get('content-type')?.split(';')[0]?.trim().toLowerCase() === 'application/json';
-  } catch {
-    return false;
-  }
-}
-
-// Exact Origin check on top of the framework CSRF middleware for every app-data request.
-function isSameOriginRequest(): boolean {
-  try {
-    return getRequest().headers.get('origin') === serverEnv.appOrigin;
-  } catch {
-    return false;
-  }
+// Exact Origin and JSON content type on top of the framework CSRF middleware for every app-data request.
+export function isSameOriginJson(request: Request): boolean {
+  const contentType = request.headers.get('content-type')?.split(';')[0]?.trim().toLowerCase();
+  return contentType === 'application/json' && request.headers.get('origin') === serverEnv.appOrigin;
 }
 
 export function isGuardedMutation(): boolean {
-  return isJsonRequest() && isSameOriginRequest();
+  try {
+    return isSameOriginJson(getRequest());
+  } catch {
+    return false;
+  }
 }
 
 export function requestAuth(forwardedFor: string | null = null) {
