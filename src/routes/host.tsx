@@ -210,9 +210,19 @@ function HostPage() {
 
   async function removeMfa(factorId: string) {
     setBusy(true);
+    setMessage('');
+    setMessageFailed(false);
     try {
-      await mfaUnenroll({ data: { factorId } });
+      const result = await mfaUnenroll({ data: { factorId } });
+      if ('error' in result) {
+        setMessage('Something went wrong. Try again.');
+        setMessageFailed(true);
+        return;
+      }
       await router.invalidate();
+    } catch {
+      setMessage('Something went wrong. Try again.');
+      setMessageFailed(true);
     } finally {
       setBusy(false);
     }
@@ -501,6 +511,9 @@ function HostPage() {
                     Remove authenticator
                   </Button>
                 </p>
+                <Toast testId="host-message" tone={messageFailed ? 'error' : undefined}>
+                  {message}
+                </Toast>
               </>
             ) : (
               <>
