@@ -11,12 +11,19 @@ import {
   getPropertyEditor,
   removeHero,
   resyncAlertEmail,
+  revertAgentChange,
   saveHeroAlt,
   saveProperty,
   setGuidePublished,
 } from '../features/guide/guide-fns';
 import { HERO_MAX_BYTES } from '../features/guide/image-validation';
-import { createStayGuestLink, getGuestLink, revokeStayGuestLink, rotateGuestLink } from '../features/share/share-fns';
+import {
+  createStayGuestLink,
+  getGuestLink,
+  reissueStayGuestLink,
+  revokeStayGuestLink,
+  rotateGuestLink,
+} from '../features/share/share-fns';
 import { getInbox } from '../features/messages/messages-fns';
 import {
   approveGuideTranslation,
@@ -34,6 +41,7 @@ vi.mock('../features/guide/guide-fns', () => ({
   moveSectionOrder: vi.fn(),
   removeHero: vi.fn(),
   resyncAlertEmail: vi.fn(),
+  revertAgentChange: vi.fn(),
   saveHeroAlt: vi.fn(),
   saveProperty: vi.fn(),
   saveSection: vi.fn(),
@@ -43,6 +51,7 @@ vi.mock('../features/share/share-fns', () => ({
   createGuestLink: vi.fn(),
   createStayGuestLink: vi.fn(),
   disableGuestLink: vi.fn(),
+  reissueStayGuestLink: vi.fn(),
   revokeStayGuestLink: vi.fn(),
   getGuestLink: vi.fn(),
   rotateGuestLink: vi.fn(),
@@ -109,6 +118,7 @@ const editor: GuideEditorData = {
           reviewedAt: null,
         },
       ],
+      agentChange: null,
     },
   ],
 };
@@ -271,6 +281,52 @@ describe('TranslationBlock', () => {
   });
 });
 
+describe('Agent changes', () => {
+  const revisionId = '55555555-5555-4555-8555-555555555555';
+  const agentChange = { revisionId, grantName: 'Claude Code', changedAt: '2026-10-21T08:00:00.000Z', revertible: true };
+  const changedEditor = { ...editor, sections: [{ ...editor.sections[0]!, body: 'Agent text', agentChange }] };
+
+  it('marks an agent change and reverts it in one click', async () => {
+    vi.mocked(getPropertyEditor).mockResolvedValue({ editor: changedEditor, gaps: [] } as never);
+    vi.mocked(revertAgentChange).mockResolvedValue({
+      ok: true,
+      sourceRevision: 3,
+      title: 'Wi-Fi',
+      body: 'Router in the hall',
+    } as never);
+    await renderEditor();
+    expect(screen.getByTestId('agent-change').textContent).toContain('Changed via Claude Code on 2026-10-21');
+    vi.mocked(getPropertyEditor).mockResolvedValue({ editor, gaps: [] } as never);
+    await userEvent.click(screen.getByTestId('agent-revert'));
+    expect(revertAgentChange).toHaveBeenCalledWith({ data: { propertyId, revisionId } });
+    await expectToast('section-status', 'Reverted.', false);
+    expect((screen.getByTestId('section-body') as HTMLTextAreaElement).value).toBe('Router in the hall');
+    await waitFor(() => expect(screen.queryByTestId('agent-change')).toBeNull());
+  });
+
+  it('labels an agent-added section without a revert', async () => {
+    vi.mocked(getPropertyEditor).mockResolvedValue({
+      editor: {
+        ...changedEditor,
+        sections: [{ ...changedEditor.sections[0]!, agentChange: { ...agentChange, revertible: false } }],
+      },
+      gaps: [],
+    } as never);
+    await renderEditor();
+    expect(screen.getByTestId('agent-change').textContent).toContain('Added via Claude Code');
+    expect(screen.queryByTestId('agent-revert')).toBeNull();
+  });
+
+  it('explains a revert the host overtook', async () => {
+    vi.mocked(getPropertyEditor).mockResolvedValue({ editor: changedEditor, gaps: [] } as never);
+    vi.mocked(revertAgentChange).mockResolvedValue({ error: 'invalid_input' } as never);
+    await renderEditor();
+    await userEvent.click(screen.getByTestId('agent-revert'));
+    await expectToast('section-status', 'Could not revert: this section changed since. Edit it by hand.', true);
+    expect(screen.getByTestId('agent-revert')).toBeTruthy();
+  });
+});
+
 describe('ReadinessPanel', () => {
   it('drops an item once the saved property has it', async () => {
     vi.mocked(saveProperty).mockResolvedValue({ ok: true } as never);
@@ -328,6 +384,21 @@ describe('StaysPanel', () => {
     await acceptConfirm();
     expect(revokeStayGuestLink).toHaveBeenCalledWith({ data: { propertyId, reservationId } });
     await expectToast('stays-message', 'Stay link revoked.', false);
+  });
+
+  it('issues a new link for an existing stay after confirmation and shows it once', async () => {
+    vi.mocked(getGuestLink).mockResolvedValue({
+      share: { link: null, guidePublished: true },
+      stays: [{ reservationId, stayStart: '2026-11-01', stayEnd: '2026-11-04', linkOn: true, expiresAt: '' }],
+    } as never);
+    vi.mocked(reissueStayGuestLink).mockResolvedValue({ reservationId, shareId: 'new-share', secret: 'NEW-SECRET' });
+    await renderEditor();
+    await userEvent.click(screen.getByTestId('stay-reissue'));
+    await acceptConfirm();
+    expect(reissueStayGuestLink).toHaveBeenCalledWith({ data: { propertyId, reservationId } });
+    expect(((await screen.findByTestId('stay-url')) as HTMLInputElement).value).toBe(
+      `${window.location.origin}/g/new-share#NEW-SECRET`,
+    );
   });
 });
 

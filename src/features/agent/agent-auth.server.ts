@@ -9,7 +9,13 @@ export type AgentPrincipal = { grantId: string; ownerId: string; scopes: AgentSc
 
 const personalTokenPattern = /^sw_pat_[A-Za-z0-9_-]{43}$/;
 const lastUsedEveryMs = 10 * 60 * 1000;
-export const agentLimits = { perToken: 60, perHost: 120, windowSeconds: 60 } as const;
+export const agentLimits = {
+  perToken: 60,
+  perHost: 120,
+  writesPerToken: 20,
+  failuresPerIp: 20,
+  windowSeconds: 60,
+} as const;
 
 const tokenDigest = (token: string) => createHash('sha256').update(token).digest();
 
@@ -59,21 +65,42 @@ export async function resolveAgentToken(
 const limitKey = (scope: string, id: string) =>
   createHmac('sha256', serverEnv.shareHmacKey).update(`agent:${scope}:${id}`).digest();
 
+async function bumpWindow(tx: postgres.TransactionSql, key: Buffer): Promise<number> {
+  const [row] = await tx<{ count: number }[]>`
+    insert into app.auth_rate_limits (key_hash, window_start, count)
+    values (${key}, ${utcWindow(agentLimits.windowSeconds)}, 1)
+    on conflict (key_hash, window_start) do update set count = app.auth_rate_limits.count + 1
+    returning count
+  `;
+  return row?.count ?? Number.MAX_SAFE_INTEGER;
+}
+
 // Tenantless HMAC windows share auth_rate_limits and its daily purge; narrowest first, like OTP sends.
 export async function agentRequestAllowed(principal: AgentPrincipal): Promise<boolean> {
-  const window = utcWindow(agentLimits.windowSeconds);
   return sql.begin(async (tx) => {
-    const bump = async (key: Buffer) => {
-      const [row] = await tx<{ count: number }[]>`
-        insert into app.auth_rate_limits (key_hash, window_start, count) values (${key}, ${window}, 1)
-        on conflict (key_hash, window_start) do update set count = app.auth_rate_limits.count + 1
-        returning count
-      `;
-      return row?.count ?? Number.MAX_SAFE_INTEGER;
-    };
-    if ((await bump(limitKey('token', principal.grantId))) > agentLimits.perToken) return false;
-    return (await bump(limitKey('host', principal.ownerId))) <= agentLimits.perHost;
+    if ((await bumpWindow(tx, limitKey('token', principal.grantId))) > agentLimits.perToken) return false;
+    return (await bumpWindow(tx, limitKey('host', principal.ownerId))) <= agentLimits.perHost;
   });
+}
+
+export async function agentWriteAllowed(principal: AgentPrincipal): Promise<boolean> {
+  return sql.begin(
+    async (tx) => (await bumpWindow(tx, limitKey('write', principal.grantId))) <= agentLimits.writesPerToken,
+  );
+}
+
+// clientIp is null when the platform header is absent (local dev), as for OTP sends.
+export async function agentFailuresExceeded(clientIp: string | null): Promise<boolean> {
+  if (clientIp === null) return false;
+  const [row] = await sql<{ count: number }[]>`
+    select count from app.auth_rate_limits
+    where key_hash = ${limitKey('failure', clientIp)} and window_start = ${utcWindow(agentLimits.windowSeconds)}
+  `;
+  return (row?.count ?? 0) >= agentLimits.failuresPerIp;
+}
+
+export async function recordAgentFailure(clientIp: string | null): Promise<void> {
+  if (clientIp !== null) await sql.begin((tx) => bumpWindow(tx, limitKey('failure', clientIp)));
 }
 
 export type AgentGrantSummary = {

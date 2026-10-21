@@ -814,6 +814,16 @@ describeLocal('guest message intake and host inbox against the local stack', () 
         'latency_ms',
         'args_digest',
       ]);
+      const unchecked = await admin`
+        select c.column_name from information_schema.columns c
+        where c.table_schema = 'app' and c.table_name = 'audit_events' and c.data_type = 'text'
+          and not exists (
+            select 1 from pg_constraint k
+            where k.conrelid = 'app.audit_events'::regclass and k.contype = 'c'
+              and pg_get_constraintdef(k.oid) ~ ('\\m' || c.column_name || '\\M')
+          )
+      `;
+      expect(unchecked).toEqual([]);
     } finally {
       await admin.unsafe('drop trigger if exists phase6_reject_tag_audit on app.audit_events');
       await admin.end({ timeout: 0 });

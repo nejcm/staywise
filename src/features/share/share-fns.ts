@@ -10,6 +10,7 @@ import {
   newShareLink,
   readShareLinkState,
   readStays,
+  reissueStayLink,
   revokeStayLink,
   revokeStayLinkInput,
   rotateShareLink,
@@ -138,5 +139,26 @@ export const revokeStayGuestLink = createServerFn({ method: 'POST' })
       });
       if (!revoked) return { error: 'invalid_input' } satisfies FnError;
       return { ok: true as const };
+    }),
+  );
+
+export const reissueStayGuestLink = createServerFn({ method: 'POST' })
+  .validator((value: unknown) => value as { propertyId: string; reservationId: string })
+  .handler(async ({ data }) =>
+    runGuarded(async () => {
+      if (!isGuardedMutation()) return { error: 'invalid_input' } satisfies FnError;
+      const input = revokeStayLinkInput.safeParse(data);
+      if (!input.success) return { error: 'invalid_input' } satisfies FnError;
+      const host = await aal2Host();
+      if ('error' in host) return host;
+      const link = newShareLink();
+      const reissued = await withOwnerContext(host.userId, async (tx) => {
+        if (!(await reissueStayLink(tx, { ...input.data, id: link.id, hmac: link.hmac }))) return false;
+        await insertAudit(tx, host.userId, 'stay_link_revoked');
+        await insertAudit(tx, host.userId, 'stay_link_created');
+        return true;
+      });
+      if (!reissued) return { error: 'invalid_input' } satisfies FnError;
+      return { reservationId: input.data.reservationId, shareId: link.id, secret: link.secret };
     }),
   );

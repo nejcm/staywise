@@ -1,7 +1,13 @@
 import { createMcpHandler } from '@modelcontextprotocol/server';
 import { createFileRoute } from '@tanstack/react-router';
 import { agentServer } from '../features/agent/agent-tools.server';
-import { agentRequestAllowed, bearerToken, resolveAgentToken } from '../features/agent/agent-auth.server';
+import {
+  agentFailuresExceeded,
+  agentRequestAllowed,
+  bearerToken,
+  recordAgentFailure,
+  resolveAgentToken,
+} from '../features/agent/agent-auth.server';
 import { appEnv, serverEnv } from '../lib/env.server';
 import { logEvent } from '../lib/log.server';
 
@@ -27,11 +33,16 @@ export const Route = createFileRoute('/mcp')({
       POST: async ({ request }) => {
         try {
           if (!trustedRequest(request)) return denial(403, 'forbidden');
+          const clientIp = request.headers.get('x-nf-client-connection-ip');
+          if (await agentFailuresExceeded(clientIp)) return denial(429, 'rate_limited', { 'retry-after': '60' });
           const principal = await resolveAgentToken(
             bearerToken(request.headers.get('authorization')),
             request.headers.get('user-agent'),
           );
-          if (!principal) return denial(401, 'invalid_token', { 'www-authenticate': 'Bearer error="invalid_token"' });
+          if (!principal) {
+            await recordAgentFailure(clientIp);
+            return denial(401, 'invalid_token', { 'www-authenticate': 'Bearer error="invalid_token"' });
+          }
           if (!(await agentRequestAllowed(principal))) return denial(429, 'rate_limited', { 'retry-after': '60' });
           const handler = createMcpHandler(() => agentServer(principal), {
             responseMode: 'json',

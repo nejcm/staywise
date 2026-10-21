@@ -18,6 +18,7 @@ import {
   guestFailure,
   guestSessionToken,
   newShareLink,
+  reservationBatchInput,
   resolveGuestLocale,
   serializeGuestCookie,
   serializeLanguageCookie,
@@ -132,5 +133,32 @@ describe('stay links', () => {
     const linkQueries = queries.filter((query) => query.includes('app.share_links') && query.includes('enabled'));
     expect(linkQueries.length).toBe(3);
     for (const query of linkQueries) expect(query).toContain("kind = 'property'");
+  });
+});
+
+describe('reservationBatchInput', () => {
+  const row = { source: 'airbnb', externalId: 'HM123', stayStart: '2027-01-10', stayEnd: '2027-01-12' };
+  const parse = (reservations: unknown[]) =>
+    reservationBatchInput.safeParse({ propertyId: '00000000-0000-4000-8000-000000000001', reservations }).success;
+
+  it('accepts 1 to 100 valid rows', () => {
+    expect(parse([row])).toBe(true);
+    expect(parse(Array.from({ length: 100 }, (_, n) => ({ ...row, externalId: `HM${n}` })))).toBe(true);
+  });
+
+  it.each([
+    ['an empty batch', []],
+    ['101 rows', Array.from({ length: 101 }, (_, n) => ({ ...row, externalId: `HM${n}` }))],
+    ['a repeated source and external id', [row, { ...row, stayEnd: '2027-01-13' }]],
+    ['check-out before check-in', [{ ...row, stayEnd: '2027-01-09' }]],
+    ['a stay over a year', [{ ...row, stayEnd: '2028-02-01' }]],
+    ['an invalid date', [{ ...row, stayStart: '2027-02-30' }]],
+    ['a guest name', [{ ...row, guestFirstName: 'Ana' }]],
+    ['a party size', [{ ...row, partySize: 2 }]],
+    ['an uppercase source', [{ ...row, source: 'Airbnb' }]],
+    ['a manual stay', [{ ...row, source: 'manual' }]],
+    ['a control character', [{ ...row, externalId: `HM${String.fromCodePoint(7)}` }]],
+  ])('rejects %s', (_label, reservations) => {
+    expect(parse(reservations)).toBe(false);
   });
 });

@@ -2,10 +2,11 @@
 // server functions, output allowlists, and cross-property (BOLA) checks per tool. Synthetic data only.
 import { randomUUID } from 'node:crypto';
 import { afterAll, describe, expect, it } from 'vitest';
-import { agentLimits, agentRequestAllowed } from '../features/agent/agent-auth.server';
+import { agentLimits, agentRequestAllowed, agentWriteAllowed } from '../features/agent/agent-auth.server';
 import { sql } from '../lib/db.server';
 import {
   APP,
+  GUIDE_FNS,
   HOST_FNS,
   adminClient,
   decode,
@@ -25,6 +26,8 @@ const devServerUp = await detectDevServer();
 const describeLocal = localStack && localDbUp && devServerUp ? describe : describe.skip;
 
 const AGENT_FNS = '/src/features/agent/agent-fns.ts?tss-serverfn-split';
+const SHARE_FNS = '/src/features/share/share-fns.ts?tss-serverfn-split';
+const allScopes = ['read', 'content:write', 'reservations:write', 'inbox:write'];
 const agentFn = (name: string, options?: Parameters<typeof fnCall>[2]) => fnCall(AGENT_FNS, name, options);
 
 const secrets = {
@@ -63,7 +66,11 @@ async function seedProperty(ownerId: string, name: string): Promise<string> {
   return id;
 }
 
-type Rpc = { status: number; result?: Record<string, unknown> & { isError?: boolean; structuredContent?: unknown } };
+type Rpc = {
+  status: number;
+  result?: Record<string, unknown> & { isError?: boolean; structuredContent?: unknown; content?: { text: string }[] };
+  error?: { message: string };
+};
 
 async function mcp(
   token: string,
@@ -84,7 +91,7 @@ async function mcp(
   });
   const text = await response.text();
   const json = text.startsWith('{') ? text : (/^data: (.*)$/m.exec(text)?.[1] ?? '{}');
-  return { status: response.status, ...(JSON.parse(json) as { result?: Rpc['result'] }) };
+  return { status: response.status, ...(JSON.parse(json) as Pick<Rpc, 'result' | 'error'>) };
 }
 
 const call = (token: string, name: string, args: Record<string, unknown> = {}) =>
@@ -256,5 +263,285 @@ describeLocal('agent access against the local stack', () => {
       expect(await agentRequestAllowed(principal)).toBe(true);
     }
     expect(await agentRequestAllowed(principal)).toBe(false);
+  });
+
+  it('runs every write tool behind the scope and property boundary, with guard, revision and revert', async () => {
+    const local = localStack as LocalStack;
+    const hostA = await verifiedHost(local, 'agent-wa');
+    const hostB = await verifiedHost(local, 'agent-wb');
+    const admin = localAdmin();
+    try {
+      const [a1, a2, b1] = [
+        await seedProperty(hostA.userId, 'Write A one (synthetic)'),
+        await seedProperty(hostA.userId, 'Write A two (synthetic)'),
+        await seedProperty(hostB.userId, 'Write B (synthetic)'),
+      ];
+      const [section] = await admin<{ id: string }[]>`
+        insert into app.guide_sections (property_id, category, title, body, visibility, published)
+        values (${a1}, 'parking', 'Parking', 'Behind the house.', 'guest', true) returning id
+      `;
+      const [translation] = await admin<{ id: string }[]>`
+        insert into app.guide_translations (section_id, locale, title, body, source_revision, source_locale)
+        values (${section!.id}, 'de', 'Parken', 'Hinter dem Haus.', 1, 'en') returning id
+      `;
+      const [message] = await admin<{ id: string }[]>`
+        select id from app.guest_messages where property_id = ${a1}
+      `;
+      const [seeded] = await admin<{ id: string }[]>`select id from app.reservations where property_id = ${a1}`;
+      const tokenA = await createToken(hostA, { name: 'Writer A', scopes: allScopes });
+      const tokenA1 = await createToken(hostA, { name: 'Writer A one', scopes: allScopes, propertyId: a1 });
+      const tokenB = await createToken(hostB, { name: 'Writer B', scopes: allScopes });
+      const readOnly = await createToken(hostA, { name: 'Reader A' });
+      const outputs: Rpc[] = [];
+      const ok = async (name: string, args: Record<string, unknown>, token = tokenA) => {
+        const output = await call(token, name, args);
+        outputs.push(output);
+        expect(output.result?.isError, `${name}: ${JSON.stringify(output)}`).toBeUndefined();
+        return output.result?.structuredContent as Record<string, unknown>;
+      };
+      const refused = async (name: string, args: Record<string, unknown>, token = tokenA) => {
+        const output = await call(token, name, args);
+        outputs.push(output);
+        expect(output.error ?? output.result?.isError, `${name}: ${JSON.stringify(output)}`).toBeTruthy();
+        return output.result?.content?.[0]?.text ?? output.error?.message ?? '';
+      };
+
+      // Idempotent import: the same batch twice leaves one row per (source, external id).
+      const batch = {
+        propertyId: a1,
+        reservations: [1, 2, 3].map((n) => ({
+          source: 'booking',
+          externalId: `SYN-${n}`,
+          stayStart: '2027-03-0' + n,
+          stayEnd: '2027-03-0' + (n + 3),
+        })),
+      };
+      expect(await ok('upsert_reservations', batch)).toMatchObject({ created: 3, updated: 0 });
+      expect(await ok('upsert_reservations', batch)).toMatchObject({ created: 0, updated: 3 });
+      const [{ count }] =
+        (await admin`select count(*)::int as count from app.reservations where property_id = ${a1}`) as [
+          { count: number },
+        ];
+      expect(count).toBe(4);
+      const tooMany = {
+        propertyId: a1,
+        reservations: Array.from({ length: 101 }, (_, n) => ({
+          source: 'booking',
+          externalId: `BIG-${n}`,
+          stayStart: '2027-04-01',
+          stayEnd: '2027-04-02',
+        })),
+      };
+      await refused('upsert_reservations', tooMany);
+      const withGuest = { propertyId: a1, reservations: [{ ...batch.reservations[0], guestFirstName: 'Ana' }] };
+      await refused('upsert_reservations', withGuest);
+      const [{ big }] =
+        (await admin`select count(*)::int as big from app.reservations where external_id like 'BIG-%'`) as [
+          { big: number },
+        ];
+      expect(big).toBe(0);
+
+      // A stay link for an existing reservation returns ids and expiry, never a secret or link id.
+      const [imported] = await admin<{ id: string }[]>`
+        select id from app.reservations where property_id = ${a1} and external_id = 'SYN-1'
+      `;
+      const link = await ok('create_stay_link', { propertyId: a1, reservationId: imported!.id });
+      expect(Object.keys(link).sort()).toEqual(['expiresAt', 'reservationId']);
+      const [stored] = await admin<{ id: string }[]>`
+        select id from app.share_links where reservation_id = ${imported!.id} and enabled
+      `;
+      expect(JSON.stringify(outputs.at(-1))).not.toContain(stored!.id);
+      expect(await refused('create_stay_link', { propertyId: a1, reservationId: imported!.id })).toContain(
+        'already has a link',
+      );
+      const reissued = decode<{ shareId: string; secret: string }>(
+        await fnCall(SHARE_FNS, 'reissueStayGuestLink', {
+          jar: hostA.jar,
+          data: { propertyId: a1, reservationId: imported!.id },
+        }),
+      )?.result;
+      expect(reissued?.secret).toMatch(/^[A-Za-z0-9_-]{43}$/);
+      const live = await admin<{ id: string }[]>`
+        select id from app.share_links where reservation_id = ${imported!.id} and enabled
+      `;
+      expect(live.map((row) => row.id)).toEqual([reissued?.shareId]);
+      expect(await ok('revoke_stay_link', { propertyId: a1, reservationId: imported!.id })).toEqual({
+        id: imported!.id,
+        changed: true,
+      });
+      const linkAudits = await admin<{ action: string; name: string | null }[]>`
+        select e.action, g.name from app.audit_events e left join app.agent_grants g on g.id = e.grant_id
+        where e.actor_id = ${hostA.userId} and e.action in ('stay_link_created', 'stay_link_revoked')
+      `;
+      expect(linkAudits.map((row) => `${row.action}:${row.name ?? 'host'}`).sort()).toEqual([
+        'stay_link_created:Writer A',
+        'stay_link_created:host',
+        'stay_link_revoked:Writer A',
+        'stay_link_revoked:host',
+      ]);
+
+      // Guide writes: live, guarded against added contact details, revisioned and revertible.
+      const edited = await ok('upsert_section', {
+        propertyId: a1,
+        sectionId: section!.id,
+        title: 'Parking',
+        body: 'Behind the house, second bay.',
+      });
+      expect(edited).toMatchObject({ sectionId: section!.id, created: false });
+      expect(
+        await refused('upsert_section', {
+          propertyId: a1,
+          sectionId: section!.id,
+          title: 'Parking',
+          body: 'Pay for parking at https://evil.example/pay',
+        }),
+      ).toContain('cannot add a new link');
+      await ok('upsert_section', {
+        propertyId: a1,
+        sectionId: section!.id,
+        title: 'Parking',
+        body: 'Behind the house, third bay.',
+      });
+      const added = await ok('upsert_section', {
+        propertyId: a1,
+        category: 'waste',
+        title: 'Waste',
+        body: 'Bins by the gate.',
+      });
+      expect(added).toMatchObject({ created: true });
+      const [draft] = await admin<{ published: boolean }[]>`
+        select published from app.guide_sections where id = ${added.sectionId as string}
+      `;
+      expect(draft?.published).toBe(false);
+      const agentChange = async (sectionId: string) =>
+        decode<{ editor: { sections: { id: string; agentChange: Record<string, unknown> | null }[] } }>(
+          await fnCall(GUIDE_FNS, 'getPropertyEditor', { jar: hostA.jar, data: { propertyId: a1 } }),
+        )?.result?.editor.sections.find((row) => row.id === sectionId)?.agentChange;
+      const revert = async (revisionId: unknown) =>
+        decode<{ body: string }>(
+          await fnCall(GUIDE_FNS, 'revertAgentChange', { jar: hostA.jar, data: { propertyId: a1, revisionId } }),
+        )?.result?.body;
+      expect(await agentChange(added.sectionId as string)).toMatchObject({ revertible: false });
+      // Reverting the latest of two agent edits exposes the earlier one, still marked and revertible.
+      const latest = await agentChange(section!.id);
+      expect(latest).toMatchObject({ grantName: 'Writer A', revertible: true });
+      expect(await revert(latest?.revisionId)).toBe('Behind the house, second bay.');
+      const earlier = await agentChange(section!.id);
+      expect(earlier).toMatchObject({ grantName: 'Writer A', revertible: true });
+      expect(earlier?.revisionId).not.toBe(latest?.revisionId);
+      expect(await revert(earlier?.revisionId)).toBe('Behind the house.');
+      expect(await agentChange(section!.id)).toBeNull();
+      const [restored] = await admin<{ body: string }[]>`select body from app.guide_sections where id = ${section!.id}`;
+      expect(restored?.body).toBe('Behind the house.');
+      expect(await ok('move_section', { propertyId: a1, sectionId: section!.id, direction: 'up' })).toMatchObject({
+        changed: true,
+      });
+
+      expect(
+        await refused('review_translation', {
+          propertyId: a1,
+          translationId: translation!.id,
+          decision: 'approve',
+          body: 'Fragen an refunds@evil.example',
+        }),
+      ).toContain('email address');
+      // The revert bumped the source revision, so this draft is now out of date.
+      expect(
+        await refused('review_translation', { propertyId: a1, translationId: translation!.id, decision: 'approve' }),
+      ).toContain('out of date');
+
+      expect(await ok('update_property', { propertyId: a1, displayName: 'Write A one, renamed' })).toMatchObject({
+        changed: true,
+      });
+      await refused('update_property', { propertyId: a1, contactPhone: '12 34 56 78' });
+      await refused('update_property', { propertyId: a1, wifiPassword: 'agent-set' });
+      await refused('update_property', { propertyId: a1, alertEmail: 'agent@evil.example' });
+
+      expect(await ok('mark_inbox_handled', { propertyId: a1, messageId: message!.id })).toEqual({
+        id: message!.id,
+        changed: true,
+      });
+      expect(await ok('mark_inbox_handled', { propertyId: a1, messageId: message!.id })).toEqual({
+        id: message!.id,
+        changed: false,
+      });
+
+      // BOLA per write tool: another host's ids look missing, and a restricted token stays on its property.
+      const foreign: [string, Record<string, unknown>][] = [
+        ['update_property', { propertyId: a1, displayName: 'Taken over' }],
+        ['upsert_section', { propertyId: a1, sectionId: section!.id, title: 'X', body: 'Y' }],
+        ['upsert_section', { propertyId: a1, category: 'rules', title: 'X', body: 'Y' }],
+        ['move_section', { propertyId: a1, sectionId: section!.id, direction: 'down' }],
+        ['review_translation', { propertyId: a1, translationId: translation!.id, decision: 'reject' }],
+        ['upsert_reservations', batch],
+        ['create_stay_link', { propertyId: a1, reservationId: seeded!.id }],
+        ['revoke_stay_link', { propertyId: a1, reservationId: imported!.id }],
+        ['mark_inbox_handled', { propertyId: a1, messageId: message!.id }],
+      ];
+      for (const [name, args] of foreign) {
+        expect(await refused(name, args, tokenB)).toBe('Not found.');
+        expect(await refused(name, { ...args, propertyId: a2 }, tokenA1)).toContain('does not allow');
+        await refused(name, args, readOnly);
+      }
+      const [a2Ids] = await admin<{ section: string; reservation: string; message: string }[]>`
+        select (select id from app.guide_sections where property_id = ${a2}) as section,
+          (select id from app.reservations where property_id = ${a2}) as reservation,
+          (select id from app.guest_messages where property_id = ${a2}) as message
+      `;
+      const mixed: [string, Record<string, unknown>][] = [
+        ['upsert_section', { propertyId: a1, sectionId: a2Ids!.section, title: 'X', body: 'Y' }],
+        ['move_section', { propertyId: a1, sectionId: a2Ids!.section, direction: 'down' }],
+        ['create_stay_link', { propertyId: a1, reservationId: a2Ids!.reservation }],
+        ['revoke_stay_link', { propertyId: a1, reservationId: a2Ids!.reservation }],
+        ['mark_inbox_handled', { propertyId: a1, messageId: a2Ids!.message }],
+      ];
+      for (const [name, args] of mixed) expect(await refused(name, args, tokenA1)).toBe('Not found.');
+      const [untouched] = await admin<{ display_name: string; sections: number; links: number }[]>`
+        select p.display_name,
+          (select count(*)::int from app.guide_sections s where s.property_id = p.id) as sections,
+          (select count(*)::int from app.share_links l where l.reservation_id = ${seeded!.id}) as links
+        from app.properties p where p.id = ${a1}
+      `;
+      expect(untouched).toEqual({ display_name: 'Write A one, renamed', sections: 3, links: 0 });
+      const [{ reservations }] = (await admin`
+        select count(*)::int as reservations from app.reservations where property_id = ${b1}
+      `) as [{ reservations: number }];
+      expect(reservations).toBe(1);
+
+      for (const output of outputs) {
+        const text = JSON.stringify(output);
+        for (const secret of Object.values(secrets)) expect(text).not.toContain(secret);
+        expect(text).not.toContain(reissued!.secret);
+      }
+    } finally {
+      await admin.end({ timeout: 0 });
+      await adminClient(local).deleteUser(hostA.userId);
+      await adminClient(local).deleteUser(hostB.userId);
+    }
+  });
+
+  it('limits failed requests per client IP, writes per token, and requests per host', async () => {
+    const ip = { 'x-nf-client-connection-ip': `198.51.100.${Math.floor(Math.random() * 250) + 1}` };
+    const statuses: number[] = [];
+    for (let request = 0; request <= agentLimits.failuresPerIp; request += 1) {
+      statuses.push((await mcp(`sw_pat_${'B'.repeat(43)}`, 'tools/list', undefined, ip)).status);
+    }
+    expect(statuses.slice(0, -1).every((status) => status === 401)).toBe(true);
+    expect(statuses.at(-1)).toBe(429);
+
+    const writer = { grantId: randomUUID(), ownerId: randomUUID(), scopes: ['inbox:write' as const], propertyId: null };
+    for (let write = 0; write < agentLimits.writesPerToken; write += 1) {
+      expect(await agentWriteAllowed(writer)).toBe(true);
+    }
+    expect(await agentWriteAllowed(writer)).toBe(false);
+
+    const ownerId = randomUUID();
+    const grant = () => ({ grantId: randomUUID(), ownerId, scopes: ['read' as const], propertyId: null });
+    for (const principal of [grant(), grant()]) {
+      for (let request = 0; request < agentLimits.perHost / 2; request += 1) {
+        expect(await agentRequestAllowed(principal)).toBe(true);
+      }
+    }
+    expect(await agentRequestAllowed(grant())).toBe(false);
   });
 });

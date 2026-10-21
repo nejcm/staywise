@@ -13,6 +13,7 @@ import {
   createPropertyInput,
   heroAltInput,
   propertyIdInput,
+  revertSectionInput,
   savePropertyInput,
   saveSectionInput,
   setGuidePublishedInput,
@@ -28,6 +29,7 @@ import {
   readGuideEditor,
   readGuestGuide,
   readPropertyEssentials,
+  revertSectionRevision,
   setPropertyPublished,
   updateAlertEmail as updateOwnedAlertEmail,
   updateHeroAlt,
@@ -262,6 +264,21 @@ export const moveSectionOrder = createServerFn({ method: 'POST' })
       const moved = await withOwnerContext(host.userId, (tx) => moveSection(tx, input.data));
       if (!moved) return { error: 'invalid_input' } satisfies FnError;
       return { ok: true as const };
+    }),
+  );
+
+export const revertAgentChange = createServerFn({ method: 'POST' })
+  .validator((value: unknown) => value as { propertyId: string; revisionId: string })
+  .handler(async ({ data }) =>
+    runGuarded(async () => {
+      if (!isGuardedMutation()) return { error: 'invalid_input' } satisfies FnError;
+      const input = revertSectionInput.safeParse(data);
+      if (!input.success) return { error: 'invalid_input' } satisfies FnError;
+      const host = await aal2Host();
+      if ('error' in host) return host;
+      const reverted = await withOwnerContext(host.userId, (tx) => revertSectionRevision(tx, input.data));
+      if (!reverted) return { error: 'invalid_input' } satisfies FnError;
+      return { ok: true as const, ...reverted };
     }),
   );
 

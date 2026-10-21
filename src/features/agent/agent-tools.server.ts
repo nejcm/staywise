@@ -2,12 +2,40 @@ import { createHash } from 'node:crypto';
 import { McpServer, type CallToolResult } from '@modelcontextprotocol/server';
 import type postgres from 'postgres';
 import { z } from 'zod';
+import { insertAudit } from '../../lib/audit.server';
 import { withOwnerContext } from '../../lib/db.server';
 import { appEnv } from '../../lib/env.server';
 import { logEvent } from '../../lib/log.server';
 import { readiness } from '../guide/readiness';
-import type { SectionCategory, SectionVisibility } from '../guide/guide-validation';
-import { cleanText, type AgentPrincipal } from './agent-auth.server';
+import {
+  essentialsFields,
+  guestLocaleSchema,
+  guestThemes,
+  propertyFields,
+  sectionCategories,
+  sectionTextInput,
+  type GuestLocale,
+  type SectionCategory,
+  type SectionVisibility,
+} from '../guide/guide-validation';
+import {
+  insertSection,
+  insertSectionRevision,
+  moveSection,
+  updateProperty,
+  updateSectionText,
+} from '../guide/guide.server';
+import { markMessageHandled } from '../messages/messages.server';
+import {
+  linkReservation,
+  newShareLink,
+  reservationBatchInput,
+  revokeStayLink,
+  upsertReservations,
+} from '../share/share.server';
+import { approveTranslation, rejectTranslation } from '../translation/translation.server';
+import { agentWriteAllowed, cleanText, type AgentPrincipal } from './agent-auth.server';
+import { addedContact, type AddedContact } from './agent-guard';
 import type { AgentScope } from './agent-validation';
 
 const PAGE_MAX = 50;
@@ -26,6 +54,9 @@ function canonicalJson(value: unknown): string {
 }
 
 const toolError = (text: string): CallToolResult => ({ content: [{ type: 'text', text }], isError: true });
+
+// A refusal the agent may read; anything else surfaces as a generic error.
+export class AgentRefusal extends Error {}
 
 // Single choke point (Q9, Q22): scope and property restriction, owner-scoped RLS, and one audit row per call.
 export async function runTool<T extends Record<string, unknown>>(
@@ -49,17 +80,22 @@ export async function runTool<T extends Record<string, unknown>>(
       await withOwnerContext(principal.ownerId, (tx) => audit(tx, 'denied', requested ? [requested] : [], 0));
       return toolError('This token does not allow that. Ask the host to check its scopes and property.');
     }
+    if (scope !== 'read' && !(await agentWriteAllowed(principal))) {
+      await withOwnerContext(principal.ownerId, (tx) => audit(tx, 'denied', requested ? [requested] : [], 0));
+      return toolError('Too many changes in a short time. Wait a minute and try again.');
+    }
     return await withOwnerContext(principal.ownerId, async (tx) => {
       const found = await work(tx, requested ?? principal.propertyId);
       await audit(tx, 'ok', found?.propertyIds ?? [], found?.rowCount ?? 0);
       if (!found) return toolError('Not found.');
       return { content: [{ type: 'text', text: JSON.stringify(found.data) }], structuredContent: found.data };
     });
-  } catch {
-    await withOwnerContext(principal.ownerId, (tx) => audit(tx, 'error', [], 0)).catch(() =>
-      logEvent('audit_write_failed', { appEnv, status: 500 }),
-    );
-    return toolError('Something went wrong. Try again.');
+  } catch (error) {
+    const refused = error instanceof AgentRefusal;
+    await withOwnerContext(principal.ownerId, (tx) =>
+      audit(tx, refused ? 'denied' : 'error', requested ? [requested] : [], 0),
+    ).catch(() => logEvent('audit_write_failed', { appEnv, status: 500 }));
+    return toolError(refused ? error.message : 'Something went wrong. Try again.');
   }
 }
 
@@ -126,6 +162,16 @@ const getPropertyOutput = z.strictObject({
       published: z.boolean(),
       displayOrder: z.number(),
       secretSet: z.boolean(),
+      translations: z.array(
+        z.strictObject({
+          id: z.string(),
+          locale: z.string(),
+          state: z.enum(['draft', 'approved']),
+          current: z.boolean(),
+          title: z.string(),
+          body: z.string(),
+        }),
+      ),
     }),
   ),
   readiness: z.array(z.strictObject({ key: z.string(), label: z.string(), done: z.boolean(), optional: z.boolean() })),
@@ -237,6 +283,25 @@ async function getProperty(
     where property_id = ${propertyId}
     order by display_order, created_at, id
   `;
+  const translations = await tx<
+    {
+      id: string;
+      section_id: string;
+      locale: string;
+      state: 'draft' | 'approved';
+      current: boolean;
+      title: string;
+      body: string;
+    }[]
+  >`
+    select t.id, t.section_id, t.locale, t.state, t.title, t.body,
+      t.source_revision = s.source_revision and t.source_locale = p.source_locale as current
+    from app.guide_translations t
+    join app.guide_sections s on s.id = t.section_id
+    join app.properties p on p.id = s.property_id
+    where s.property_id = ${propertyId}
+    order by t.locale, t.created_at
+  `;
   const items = readiness(
     {
       hero: null,
@@ -276,6 +341,16 @@ async function getProperty(
         published: section.published,
         displayOrder: section.display_order,
         secretSet: section.secret_set,
+        translations: translations
+          .filter((translation) => translation.section_id === section.id)
+          .map((translation) => ({
+            id: translation.id,
+            locale: translation.locale,
+            state: translation.state,
+            current: translation.current,
+            title: translation.title,
+            body: translation.body,
+          })),
       })),
       readiness: items.map((item) => ({
         key: item.key,
@@ -370,10 +445,358 @@ async function listInbox(
   };
 }
 
+const addedLabels: Record<AddedContact, string> = {
+  link: 'link',
+  email: 'email address',
+  phone: 'phone number',
+  payment: 'bank account number',
+};
+
+function refuseAddedContact(before: string, after: string) {
+  const added = addedContact(before, after);
+  if (added) {
+    throw new AgentRefusal(`Agents cannot add a new ${addedLabels[added]}. Ask the host to add it in Staywise.`);
+  }
+}
+
+const joined = (text: { title: string; body: string }) => `${text.title}\n${text.body}`;
+
+const updatePropertyInput = z.strictObject({
+  propertyId: z.uuid(),
+  displayName: propertyFields.shape.displayName.optional(),
+  sourceLocale: guestLocaleSchema.optional(),
+  enabledLocales: z.array(guestLocaleSchema).max(3).optional(),
+  timezone: z.string().max(64).optional(),
+  theme: z.enum(guestThemes).optional(),
+  checkinTime: essentialsFields.shape.checkinTime,
+  checkoutTime: essentialsFields.shape.checkoutTime,
+  address: essentialsFields.shape.address,
+  answerFrom: essentialsFields.shape.answerFrom,
+  answerTo: essentialsFields.shape.answerTo,
+});
+const upsertSectionInput = z.strictObject({
+  ...sectionTextInput.shape,
+  sectionId: sectionTextInput.shape.sectionId.optional(),
+  category: z.enum(sectionCategories).optional(),
+});
+const moveSectionToolInput = z.strictObject({
+  propertyId: z.uuid(),
+  sectionId: z.uuid(),
+  direction: z.enum(['up', 'down']),
+});
+const reviewTranslationInput = z.strictObject({
+  propertyId: z.uuid(),
+  translationId: z.uuid(),
+  decision: z.enum(['approve', 'reject']),
+  title: z.string().trim().min(1).max(400).optional(),
+  body: z.string().trim().min(1).max(16000).optional(),
+});
+const stayInput = z.strictObject({ propertyId: z.uuid(), reservationId: z.uuid() });
+const messageInput = z.strictObject({ propertyId: z.uuid(), messageId: z.uuid() });
+
+const changedOutput = z.strictObject({ id: z.string(), changed: z.boolean() });
+const upsertSectionOutput = z.strictObject({ sectionId: z.string(), created: z.boolean(), sourceRevision: z.number() });
+const upsertReservationsOutput = z.strictObject({
+  created: z.number(),
+  updated: z.number(),
+  reservations: z.array(
+    z.strictObject({ id: z.string(), source: z.string(), externalId: z.string(), created: z.boolean() }),
+  ),
+});
+const stayLinkOutput = z.strictObject({ reservationId: z.string(), expiresAt: z.string() });
+
+type Changed = Found<z.infer<typeof changedOutput>>;
+const changed = (id: string, propertyId: string, didChange: boolean): Changed => ({
+  data: { id, changed: didChange },
+  propertyIds: [propertyId],
+  rowCount: didChange ? 1 : 0,
+});
+
+// Credentials, the alert email and the guest-facing phone are not in the input schema at all (Q13, Q19).
+async function updatePropertyTool(
+  tx: postgres.TransactionSql,
+  args: z.infer<typeof updatePropertyInput>,
+): Promise<Changed> {
+  const [current] = await tx<
+    {
+      display_name: string;
+      source_locale: GuestLocale;
+      enabled_locales: GuestLocale[];
+      address: string | null;
+    }[]
+  >`
+    select display_name, source_locale, enabled_locales, address
+    from app.properties where id = ${args.propertyId}
+  `;
+  if (!current) return null;
+  if (args.displayName !== undefined) refuseAddedContact(current.display_name, args.displayName);
+  if (args.address !== undefined) refuseAddedContact(current.address ?? '', args.address);
+  const saved = await updateProperty(tx, {
+    ...args,
+    displayName: args.displayName ?? current.display_name,
+    sourceLocale: args.sourceLocale ?? current.source_locale,
+    enabledLocales: args.enabledLocales ?? current.enabled_locales,
+  });
+  if (!saved) throw new AgentRefusal('Check the time zone, and set both answering times or neither.');
+  return changed(args.propertyId, args.propertyId, true);
+}
+
+async function upsertSectionTool(
+  tx: postgres.TransactionSql,
+  grantId: string,
+  args: z.infer<typeof upsertSectionInput>,
+): Promise<Found<z.infer<typeof upsertSectionOutput>>> {
+  const { propertyId, title, body } = args;
+  if (args.sectionId && args.category) throw new AgentRefusal('A category applies only when adding a section.');
+  if (!args.sectionId && !args.category) throw new AgentRefusal('Pass a category to add a section.');
+  const sectionId = args.sectionId ?? (await insertSection(tx, { propertyId, category: args.category! }));
+  if (!sectionId) return null;
+  const updated = await updateSectionText(tx, { propertyId, sectionId, title, body });
+  if (!updated) return null;
+  const before = args.sectionId ? updated.before : null;
+  refuseAddedContact(before ? joined(before) : '', joined({ title, body }));
+  if (!before || joined(before) !== joined({ title, body })) {
+    await insertSectionRevision(tx, { sectionId, grantId, before, after: { title, body } });
+  }
+  return {
+    data: { sectionId, created: !before, sourceRevision: updated.sourceRevision },
+    propertyIds: [propertyId],
+    rowCount: 1,
+  };
+}
+
+async function reviewTranslationTool(
+  tx: postgres.TransactionSql,
+  principal: AgentPrincipal,
+  args: z.infer<typeof reviewTranslationInput>,
+): Promise<Changed> {
+  const [draft] = await tx<{ title: string; body: string; source_revision: number }[]>`
+    select t.title, t.body, t.source_revision
+    from app.guide_translations t join app.guide_sections s on s.id = t.section_id
+    where t.id = ${args.translationId} and s.property_id = ${args.propertyId} and t.state = 'draft'
+    for update of t
+  `;
+  if (!draft) return null;
+  const { propertyId, translationId } = args;
+  if (args.decision === 'reject') {
+    await rejectTranslation(tx, { propertyId, translationId });
+    await insertAudit(tx, principal.ownerId, 'translation_rejected', principal.grantId);
+    return changed(translationId, propertyId, true);
+  }
+  const title = args.title ?? draft.title;
+  const body = args.body ?? draft.body;
+  refuseAddedContact(joined(draft), joined({ title, body }));
+  const approved = await approveTranslation(tx, {
+    propertyId,
+    translationId,
+    sourceRevision: draft.source_revision,
+    title,
+    body,
+  });
+  if (!approved) throw new AgentRefusal('This draft is out of date. Ask the host to generate translations again.');
+  await insertAudit(tx, principal.ownerId, 'translation_approved', principal.grantId);
+  return changed(translationId, propertyId, true);
+}
+
+async function upsertReservationsTool(
+  tx: postgres.TransactionSql,
+  args: z.infer<typeof reservationBatchInput>,
+): Promise<Found<z.infer<typeof upsertReservationsOutput>>> {
+  const rows = await upsertReservations(tx, args);
+  if (!rows) return null;
+  const created = rows.filter((row) => row.created).length;
+  return {
+    data: {
+      created,
+      updated: rows.length - created,
+      reservations: rows.map((row) => ({
+        id: row.id,
+        source: cleanText(row.source, importedTextMax),
+        externalId: cleanText(row.externalId, importedTextMax),
+        created: row.created,
+      })),
+    },
+    propertyIds: [args.propertyId],
+    rowCount: rows.length,
+  };
+}
+
+// The secret is generated and dropped here: the host copies a fresh link from Staywise (Q4).
+async function createStayLinkTool(
+  tx: postgres.TransactionSql,
+  principal: AgentPrincipal,
+  args: z.infer<typeof stayInput>,
+): Promise<Found<z.infer<typeof stayLinkOutput>>> {
+  const [reservation] = await tx`
+    select id from app.reservations where id = ${args.reservationId} and property_id = ${args.propertyId}
+  `;
+  if (!reservation) return null;
+  const { id, hmac } = newShareLink();
+  const expiresAt = await linkReservation(tx, { ...args, id, hmac });
+  if (!expiresAt) throw new AgentRefusal('This stay already has a link, or it has ended.');
+  await insertAudit(tx, principal.ownerId, 'stay_link_created', principal.grantId);
+  return {
+    data: { reservationId: args.reservationId, expiresAt: expiresAt.toISOString() },
+    propertyIds: [args.propertyId],
+    rowCount: 1,
+  };
+}
+
+async function revokeStayLinkTool(
+  tx: postgres.TransactionSql,
+  principal: AgentPrincipal,
+  args: z.infer<typeof stayInput>,
+): Promise<Changed> {
+  if (!(await revokeStayLink(tx, args))) return null;
+  await insertAudit(tx, principal.ownerId, 'stay_link_revoked', principal.grantId);
+  return changed(args.reservationId, args.propertyId, true);
+}
+
+async function markInboxHandledTool(
+  tx: postgres.TransactionSql,
+  principal: AgentPrincipal,
+  args: z.infer<typeof messageInput>,
+): Promise<Changed> {
+  if (await markMessageHandled(tx, args)) {
+    await insertAudit(tx, principal.ownerId, 'message_handled', principal.grantId);
+    return changed(args.messageId, args.propertyId, true);
+  }
+  const [message] = await tx`
+    select id from app.guest_messages where id = ${args.messageId} and property_id = ${args.propertyId}
+  `;
+  return message ? changed(args.messageId, args.propertyId, false) : null;
+}
+
+const contentWrite = {
+  annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: false, openWorldHint: false },
+  _meta: { 'anthropic/requiresUserInteraction': true },
+} as const;
+
 // tools/list shows only what the token's scopes allow (Q25); runTool re-checks on every call.
 export function agentServer(principal: AgentPrincipal): McpServer {
   const server = new McpServer({ name: 'staywise', version: '1.0.0' }, { capabilities: { tools: {} } });
-  if (!principal.scopes.includes('read')) return server;
+  const { grantId, scopes } = principal;
+  if (scopes.includes('read')) registerReadTools(server, principal);
+  if (scopes.includes('content:write')) {
+    server.registerTool(
+      'update_property',
+      {
+        title: 'Update property',
+        description:
+          'Change property essentials. Omitted fields stay as they are; an empty string clears a field. Wi-Fi, key-box codes, the contact phone and the alert email can only be changed in Staywise.',
+        inputSchema: updatePropertyInput,
+        outputSchema: changedOutput,
+        ...contentWrite,
+      },
+      (args) => runTool(principal, 'update_property', 'content:write', args, (tx) => updatePropertyTool(tx, args)),
+    );
+    server.registerTool(
+      'upsert_section',
+      {
+        title: 'Add or edit a guide section',
+        description:
+          'Pass sectionId to edit a section title and body (live at once, if published), or a category to add a draft section the host publishes. Each change is shown to the host with a one-click revert. New links, email addresses, phone numbers and bank account numbers are refused.',
+        inputSchema: upsertSectionInput,
+        outputSchema: upsertSectionOutput,
+        ...contentWrite,
+      },
+      (args) =>
+        runTool(principal, 'upsert_section', 'content:write', args, (tx) => upsertSectionTool(tx, grantId, args)),
+    );
+    server.registerTool(
+      'move_section',
+      {
+        title: 'Move a guide section',
+        description: 'Move a section one place up or down in the guide.',
+        inputSchema: moveSectionToolInput,
+        outputSchema: changedOutput,
+        ...contentWrite,
+      },
+      (args) =>
+        runTool(principal, 'move_section', 'content:write', args, async (tx) =>
+          (await moveSection(tx, args)) ? changed(args.sectionId, args.propertyId, true) : null,
+        ),
+    );
+    server.registerTool(
+      'review_translation',
+      {
+        title: 'Review a translation draft',
+        description:
+          'Approve a current draft (optionally with corrected title and body) so guests see it, or reject it. Approved translations can only be withdrawn in Staywise.',
+        inputSchema: reviewTranslationInput,
+        outputSchema: changedOutput,
+        ...contentWrite,
+      },
+      (args) =>
+        runTool(principal, 'review_translation', 'content:write', args, (tx) =>
+          reviewTranslationTool(tx, principal, args),
+        ),
+    );
+  }
+  if (scopes.includes('reservations:write')) {
+    server.registerTool(
+      'upsert_reservations',
+      {
+        title: 'Import reservations',
+        description:
+          'Create or update up to 100 reservations for one property, matched on source and externalId, so re-importing the same calendar never duplicates. No guest names or party sizes.',
+        inputSchema: z.strictObject(reservationBatchInput.shape),
+        outputSchema: upsertReservationsOutput,
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      },
+      (args) =>
+        runTool(principal, 'upsert_reservations', 'reservations:write', args, (tx) => upsertReservationsTool(tx, args)),
+    );
+    server.registerTool(
+      'create_stay_link',
+      {
+        title: 'Create a stay link',
+        description:
+          'Turn on a guest link for one reservation until noon after check-out. The link itself is never shown to agents: the host copies it in Staywise under Share, Stays, New link.',
+        inputSchema: stayInput,
+        outputSchema: stayLinkOutput,
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: false, openWorldHint: false },
+      },
+      (args) =>
+        runTool(principal, 'create_stay_link', 'reservations:write', args, (tx) =>
+          createStayLinkTool(tx, principal, args),
+        ),
+    );
+    server.registerTool(
+      'revoke_stay_link',
+      {
+        title: 'Revoke a stay link',
+        description: "Turn off a reservation's guest link. Guests of that stay lose access at once.",
+        inputSchema: stayInput,
+        outputSchema: changedOutput,
+        annotations: { readOnlyHint: false, destructiveHint: true, idempotentHint: true, openWorldHint: false },
+      },
+      (args) =>
+        runTool(principal, 'revoke_stay_link', 'reservations:write', args, (tx) =>
+          revokeStayLinkTool(tx, principal, args),
+        ),
+    );
+  }
+  if (scopes.includes('inbox:write')) {
+    server.registerTool(
+      'mark_inbox_handled',
+      {
+        title: 'Mark a guest message handled',
+        description: 'Mark one inbox message as handled. Message text stays in the Staywise inbox.',
+        inputSchema: messageInput,
+        outputSchema: changedOutput,
+        annotations: { readOnlyHint: false, destructiveHint: false, idempotentHint: true, openWorldHint: false },
+      },
+      (args) =>
+        runTool(principal, 'mark_inbox_handled', 'inbox:write', args, (tx) =>
+          markInboxHandledTool(tx, principal, args),
+        ),
+    );
+  }
+  return server;
+}
+
+function registerReadTools(server: McpServer, principal: AgentPrincipal) {
   server.registerTool(
     'list_properties',
     {
@@ -425,5 +848,4 @@ export function agentServer(principal: AgentPrincipal): McpServer {
         listInbox(tx, propertyId, args.cursor, args.limit),
       ),
   );
-  return server;
 }

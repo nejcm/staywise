@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { agentRequestAllowed, resolveAgentToken, type AgentPrincipal } from '../features/agent/agent-auth.server';
+import {
+  agentFailuresExceeded,
+  agentRequestAllowed,
+  recordAgentFailure,
+  resolveAgentToken,
+  type AgentPrincipal,
+} from '../features/agent/agent-auth.server';
 import { serverEnv } from '../lib/env.server';
 import { Route } from './mcp';
 
@@ -7,6 +13,8 @@ vi.mock('../features/agent/agent-auth.server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../features/agent/agent-auth.server')>()),
   resolveAgentToken: vi.fn(),
   agentRequestAllowed: vi.fn(),
+  agentFailuresExceeded: vi.fn(),
+  recordAgentFailure: vi.fn(),
 }));
 
 type Handler = (ctx: { request: Request }) => Promise<Response> | Response;
@@ -56,6 +64,8 @@ let logs: ReturnType<typeof vi.spyOn>;
 beforeEach(() => {
   vi.mocked(resolveAgentToken).mockReset().mockResolvedValue(principal);
   vi.mocked(agentRequestAllowed).mockReset().mockResolvedValue(true);
+  vi.mocked(agentFailuresExceeded).mockReset().mockResolvedValue(false);
+  vi.mocked(recordAgentFailure).mockReset().mockResolvedValue();
   logs = vi.spyOn(console, 'log').mockImplementation(() => {});
 });
 afterEach(() => {
@@ -86,6 +96,25 @@ describe('/mcp boundary', () => {
     expect(await response.json()).toEqual({ error: 'invalid_token' });
     expect(resolveAgentToken).toHaveBeenCalledWith(null, null);
     expect(agentRequestAllowed).not.toHaveBeenCalled();
+    expect(recordAgentFailure).toHaveBeenCalledWith(null);
+  });
+
+  it('counts failures per client IP and answers 429 before any lookup once spent', async () => {
+    const ip = { 'x-nf-client-connection-ip': '203.0.113.7' };
+    vi.mocked(resolveAgentToken).mockResolvedValue(null);
+    expect((await rpc('tools/list', undefined, ip)).status).toBe(401);
+    expect(recordAgentFailure).toHaveBeenCalledWith('203.0.113.7');
+    vi.mocked(agentFailuresExceeded).mockResolvedValue(true);
+    vi.mocked(resolveAgentToken).mockClear();
+    const response = await rpc('tools/list', undefined, ip);
+    expect(response.status).toBe(429);
+    expect(response.headers.get('retry-after')).toBe('60');
+    expect(resolveAgentToken).not.toHaveBeenCalled();
+  });
+
+  it('never counts a resolved token as a failure', async () => {
+    await rpc('tools/list', undefined, { 'x-nf-client-connection-ip': '203.0.113.7' });
+    expect(recordAgentFailure).not.toHaveBeenCalled();
   });
 
   it('passes only the bearer value, never cookies, to the lookup', async () => {
@@ -137,10 +166,42 @@ describe('/mcp boundary', () => {
     }
   });
 
-  it('filters tools/list to the token scopes', async () => {
+  it.each([
+    [[], []],
+    [['content:write'], ['update_property', 'upsert_section', 'move_section', 'review_translation']],
+    [['reservations:write'], ['upsert_reservations', 'create_stay_link', 'revoke_stay_link']],
+    [['inbox:write'], ['mark_inbox_handled']],
+  ] as const)('lists only the tools %j allows', async (scopes, names) => {
+    vi.mocked(resolveAgentToken).mockResolvedValue({ ...principal, scopes: [...scopes] });
+    const { result } = await rpcResult(await rpc('tools/list'));
+    expect(((result?.tools ?? []) as { name: string }[]).map((tool) => tool.name)).toEqual(names);
+  });
+
+  it('annotates writes per the plan', async () => {
+    vi.mocked(resolveAgentToken).mockResolvedValue({
+      ...principal,
+      scopes: ['content:write', 'reservations:write', 'inbox:write'],
+    });
+    const { result } = await rpcResult(await rpc('tools/list'));
+    const listed = (result?.tools ?? []) as { name: string; annotations: Record<string, boolean> }[];
+    const tools = Object.fromEntries(listed.map((tool) => [tool.name, tool]));
+    for (const name of ['update_property', 'upsert_section', 'move_section', 'review_translation']) {
+      expect(tools[name]?.annotations.destructiveHint).toBe(true);
+      expect(tools[name]).toHaveProperty(['_meta', 'anthropic/requiresUserInteraction'], true);
+    }
+    expect(tools.upsert_reservations?.annotations).toMatchObject({ idempotentHint: true, destructiveHint: false });
+    expect(tools.revoke_stay_link?.annotations.destructiveHint).toBe(true);
+    expect(tools.create_stay_link?.annotations.destructiveHint).toBe(false);
+  });
+
+  it('refuses credential and alert email fields at the schema', async () => {
     vi.mocked(resolveAgentToken).mockResolvedValue({ ...principal, scopes: ['content:write'] });
     const { result } = await rpcResult(await rpc('tools/list'));
-    expect(result?.tools).toEqual([]);
+    const listed = (result?.tools ?? []) as { name: string; inputSchema: { properties: object } }[];
+    const update = listed.find((tool) => tool.name === 'update_property');
+    for (const field of ['wifiName', 'wifiPassword', 'keyboxCode', 'alertEmail', 'contactPhone']) {
+      expect(Object.keys(update!.inputSchema.properties)).not.toContain(field);
+    }
   });
 
   it('never logs the Authorization header or token, even on a failure', async () => {

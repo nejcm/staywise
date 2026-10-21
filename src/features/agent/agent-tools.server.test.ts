@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { withOwnerContext } from '../../lib/db.server';
-import type { AgentPrincipal } from './agent-auth.server';
-import { runTool } from './agent-tools.server';
+import { agentWriteAllowed, type AgentPrincipal } from './agent-auth.server';
+import { AgentRefusal, runTool } from './agent-tools.server';
 
 vi.mock('../../lib/db.server', () => ({ sql: vi.fn(), withOwnerContext: vi.fn() }));
+vi.mock('./agent-auth.server', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('./agent-auth.server')>()),
+  agentWriteAllowed: vi.fn(),
+}));
 
 const owned = '00000000-0000-4000-8000-0000000000a1';
 const other = '00000000-0000-4000-8000-0000000000b1';
@@ -23,6 +27,7 @@ const tx = vi.fn((_strings: TemplateStringsArray, ...values: unknown[]) => {
 beforeEach(() => {
   audits = [];
   tx.mockClear();
+  vi.mocked(agentWriteAllowed).mockReset().mockResolvedValue(true);
   vi.mocked(withOwnerContext)
     .mockReset()
     .mockImplementation((_owner, work) => work(tx as never));
@@ -99,5 +104,25 @@ describe('runTool', () => {
     expect(digest().equals(first)).toBe(true);
     expect(first).toHaveLength(32);
     expect(JSON.stringify(audits)).not.toContain('"limit"');
+  });
+
+  it('spends the write bucket only on writes and denies once it is empty', async () => {
+    const work = vi.fn().mockResolvedValue({ data: {}, propertyIds: [owned], rowCount: 1 });
+    await runTool(principal, 'list_inbox', 'read', {}, work);
+    expect(agentWriteAllowed).not.toHaveBeenCalled();
+    vi.mocked(agentWriteAllowed).mockResolvedValue(false);
+    const writer = { ...principal, scopes: ['inbox:write' as const] };
+    const result = await runTool(writer, 'mark_inbox_handled', 'inbox:write', { propertyId: owned }, work);
+    expect(result.isError).toBe(true);
+    expect(work).toHaveBeenCalledTimes(1);
+    expect(outcome()).toBe('denied');
+  });
+
+  it('passes a refusal message through and audits it as denied', async () => {
+    const result = await runTool(principal, 'get_property', 'read', { propertyId: owned }, () =>
+      Promise.reject(new AgentRefusal('Agents cannot add a new link.')),
+    );
+    expect(result).toEqual({ content: [{ type: 'text', text: 'Agents cannot add a new link.' }], isError: true });
+    expect(outcome()).toBe('denied');
   });
 });
