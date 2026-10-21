@@ -4,7 +4,8 @@
   align-items: center;
   gap: 5px;
   height: 24px;
-  padding: 0 10px;
+  /* DM Sans glyphs sit high in the line box; drop them onto the optical center. */
+  padding: 2px 10px 0;
   font-size: var(--fs-small);
   font-weight: 500;
   line-height: 1;
