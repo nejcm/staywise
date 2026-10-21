@@ -14,6 +14,8 @@ TanStack Start (React 19, SSR, server functions) with CSS Modules, Bun, Supabase
 
 `/host` lists each property with its address, published state, guide categories, unpublished sections, guest link state, which guest languages are fully reviewed, and the latest waiting messages. The property editor has a guest preview in phone and tablet device frames at `/host/preview/<propertyId>`. Each property picks one of five preset guest page themes ([ADR 0003](docs/adr/0003-guest-themes-are-presets.md)).
 
+`/host/settings` holds account settings: two-step sign-in (set up or remove the authenticator), sign out, and the defaults for new properties (theme, guide and guest languages, time zone, check-in/out times, contact phone, answering hours). Defaults are copied into a property when it is created and never applied to existing properties; a copy keeps the values of its source property. Until a host saves, built-in defaults apply (`staywise` theme, English, `UTC`); the form only suggests the browser's time zone.
+
 ## Development
 
 Prerequisites: Bun (pinned in `package.json`), Docker (local Supabase), Node.js 24+.
@@ -48,7 +50,7 @@ Environment: copy `.env.example` to `.env.local`; never commit real values. `APP
 | `APP_ORIGIN` | outside local | Public origin, used for same-origin checks and links |
 | `SHARE_HMAC_KEY` | outside local | At least 32 characters; keys guest link hashes and rate-limit windows |
 | `GUEST_ACCESS_DISABLED` | no | Operator kill switch (below) |
-| `MFA_REQUIRED` | no | `true` forces every host to enroll TOTP; default lets hosts opt in |
+| `MFA_REQUIRED` | no | `true` forces every host to enroll TOTP; default lets hosts opt in from `/host/settings` |
 | `GOOGLE_TRANSLATE_SERVICE_ACCOUNT` | no | Enables guide translation egress; unset means nothing is sent |
 
 ### Guest kill switch

@@ -47,16 +47,14 @@ export const requestMagicLink = createServerFn({ method: 'POST' })
     }),
   );
 
-export const getHostAuthState = createServerFn({ method: 'GET' })
-  .validator((value: unknown) => ({ setup: (value as { setup?: unknown } | undefined)?.setup === true }))
-  .handler(async ({ data }) =>
-    runGuarded(async () => {
-      const auth = requestAuth();
-      const state = await readHostAuthState(auth.client, data);
-      applyAuthCookies(auth, state.state === 'signed_out');
-      return state satisfies HostAuthState;
-    }),
-  );
+export const getHostAuthState = createServerFn({ method: 'GET' }).handler(async () =>
+  runGuarded(async () => {
+    const auth = requestAuth();
+    const state = await readHostAuthState(auth.client);
+    applyAuthCookies(auth, state.state === 'signed_out');
+    return state satisfies HostAuthState;
+  }),
+);
 
 export const mfaEnroll = createServerFn({ method: 'POST' })
   .validator((value: unknown) => value as Record<string, never>)

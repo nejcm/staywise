@@ -19,6 +19,7 @@ import type { SectionCategory } from '../features/guide/guide-validation';
 import {
   GUIDE_FNS,
   HOST_FNS,
+  SETTINGS_FNS,
   SYNTHETIC_PASSWORD,
   adminClient,
   decode,
@@ -63,12 +64,13 @@ afterAll(async () => {
 
 const guideFn = (name: string, options?: Parameters<typeof fnCall>[2]) => fnCall(GUIDE_FNS, name, options);
 const hostFn = (name: string, options?: Parameters<typeof fnCall>[2]) => fnCall(HOST_FNS, name, options);
+const settingsFn = (name: string, options?: Parameters<typeof fnCall>[2]) => fnCall(SETTINGS_FNS, name, options);
 
 async function createProperty(host: VerifiedHost): Promise<string> {
   const created = decode<{ propertyId: string }>(
     await guideFn('createProperty', {
       jar: host.jar,
-      data: { displayName: 'Guide integration villa (synthetic)', sourceLocale: 'en' },
+      data: { displayName: 'Guide integration villa (synthetic)' },
     }),
   )?.result;
   if (!created?.propertyId) throw new Error('synthetic property creation failed');
@@ -630,7 +632,7 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
           data: sectionData(propertyId, crypto.randomUUID(), { title: 'Synthetic unknown section' }),
         }),
         guideFn('saveProperty', { jar: host.jar, data: { propertyId, displayName: '', sourceLocale: 'en' } }),
-        guideFn('createProperty', { jar: host.jar, data: { displayName: 'x'.repeat(121), sourceLocale: 'en' } }),
+        guideFn('createProperty', { jar: host.jar, data: { displayName: 'x'.repeat(121) } }),
         guideFn('getPropertyEditor', { jar: host.jar, data: { propertyId: 'not-a-uuid' } }),
       ];
       for (const call of rejected) {
@@ -722,10 +724,7 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
       const propertyId = await createProperty(host);
       const sectionId = await createSection(host, propertyId, 'wifi');
       const invalidCalls = [
-        () =>
-          withOwnerContext(host.userId, (tx) =>
-            insertProperty(tx, { displayName: '', sourceLocale: 'not a locale', enabledLocales: [] }),
-          ),
+        () => withOwnerContext(host.userId, (tx) => insertProperty(tx, { displayName: '' })),
         () =>
           withOwnerContext(host.userId, (tx) =>
             updateProperty(tx, { propertyId, displayName: '', sourceLocale: 'en', enabledLocales: [] }),
@@ -993,4 +992,63 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
       await adminClient(local).deleteUser(intruder.userId);
     }
   }, 90_000);
+
+  it('copies host settings into a new property at creation, never into copies or existing properties', async () => {
+    const local = localStack as LocalStack;
+    const owner = await verifiedHost(local, 'settings-owner');
+    const other = await verifiedHost(local, 'settings-other');
+    try {
+      const before = await createProperty(owner);
+      const defaults = {
+        theme: 'coast',
+        sourceLocale: 'de',
+        enabledLocales: ['en'],
+        timezone: 'Europe/Ljubljana',
+        contactPhone: '+38641234567',
+        answerFrom: '08:00',
+        answerTo: '20:00',
+        checkinTime: '15:00',
+        checkoutTime: '10:00',
+      };
+      const saved = await settingsFn('saveHostSettings', { jar: owner.jar, data: defaults });
+      expect(decode(saved)?.result).toEqual({ ok: true });
+      const created = decode<{ propertyId?: string }>(
+        await guideFn('createProperty', {
+          jar: owner.jar,
+          data: { displayName: 'Defaults villa (synthetic)', sourceLocale: 'sl', enabledLocales: [] },
+        }),
+      )?.result;
+      if (!created?.propertyId) throw new Error('synthetic property creation failed');
+      const editor = await withOwnerContext(owner.userId, (tx) => readGuideEditor(tx, created.propertyId as string));
+      expect(editor?.property).toMatchObject({ ...defaults, alertEmail: owner.email });
+
+      const untouched = await withOwnerContext(owner.userId, (tx) => readGuideEditor(tx, before));
+      expect(untouched?.property).toMatchObject({
+        theme: 'staywise',
+        sourceLocale: 'en',
+        timezone: 'UTC',
+        contactPhone: null,
+      });
+      const copied = decode<{ propertyId?: string }>(
+        await guideFn('copyProperty', { jar: owner.jar, data: { sourcePropertyId: before } }),
+      )?.result;
+      if (!copied?.propertyId) throw new Error('synthetic copy failed');
+      const copy = await withOwnerContext(owner.userId, (tx) => readGuideEditor(tx, copied.propertyId as string));
+      expect(copy?.property).toMatchObject({
+        theme: 'staywise',
+        sourceLocale: 'en',
+        timezone: 'UTC',
+        checkinTime: null,
+      });
+
+      const otherProperty = await createProperty(other);
+      const foreign = await withOwnerContext(other.userId, (tx) => readGuideEditor(tx, otherProperty));
+      expect(foreign?.property).toMatchObject({ theme: 'staywise', sourceLocale: 'en', timezone: 'UTC' });
+      const invalid = await settingsFn('saveHostSettings', { jar: owner.jar, data: { ...defaults, answerTo: '' } });
+      expect(decode<{ error?: string }>(invalid)?.result?.error).toBe('invalid_input');
+    } finally {
+      await adminClient(local).deleteUser(owner.userId);
+      await adminClient(local).deleteUser(other.userId);
+    }
+  }, 60_000);
 });

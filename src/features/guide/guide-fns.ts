@@ -8,7 +8,7 @@ import {
   createSectionInput,
   moveSectionInput,
   previewGuideInput,
-  propertyFields,
+  createPropertyInput,
   propertyIdInput,
   savePropertyInput,
   saveSectionInput,
@@ -31,11 +31,11 @@ import {
 } from './guide.server';
 
 export const createProperty = createServerFn({ method: 'POST' })
-  .validator((value: unknown) => value as { displayName: string; sourceLocale: string; enabledLocales?: string[] })
+  .validator((value: unknown) => value as { displayName: string })
   .handler(async ({ data }) =>
     runGuarded(async () => {
       if (!isGuardedMutation()) return { error: 'invalid_input' } satisfies FnError;
-      const input = propertyFields.safeParse(data);
+      const input = createPropertyInput.safeParse(data);
       if (!input.success) return { error: 'invalid_input' } satisfies FnError;
       const host = await aal2Host();
       if ('error' in host) return host;
