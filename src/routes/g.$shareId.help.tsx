@@ -1,7 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { AnswerHours, CallStrip } from '../features/guest/guest-essentials';
+import { CallStrip } from '../features/guest/guest-essentials';
 import { GuestMessageForm } from '../features/guest/guest-message-form';
-import { guestLocaleName, guestUiText, messageRetentionDays } from '../features/guest/guest-ui';
+import { guestUiText, messageRetentionDays } from '../features/guest/guest-ui';
 import styles from '../features/guest/guest.module.css';
 
 export const Route = createFileRoute('/g/$shareId/help')({
@@ -11,11 +11,13 @@ export const Route = createFileRoute('/g/$shareId/help')({
 function GuestHelp() {
   const { guest, shareId } = Route.useRouteContext();
   if (guest.state !== 'guide') return null;
-  const { locale, sourceLocale, essentials } = guest.guest;
-  const emergency = guest.guest.sections.find((section) => section.category === 'emergency');
+  const { locale, essentials } = guest.guest;
   return (
     <>
-      <h2>{guestUiText(locale, 'help.heading')}</h2>
+      <div className={styles.intro}>
+        <h1 className={styles.helpTitle}>{guestUiText(locale, 'help.heading')}</h1>
+        <p className={styles.subtitle}>{guest.guest.displayName}</p>
+      </div>
       <CallStrip
         phone={essentials.contactPhone}
         locale={locale}
@@ -24,37 +26,19 @@ function GuestHelp() {
         emergency
         testId="guest-help-urgent"
       />
-      <section className={`${styles.card} ${styles.callout}`} data-testid="guest-emergency">
-        <h3 lang={emergency?.provenance === 'fallback' ? sourceLocale : undefined}>
-          {emergency?.title ?? guestUiText(locale, 'help.emergency.title')}
-        </h3>
-        <p className={styles.body} lang={emergency?.provenance === 'fallback' ? sourceLocale : undefined}>
-          {emergency?.body ?? guestUiText(locale, 'help.emergency.fallback')}
-        </p>
-        {emergency?.provenance === 'fallback' ? (
-          <p className={styles.fallback} data-testid="guest-fallback">
-            {guestUiText(locale, 'fallback.notice', { language: guestLocaleName(sourceLocale) })}
-          </p>
-        ) : null}
-      </section>
-      <section className={styles.card} data-testid="guest-contact">
-        <h3>{guestUiText(locale, 'help.contact.title')}</h3>
-        <AnswerHours essentials={essentials} locale={locale} />
-        <p>{guestUiText(locale, 'help.contact.body')}</p>
-        <ul className={styles.fallback} data-testid="guest-privacy-panel">
+      <GuestMessageForm shareId={shareId} locale={locale} phone={essentials.contactPhone} />
+      <section className={styles.privacy} aria-labelledby="guest-privacy-title" data-testid="guest-privacy-panel">
+        <h2 id="guest-privacy-title">{guestUiText(locale, 'help.privacy.title')}</h2>
+        <ul>
           <li>{guestUiText(locale, 'help.privacy.sent')}</li>
           <li>{guestUiText(locale, 'help.privacy.seen')}</li>
           <li>{guestUiText(locale, 'help.privacy.retention', { days: String(messageRetentionDays) })}</li>
           <li>{guestUiText(locale, 'form.noReply')}</li>
         </ul>
-        <p className={styles.fallback} data-testid="guest-privacy-summary">
-          {guestUiText(locale, 'help.privacy.summary')}{' '}
-          <a href="/privacy" data-testid="guest-privacy-link">
-            {guestUiText(locale, 'help.privacy.link')}
-          </a>
-        </p>
+        <a href="/privacy" data-testid="guest-privacy-link">
+          {guestUiText(locale, 'help.privacy.link')}
+        </a>
       </section>
-      <GuestMessageForm shareId={shareId} locale={locale} phone={essentials.contactPhone} />
     </>
   );
 }

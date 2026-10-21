@@ -1,76 +1,71 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { avatarInitial, guestCategoryLabel, guestLink, guestLocaleName, guestUiText } from '../features/guest/guest-ui';
-import type { SectionCategory } from '../features/guide/guide-validation';
+import { avatarInitial, guestLink, guestUiText } from '../features/guest/guest-ui';
 import styles from '../features/guest/guest.module.css';
 import { buttonClass } from '../components/button';
-import { AddressLine, AnswerHours, EssentialsList, hasEssentials } from '../features/guest/guest-essentials';
+import { AddressLine, AnswerHours, ArrivalCard, hasEssentials } from '../features/guest/guest-essentials';
+import { SectionRows } from '../features/guest/guest-sections';
 
 export const Route = createFileRoute('/g/$shareId/')({
   component: GuestHome,
 });
 
-// Check-in, Wi-Fi, and emergency details first, then the Help entry for contacting the host.
-const homeCategories: SectionCategory[] = ['arrival', 'wifi', 'emergency'];
+const mostNeededCount = 4;
 
 function GuestHome() {
   const { guest, shareId, lang } = Route.useRouteContext();
   if (guest.state !== 'guide') return null;
-  const { locale, sourceLocale } = guest.guest;
-  const { address, contactPhone } = guest.guest.essentials;
-  const highlights = homeCategories
-    .map((category) => guest.guest.sections.find((section) => section.category === category))
-    .filter((section) => section !== undefined);
+  const { locale, sections, essentials } = guest.guest;
+  const { address, contactPhone } = essentials;
+  const home = `/g/${shareId}`;
   return (
     <>
-      <h2>{guestUiText(locale, 'home.heading')}</h2>
-      {address ? <AddressLine address={address} locale={locale} testId="guest-home-address" /> : null}
-      {hasEssentials(guest.guest.essentials) ? (
-        <section className={`${styles.card} ${styles.arrival}`} data-testid="guest-home-essentials">
-          <h3>{guestUiText(locale, 'essentials.title')}</h3>
-          <EssentialsList essentials={guest.guest.essentials} locale={locale} />
-        </section>
-      ) : null}
-      {highlights.length === 0 && !hasEssentials(guest.guest.essentials) ? (
+      <div className={styles.intro}>
+        <h1>{guest.guest.displayName}</h1>
+        {address ? <AddressLine address={address} locale={locale} testId="guest-home-address" /> : null}
+      </div>
+      <ArrivalCard essentials={essentials} locale={locale} testId="guest-home-essentials" />
+      {sections.length === 0 && !hasEssentials(essentials) ? (
         <p data-testid="guest-home-empty">{guestUiText(locale, 'home.empty')}</p>
-      ) : (
-        highlights.map((section) => (
-          <section className={`${styles.card} ${styles.arrival}`} key={section.category} data-testid="guest-highlight">
-            <h3>{guestCategoryLabel(locale, section.category)}</h3>
-            <p className={styles.body} lang={section.provenance === 'fallback' ? sourceLocale : undefined}>
-              {section.body}
-            </p>
-            {section.provenance === 'fallback' ? (
-              <p className={styles.fallback} data-testid="guest-fallback">
-                {guestUiText(locale, 'fallback.notice', { language: guestLocaleName(sourceLocale) })}
-              </p>
-            ) : null}
-          </section>
-        ))
-      )}
-      <section className={`${styles.card} ${styles.callout}`} data-testid="guest-home-help">
+      ) : null}
+      {sections.length > 0 ? (
+        <SectionRows
+          label={guestUiText(locale, 'home.mostNeeded')}
+          guide={guest.guest}
+          home={home}
+          lang={lang}
+          limit={mostNeededCount}
+          extra={{
+            href: guestLink(`${home}/guide`, lang),
+            title: guestUiText(locale, 'home.wholeGuide'),
+            hint: guestUiText(locale, 'home.wholeGuideHint'),
+          }}
+        />
+      ) : null}
+      <section className={styles.callout} aria-labelledby="guest-home-host" data-testid="guest-home-help">
         <div className={styles.host}>
           <span className={styles.avatar} aria-hidden="true" data-testid="guest-host-initial">
             {avatarInitial(guest.guest.displayName, locale)}
           </span>
-          <h3>{guestUiText(locale, 'home.help.title')}</h3>
+          <div>
+            <h2 id="guest-home-host">{guestUiText(locale, 'home.host')}</h2>
+            <AnswerHours essentials={essentials} locale={locale} />
+          </div>
         </div>
-        <AnswerHours essentials={guest.guest.essentials} locale={locale} />
-        <p>{guestUiText(locale, 'home.help.body')}</p>
-        <div className={styles.urgent}>
+        <div className={styles.actions}>
           {contactPhone ? (
-            <a
-              className={`${buttonClass('primary')} ${styles.pill}`}
-              href={`tel:${contactPhone}`}
-              data-testid="guest-home-call"
-            >
+            <a className={buttonClass('primary')} href={`tel:${contactPhone}`} data-testid="guest-home-call">
               {guestUiText(locale, 'contact.call')}
             </a>
           ) : null}
-          <a className={`${buttonClass('secondary')} ${styles.pill}`} href={guestLink(`/g/${shareId}/help`, lang)}>
-            {guestUiText(locale, 'home.help.open')}
+          <a className={buttonClass('secondary')} href={guestLink(`${home}/help`, lang)}>
+            {guestUiText(locale, 'home.ask')}
           </a>
         </div>
       </section>
+      <p className={styles.footer}>
+        {guestUiText(locale, 'help.emergencyNumber')} <a href="tel:112">112</a> ·{' '}
+        <a href="/privacy">{guestUiText(locale, 'footer.privacy')}</a>
+      </p>
     </>
   );
 }

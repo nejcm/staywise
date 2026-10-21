@@ -1,5 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { firstLine, guestCategoryLabel, guestLocaleName, guestUiText } from '../features/guest/guest-ui';
+import { buttonClass } from '../components/button';
+import { SectionRows } from '../features/guest/guest-sections';
+import { guestLink, guestUiText } from '../features/guest/guest-ui';
 import styles from '../features/guest/guest.module.css';
 
 export const Route = createFileRoute('/g/$shareId/guide')({
@@ -7,43 +9,34 @@ export const Route = createFileRoute('/g/$shareId/guide')({
 });
 
 function GuestGuide() {
-  const { guest } = Route.useRouteContext();
+  const { guest, shareId, lang } = Route.useRouteContext();
   if (guest.state !== 'guide') return null;
-  const { locale, sourceLocale, sections } = guest.guest;
+  const { locale, sections, essentials } = guest.guest;
+  const home = `/g/${shareId}`;
   return (
     <>
-      <h2>{guestUiText(locale, 'guide.heading')}</h2>
+      <div className={styles.intro}>
+        <h1>{guestUiText(locale, 'guide.heading')}</h1>
+        <p className={styles.subtitle}>{guest.guest.displayName}</p>
+      </div>
       {sections.length === 0 ? (
         <p data-testid="guest-guide-empty">{guestUiText(locale, 'guide.empty')}</p>
       ) : (
-        sections.map((section, index) => (
-          <section
-            className={`${styles.card} ${styles.section}`}
-            key={`${section.category}-${index}`}
-            data-testid="guest-section"
-          >
-            <p className={styles.category}>{guestCategoryLabel(locale, section.category)}</p>
-            <h3 lang={section.provenance === 'fallback' ? sourceLocale : undefined}>{section.title}</h3>
-            <details>
-              <summary>
-                <span className={styles.excerpt} lang={section.provenance === 'fallback' ? sourceLocale : undefined}>
-                  {firstLine(section.body)}
-                </span>
-              </summary>
-              <div className={styles.prose}>
-                <p className={styles.body} lang={section.provenance === 'fallback' ? sourceLocale : undefined}>
-                  {section.body}
-                </p>
-                {section.provenance === 'fallback' ? (
-                  <p className={styles.fallback} data-testid="guest-fallback">
-                    {guestUiText(locale, 'fallback.notice', { language: guestLocaleName(sourceLocale) })}
-                  </p>
-                ) : null}
-              </div>
-            </details>
-          </section>
-        ))
+        <SectionRows label={guestUiText(locale, 'guide.sections')} guide={guest.guest} home={home} lang={lang} />
       )}
+      <section className={styles.callout} aria-labelledby="guest-guide-ask">
+        <h2 id="guest-guide-ask">{guestUiText(locale, 'guide.cantFind')}</h2>
+        <div className={styles.actions}>
+          <a className={buttonClass('primary')} href={guestLink(`${home}/help`, lang)}>
+            {guestUiText(locale, 'home.ask')}
+          </a>
+          {essentials.contactPhone ? (
+            <a className={buttonClass('secondary')} href={`tel:${essentials.contactPhone}`}>
+              {guestUiText(locale, 'contact.call')}
+            </a>
+          ) : null}
+        </div>
+      </section>
     </>
   );
 }

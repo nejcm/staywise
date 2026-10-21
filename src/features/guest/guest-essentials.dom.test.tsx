@@ -25,7 +25,7 @@ describe('essentials', () => {
 
   it('renders only the set rows and a copy button for copyable ones', async () => {
     render(<EssentialsList essentials={essentials} locale="en" />);
-    expect(screen.getByTestId('guest-essential-wifiName').textContent).toBe('SyntheticNet');
+    expect(screen.getByTestId('guest-essential-wifiPassword').textContent).toBe('synthetic-pass');
     expect(screen.queryByTestId('guest-essential-keyboxCode')).toBeNull();
     expect(await screen.findByTestId('guest-copy-wifiPassword')).toBeTruthy();
     expect(screen.queryByTestId('guest-copy-checkinTime')).toBeNull();
@@ -44,9 +44,9 @@ describe('essentials', () => {
     const user = userEvent.setup();
     vi.spyOn(navigator.clipboard, 'writeText').mockRejectedValue(new Error('denied'));
     render(<EssentialsList essentials={essentials} locale="en" />);
-    await user.click(await screen.findByTestId('guest-copy-wifiName'));
+    await user.click(await screen.findByTestId('guest-copy-wifiPassword'));
     expect((await screen.findByRole('status')).textContent).not.toMatch(/copied/i);
-    expect(window.getSelection()?.toString()).toBe('SyntheticNet');
+    expect(window.getSelection()?.toString()).toBe('synthetic-pass');
   });
 
   it('links the address to a map search that opens safely', () => {

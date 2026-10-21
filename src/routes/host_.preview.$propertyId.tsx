@@ -3,7 +3,7 @@ import { useEffect, useRef } from 'react';
 import { z } from 'zod';
 import { buttonClass } from '../components/button';
 import { Pill } from '../components/pill';
-import { AddressLine, AnswerHours, CallStrip, EssentialsList, hasEssentials } from '../features/guest/guest-essentials';
+import { AddressLine, AnswerHours, ArrivalCard, CallStrip } from '../features/guest/guest-essentials';
 import { getHostAuthState } from '../features/host/host-fns';
 import { getGuestPreview, recordPreviewOpened } from '../features/guide/guide-fns';
 import { guestCategoryLabel, guestLocaleName, guestUiText, languageNames } from '../features/guest/guest-ui';
@@ -125,12 +125,7 @@ function PreviewPage() {
                   />
                 </section>
               ) : null}
-              {hasEssentials(essentials) ? (
-                <section className={`${styles.card} ${styles.arrival}`} data-testid="preview-essentials">
-                  <h2 className={styles.category}>Essentials · shown to guests after they open the link</h2>
-                  <EssentialsList essentials={essentials} locale={guest.locale} />
-                </section>
-              ) : null}
+              <ArrivalCard essentials={essentials} locale={guest.locale} testId="preview-essentials" />
               {guest.sections.length === 0 ? (
                 <p className={`${styles.card} ${styles.empty}`} data-testid="preview-empty">
                   No published guest content yet.

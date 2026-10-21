@@ -192,7 +192,6 @@ export function GuestMessageForm({
 
   return (
     <section className={styles.card} data-testid="guest-message-form">
-      <h3>{guestUiText(locale, 'help.form.title')}</h3>
       {sent ? (
         <SentRecap snapshot={sent} locale={locale} onAgain={sendAnother} phone={phone} />
       ) : (

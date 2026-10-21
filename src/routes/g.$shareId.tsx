@@ -1,7 +1,8 @@
-import { Outlet, createFileRoute, useRouterState } from '@tanstack/react-router';
+import { Outlet, createFileRoute, useParams, useRouterState } from '@tanstack/react-router';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { bearerSecretFromFragment } from '../features/guest/guest-fragment';
+import { ChevronIcon } from '../features/guest/guest-essentials';
 import { getGuestPage } from '../features/guest/guest-fns';
 import { GUEST_OPEN_SLOW_MS, GuestOpening } from '../features/guest/guest-opening';
 import { guestLink, guestLocaleName, guestUiText, isGuestLocale, languageNames } from '../features/guest/guest-ui';
@@ -48,11 +49,24 @@ function GuestLayout() {
   if (guest.state === 'denied') {
     // Only the fixed UI languages: a denied page must not reveal anything about the property.
     return (
-      <main className={styles.shell} lang={deniedLocale}>
-        <div className={styles.top}>
-          <LocaleSwitch locale={deniedLocale} locales={guestLocales} pathname={pathname} />
-        </div>
+      <main className={`${styles.shell} ${styles.closed}`} lang={deniedLocale}>
         <GuestOpen shareId={shareId} locale={deniedLocale} />
+        <footer className={styles.closedFooter}>
+          <nav aria-label={guestUiText(deniedLocale, 'nav.languages')} className={styles.locales}>
+            {guestLocales.map((code) => (
+              <a
+                key={code}
+                href={guestLink(pathname, code)}
+                lang={code}
+                hrefLang={code}
+                aria-current={code === deniedLocale ? 'true' : undefined}
+              >
+                {languageNames[code]}
+              </a>
+            ))}
+          </nav>
+          <a href="/privacy">{guestUiText(deniedLocale, 'footer.privacy')}</a>
+        </footer>
       </main>
     );
   }
@@ -70,6 +84,7 @@ function GuestLayout() {
     );
   }
   const { locale, locales, sourceLocale, sections } = guest.guest;
+  const home = `/g/${shareId}`;
   const reviewed = sections.some((section) => section.provenance === 'reviewed');
   return (
     <main className={styles.shell} lang={locale}>
@@ -86,12 +101,13 @@ function GuestLayout() {
         {guestUiText(locale, 'nav.skip')}
       </a>
       <header className={styles.header}>
-        <div className={styles.top}>
-          <p className={styles.label}>{guestUiText(locale, 'label.guest')}</p>
-          <LocaleSwitch locale={locale} locales={locales} pathname={pathname} />
-        </div>
-        <h1>{guest.guest.displayName}</h1>
-        <GuestNav shareId={shareId} locale={locale} lang={lang} pathname={pathname} />
+        <GuestHeaderStart home={home} locale={locale} lang={lang} pathname={pathname} total={sections.length} />
+        <LocaleSwitch
+          locale={locale}
+          locales={locales}
+          pathname={pathname}
+          compact={pathname.startsWith(`${home}/guide/`)}
+        />
       </header>
       <div id="guest-content" className={styles.content} tabIndex={-1} data-testid="guest-content">
         {reviewed ? (
@@ -110,41 +126,76 @@ function GuestLayout() {
   );
 }
 
-function GuestNav({
-  shareId,
+function GuestHeaderStart({
+  home,
   locale,
   lang,
   pathname,
+  total,
 }: {
-  shareId: string;
+  home: string;
   locale: string;
   lang: string | undefined;
   pathname: string;
+  total: number;
 }) {
-  const tabs = [
-    { href: `/g/${shareId}`, label: guestUiText(locale, 'nav.home') },
-    { href: `/g/${shareId}/guide`, label: guestUiText(locale, 'nav.guide') },
-    { href: `/g/${shareId}/help`, label: guestUiText(locale, 'nav.help') },
-  ];
+  const { index } = useParams({ strict: false });
+  if (pathname === home) return <p className={styles.label}>{guestUiText(locale, 'home.label')}</p>;
+  if (index === undefined) {
+    return (
+      // Full document loads keep the /g-scoped cookie on every request and re-check the link.
+      <a className={styles.control} href={guestLink(home, lang)}>
+        <ChevronIcon direction="back" />
+        {guestUiText(locale, 'nav.home')}
+      </a>
+    );
+  }
   return (
-    <nav className={styles.nav} aria-label={guestUiText(locale, 'nav.guide')}>
-      {tabs.map((tab) => (
-        // Full document loads keep the /g-scoped cookie on every request and re-check the link.
-        <a key={tab.href} href={guestLink(tab.href, lang)} aria-current={pathname === tab.href ? 'page' : undefined}>
-          {tab.label}
-        </a>
-      ))}
-    </nav>
+    <>
+      <a className={styles.control} href={guestLink(`${home}/guide`, lang)}>
+        <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true">
+          <path d="M4 6h16M4 12h16M4 18h16" />
+        </svg>
+        {guestUiText(locale, 'nav.contents')}
+      </a>
+      {Number(index) >= 1 && Number(index) <= total ? (
+        <span className={styles.label}>
+          {guestUiText(locale, 'guide.position', { n: index, total: String(total) })}
+        </span>
+      ) : null}
+    </>
   );
 }
 
-function LocaleSwitch({ locale, locales, pathname }: { locale: string; locales: readonly string[]; pathname: string }) {
+function LocaleSwitch({
+  locale,
+  locales,
+  pathname,
+  compact,
+}: {
+  locale: string;
+  locales: readonly string[];
+  pathname: string;
+  compact: boolean;
+}) {
   if (locales.length < 2) return null;
   const label = guestUiText(locale, 'nav.languages');
   const name = (code: string) => languageNames[code as keyof typeof languageNames] ?? guestLocaleName(code);
   return (
     <details className={styles.languages} data-testid="guest-locale-switch">
-      <summary aria-label={`${label}: ${name(locale)}`}>{name(locale)}</summary>
+      <summary aria-label={`${label}: ${name(locale)}`}>
+        {compact ? (
+          locale.toUpperCase()
+        ) : (
+          <>
+            <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true">
+              <circle cx="12" cy="12" r="9" />
+              <path d="M3 12h18M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18" />
+            </svg>
+            {name(locale)}
+          </>
+        )}
+      </summary>
       <ul aria-label={label}>
         {locales.map((code) => (
           <li key={code}>
@@ -212,6 +263,16 @@ function GuestOpen({ shareId, locale }: { shareId: string; locale: string }) {
   if (denied) {
     return (
       <section className={`${styles.card} ${styles.unavailable}`} data-testid="guest-denied">
+        <svg width="40" height="40" viewBox="0 0 40 40" aria-hidden="true">
+          <rect x="1" y="1" width="38" height="38" rx="10" fill="var(--accent-soft)" />
+          <path
+            d="M9 25c3.5-3 7.5-3 11 0s7.5 3 11 0"
+            fill="none"
+            stroke="var(--accent)"
+            strokeWidth="2.6"
+            strokeLinecap="round"
+          />
+        </svg>
         <h1>{guestUiText(locale, 'denied.title')}</h1>
         <p>{guestUiText(locale, 'denied.body')}</p>
       </section>

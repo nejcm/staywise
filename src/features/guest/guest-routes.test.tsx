@@ -72,13 +72,28 @@ describe('guest routes', () => {
     expect(html).toMatch(/lang="en"[^>]*>English</);
   });
 
-  it('renders one details block per guide section with its summary and fallback lang', async () => {
+  it('lists guide sections as links to one page each, with excerpt and fallback lang', async () => {
     const html = await render('/g/synthetic/guide?lang=de', guide);
     expect(html.match(/data-testid="guest-section"/g)).toHaveLength(2);
-    expect(html.match(/<details>/g)).toHaveLength(2);
-    expect(html).toMatch(/<h3>WLAN<\/h3><details><summary><span[^>]*>Netz: Villa<\/span><\/summary>/);
-    expect(html).toMatch(/<h3 lang="en">Parking<\/h3>/);
+    expect(html).toMatch(
+      /href="\/g\/synthetic\/guide\/1\?lang=de"[^>]*><span><strong>WLAN<\/strong><small>Netz: Villa<\/small>/,
+    );
+    expect(html).toMatch(/href="\/g\/synthetic\/guide\/2\?lang=de"[^>]*><span lang="en"><strong>Parking</);
+  });
+
+  it('renders one section per page with position, pager and fallback lang', async () => {
+    const html = await render('/g/synthetic/guide/2?lang=de', guide);
+    expect(html).toContain('2 von 2');
+    expect(html).toMatch(/<h1[^>]*lang="en">Parking<\/h1>/);
     expect(html).toMatch(/<p[^>]*lang="en">Behind the house<\/p>/);
+    expect(html).toContain('data-testid="guest-fallback"');
+    expect(html).toMatch(/href="\/g\/synthetic\/guide\/1\?lang=de" rel="prev"/);
+    expect(html).not.toContain('rel="next"');
+    for (const index of ['0', '3', 'x']) {
+      const missing = await render(`/g/synthetic/guide/${index}`, guide);
+      expect(missing).toContain('data-testid="guest-section-missing"');
+      expect(missing).not.toMatch(/von 2/);
+    }
   });
 
   it('server-renders essentials as selectable text with no Copy button before hydration', async () => {
