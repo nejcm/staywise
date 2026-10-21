@@ -4,6 +4,7 @@
   background: var(--text);
   border-radius: 12px;
   box-shadow: 0 8px 24px rgb(19 32 31 / 20%);
+  transition: opacity 200ms var(--ease-out);
 }
 
 .error {
@@ -20,4 +21,5 @@
   padding: 0;
   overflow: hidden;
   clip-path: inset(50%);
+  opacity: 0;
 }

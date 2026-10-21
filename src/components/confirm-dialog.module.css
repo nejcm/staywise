@@ -6,10 +6,41 @@
   border: 0;
   border-radius: 20px;
   box-shadow: 0 20px 48px rgb(19 32 31 / 20%);
+  transition:
+    opacity 200ms var(--ease-out),
+    transform 200ms var(--ease-out),
+    overlay 200ms allow-discrete,
+    display 200ms allow-discrete;
+}
+
+.dialog:not([open]) {
+  opacity: 0;
+  transform: scale(0.96);
+  transition-duration: 150ms;
 }
 
 .dialog::backdrop {
   background: rgb(19 32 31 / 40%);
+  transition:
+    opacity 200ms var(--ease-out),
+    overlay 200ms allow-discrete,
+    display 200ms allow-discrete;
+}
+
+.dialog:not([open])::backdrop {
+  opacity: 0;
+  transition-duration: 150ms;
+}
+
+@starting-style {
+  .dialog[open] {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+
+  .dialog[open]::backdrop {
+    opacity: 0;
+  }
 }
 
 .dialog h2 {
