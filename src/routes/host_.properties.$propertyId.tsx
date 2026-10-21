@@ -15,6 +15,7 @@ import {
 import { createGuestLink, disableGuestLink, getGuestLink, rotateGuestLink } from '../features/share/share-fns';
 import { getInbox } from '../features/messages/messages-fns';
 import { InboxPanel } from '../features/host/host-inbox';
+import { ThemePicker } from '../features/guide/theme-picker';
 import { HostShell } from '../components/app-shell';
 import { Button, buttonClass } from '../components/button';
 import { useConfirmDialog } from '../components/confirm-dialog';
@@ -529,6 +530,7 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
       });
     const timezone = String(formData.get('timezone') ?? property.timezone);
     const timezoneError = timeZoneOptions.includes(timezone) ? null : { timezone: 'Choose a time zone from the list' };
+    const theme = String(formData.get('theme') ?? property.theme);
     if (!parsed.success || timezoneError) {
       setErrors({ ...(parsed.success ? {} : collectFieldErrors(parsed.error)), ...timezoneError });
       setNotice({ text: 'Check the highlighted fields.', failed: true });
@@ -542,6 +544,7 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
             propertyId: property.id,
             ...parsed.data,
             ...(timezone === property.timezone ? {} : { timezone }),
+            ...(theme === property.theme ? {} : { theme }),
           },
         }),
       () => 'Saved.',
@@ -700,6 +703,7 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
           })}
         </div>
       </fieldset>
+      <ThemePicker defaultValue={property.theme} />
       <div className="actions">
         <Button type="submit" variant="primary" disabled={busy} data-testid="property-save">
           Save property

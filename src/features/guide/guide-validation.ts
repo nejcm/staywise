@@ -32,6 +32,11 @@ export const guestLocales = ['en', 'de', 'sl', 'fr', 'es'] as const;
 export type GuestLocale = (typeof guestLocales)[number];
 export const guestLocaleSchema = z.enum(guestLocales, 'Choose an approved guest language');
 
+// Preset guest page themes; keys are stored per property and must never be renamed or removed.
+export const guestThemes = ['staywise', 'coast', 'alpine', 'terracotta', 'classic'] as const;
+export type GuestTheme = (typeof guestThemes)[number];
+const guestThemeSchema = z.enum(guestThemes, 'Choose a guest page theme');
+
 const enabledLocalesSchema = z
   .array(guestLocaleSchema)
   .max(3, 'Enable at most three guest languages')
@@ -138,7 +143,7 @@ export const saveSectionInput = z
   })
   .refine((value) => value.visibility === 'host' || value.secretValue === '', secretOnlyOnPrivateNote);
 export const savePropertyInput = propertyFields
-  .extend({ propertyId: z.uuid(), ...essentialsShape })
+  .extend({ propertyId: z.uuid(), theme: guestThemeSchema.optional(), ...essentialsShape })
   .refine(answerHoursPaired, answerHoursPairedIssue);
 export const copyPropertyInput = z.object({ sourcePropertyId: z.uuid() });
 export const setGuidePublishedInput = z.object({ propertyId: z.uuid(), published: z.boolean() });

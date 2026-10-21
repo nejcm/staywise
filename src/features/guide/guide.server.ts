@@ -11,6 +11,7 @@ import {
   savePropertyInput,
   saveSectionInput,
   setGuidePublishedInput,
+  type GuestTheme,
   type SectionCategory,
   type SectionVisibility,
   isTimeZone,
@@ -40,6 +41,7 @@ export type GuideEditorData = {
     enabledLocales: string[];
     published: boolean;
     alertEmail: string | null;
+    theme: GuestTheme;
   } & PropertyEssentials;
   timeZones: string[];
   sections: {
@@ -77,6 +79,7 @@ export type GuestGuideDto = {
   sourceLocale: string;
   locale: string;
   locales: string[];
+  theme: GuestTheme;
   sections: { category: SectionCategory; title: string; body: string; provenance: GuestProvenance }[];
 };
 
@@ -110,7 +113,7 @@ export type SectionWrite = {
 // the source text and marked 'fallback' so the page can label it. The locale is normalized
 // against the property's available locales here, so a caller cannot request an unapproved one.
 export function toGuestGuideDto(
-  property: { display_name: string; source_locale: string; enabled_locales: string[] },
+  property: { display_name: string; source_locale: string; enabled_locales: string[]; theme: string },
   rows: GuestGuideRow[],
   locale: string,
 ): GuestGuideDto {
@@ -122,6 +125,7 @@ export function toGuestGuideDto(
     sourceLocale,
     locale: served,
     locales,
+    theme: property.theme as GuestTheme,
     sections: rows
       .filter((row) => row.published && row.visibility === 'guest')
       .sort((a, b) => a.display_order - b.display_order)
@@ -161,9 +165,10 @@ export async function readGuideEditor(
       enabled_locales: string[];
       published: boolean;
       alert_email: string | null;
+      theme: string;
     }[]
   >`
-    select id, display_name, source_locale, enabled_locales, published, alert_email
+    select id, display_name, source_locale, enabled_locales, published, alert_email, theme
     from app.properties where id = ${propertyId}
   `;
   if (!property) return null;
@@ -231,6 +236,7 @@ export async function readGuideEditor(
       enabledLocales: property.enabled_locales,
       published: property.published,
       alertEmail: property.alert_email,
+      theme: property.theme as GuestTheme,
       ...essentials,
     },
     sections: sections.map((section) => ({
@@ -294,9 +300,9 @@ export async function readGuestGuide(
   locale: string | null,
 ): Promise<{ guest: GuestGuideDto; guidePublished: boolean } | null> {
   const [property] = await tx<
-    { display_name: string; source_locale: string; enabled_locales: string[]; published: boolean }[]
+    { display_name: string; source_locale: string; enabled_locales: string[]; published: boolean; theme: string }[]
   >`
-    select display_name, source_locale, enabled_locales, published from app.properties where id = ${propertyId}
+    select display_name, source_locale, enabled_locales, published, theme from app.properties where id = ${propertyId}
   `;
   if (!property) return null;
   // Approved translations bound to the live revision and source language join in; anything else
@@ -366,7 +372,7 @@ export async function updateProperty(
       checkout_time = ${keep(parsed.checkoutTime, 'checkout_time')}, address = ${keep(parsed.address, 'address')},
       contact_phone = ${keep(parsed.contactPhone, 'contact_phone')}, answer_from = ${keep(parsed.answerFrom, 'answer_from')},
       answer_to = ${keep(parsed.answerTo, 'answer_to')},
-      timezone = ${parsed.timezone ?? tx('timezone')}, updated_at = now()
+      timezone = ${parsed.timezone ?? tx('timezone')}, theme = ${parsed.theme ?? tx('theme')}, updated_at = now()
     where id = ${parsed.propertyId}
     returning id
   `;
@@ -427,9 +433,9 @@ export async function insertCopy(tx: postgres.TransactionSql, sourcePropertyId: 
   const name = `${source.display_name} (copy)`.slice(0, 120);
   const [created] = await tx<{ id: string }[]>`
     insert into app.properties (owner_id, display_name, source_locale, timezone, enabled_locales, alert_email, checkin_time, checkout_time, address,
-      contact_phone, answer_from, answer_to)
+      contact_phone, answer_from, answer_to, theme)
     select owner_id, ${name}, source_locale, timezone, enabled_locales, alert_email, checkin_time, checkout_time, address,
-      contact_phone, answer_from, answer_to
+      contact_phone, answer_from, answer_to, theme
     from app.properties where id = ${parsed.sourcePropertyId}
     returning id
   `;

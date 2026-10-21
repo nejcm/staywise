@@ -90,7 +90,7 @@ function PreviewPage() {
       <main className={previewStyles.stage}>
         <div className={`${previewStyles.frame} ${previewStyles[device]}`} data-testid="preview-frame">
           <p className={previewStyles.banner}>Preview · not visible to guests</p>
-          <div className={previewStyles.screen}>
+          <div className={previewStyles.screen} data-theme={guest.theme}>
             <div className={`${styles.shell} ${styles.preview}`}>
               {guest.locales.length > 1 ? (
                 <ul className={styles.locales} data-testid="preview-locale-switch">

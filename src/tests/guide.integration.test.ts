@@ -123,6 +123,7 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
           sourceLocale: 'en',
           locale: 'en',
           locales: ['en'],
+          theme: 'staywise',
           sections: [],
         },
         guidePublished: false,
@@ -163,6 +164,7 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
           sourceLocale: 'en',
           locale: 'en',
           locales: ['en'],
+          theme: 'staywise',
           sections: [
             { category: 'wifi', title: 'Synthetic Wi-Fi', body: 'SYNTHETIC-DRAFT-BODY', provenance: 'source' },
           ],
@@ -891,11 +893,13 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
           contactPhone: '+38641234567',
           answerFrom: '22:00',
           answerTo: '02:00',
+          theme: 'alpine',
         },
       });
       expect(decode<{ ok?: boolean }>(saved)?.result).toEqual({ ok: true });
       const editor = await withOwnerContext(owner.userId, (tx) => readGuideEditor(tx, propertyId));
       expect(editor?.property).toMatchObject({
+        theme: 'alpine',
         wifiName: 'Synthetic net',
         wifiPassword: password,
         keyboxCode: keybox,
@@ -917,6 +921,7 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
         timezone: 'Europe/Ljubljana',
         contactPhone: '+38641234567',
         answerTo: '02:00',
+        theme: 'alpine',
       });
 
       const foreign = await withOwnerContext(intruder.userId, (tx) =>
@@ -942,8 +947,11 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
       expect(privileges).toEqual({ anon: false, authenticated: false });
 
       const preview = await guideFn('getGuestPreview', { jar: owner.jar, data: { propertyId } });
-      const previewResult = decode<{ guest: unknown; essentials: { keyboxCode: string | null } }>(preview)?.result;
+      const previewResult = decode<{ guest: { theme: string }; essentials: { keyboxCode: string | null } }>(
+        preview,
+      )?.result;
       expect(previewResult?.essentials.keyboxCode).toBe(keybox);
+      expect(previewResult?.guest.theme).toBe('alpine');
       expect(JSON.stringify(previewResult?.guest)).not.toContain(password);
 
       const copied = decode<{ propertyId?: string }>(
@@ -961,6 +969,7 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
         contactPhone: '+38641234567',
         answerFrom: '22:00',
         answerTo: '02:00',
+        theme: 'alpine',
       });
 
       await admin`update app.properties set timezone = 'Legacy/Synthetic' where id = ${propertyId}`;
@@ -972,6 +981,7 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
       expect(await resave({ timezone: 'Legacy/Synthetic', address: '' })).toEqual({ ok: true });
       expect(await resave({ timezone: 'Mars/Olympus' })).toEqual({ error: 'invalid_input' });
       expect(await resave({ contactPhone: '041 234 567' })).toEqual({ error: 'invalid_input' });
+      expect(await resave({ theme: 'neon' })).toEqual({ error: 'invalid_input' });
       expect(await resave({ answerTo: '' })).toEqual({ error: 'invalid_input' });
       expect(await resave({ answerFrom: '07:00' })).toEqual({ ok: true });
       expect(await resave({})).toEqual({ ok: true });

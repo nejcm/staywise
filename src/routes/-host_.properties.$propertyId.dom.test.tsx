@@ -64,6 +64,7 @@ const editor: GuideEditorData = {
     enabledLocales: ['en', 'de'],
     published: false,
     alertEmail: null,
+    theme: 'staywise',
     wifiName: null,
     wifiPassword: null,
     keyboxCode: null,
@@ -335,8 +336,22 @@ describe('PropertyForm and AlertPanel', () => {
     expect(saveProperty).toHaveBeenCalledWith({
       data: expect.objectContaining({ propertyId, displayName: 'Synthetic villa' }),
     });
+    expect(vi.mocked(saveProperty).mock.calls[0]?.[0]?.data).not.toHaveProperty('theme');
     await expectToast('property-save-status', 'Saved.', false);
     await expectInvalidated();
+  });
+
+  it('sends a changed guest page theme with the save', async () => {
+    vi.mocked(saveProperty).mockResolvedValue({ ok: true } as never);
+    await renderEditor();
+    await userEvent.click(screen.getByTestId('editor-basics'));
+    expect((screen.getByTestId('property-theme-staywise') as HTMLInputElement).checked).toBe(true);
+    expect(screen.getByTestId('property-theme-coast').closest('[data-theme]')?.getAttribute('data-theme')).toBe(
+      'coast',
+    );
+    await userEvent.click(screen.getByTestId('property-theme-coast'));
+    await userEvent.click(screen.getByTestId('property-save'));
+    expect(saveProperty).toHaveBeenCalledWith({ data: expect.objectContaining({ propertyId, theme: 'coast' }) });
   });
 
   it('shows the generic error when saving fails', async () => {

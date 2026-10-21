@@ -4,7 +4,9 @@ import { buttonClass } from '../components/button';
 import { Mark } from '../components/mark';
 import styles from '../features/host/public.module.css';
 import '@fontsource-variable/dm-sans';
+import '@fontsource-variable/source-serif-4';
 import '../styles.css';
+import '../features/guest/themes.css';
 
 export const Route = createRootRoute({
   head: () => ({

@@ -22,6 +22,7 @@ const guide = {
     sourceLocale: 'en',
     locale: 'de',
     locales: ['de', 'en'],
+    theme: 'coast',
     sections: [
       { category: 'wifi', title: 'WLAN', body: '\n  Netz: Villa\nPasswort am Router', provenance: 'reviewed' },
       { category: 'parking', title: 'Parking', body: 'Behind the house', provenance: 'fallback' },
@@ -151,7 +152,7 @@ describe('guest routes', () => {
     expect(guestUiText('de', 'essentials.copied', { field: 'WLAN-Passwort' })).toBe('WLAN-Passwort kopiert.');
   });
 
-  it('never renders essentials on denied or error pages', async () => {
+  it('never renders essentials or the theme on denied or error pages', async () => {
     for (const result of [
       { state: 'denied', locale: 'en' },
       { state: 'error', locale: 'en' },
@@ -161,7 +162,12 @@ describe('guest routes', () => {
       expect(html).not.toContain('SYNTHETIC-PASS');
       expect(html).not.toContain('38641234567');
       expect(html).not.toContain('tel:');
+      expect(html).not.toContain('data-theme');
     }
+  });
+
+  it('themes the guide page with the property theme', async () => {
+    expect(await render('/g/synthetic', guide)).toMatch(/<main[^>]*data-theme="coast"/);
   });
 
   it('takes the first non-empty body line as the preview', () => {
