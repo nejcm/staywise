@@ -3,6 +3,7 @@ import { aal2Host, isGuardedMutation, runGuarded, type FnError } from '../../lib
 import { insertAudit } from '../../lib/audit.server';
 import { withOwnerContext } from '../../lib/db.server';
 import { serverEnv } from '../../lib/env.server';
+import { drainStorageDeletions } from '../../lib/storage.server';
 import { recordSetupEvent } from '../../lib/setup-events.server';
 import {
   copyPropertyInput,
@@ -10,12 +11,14 @@ import {
   moveSectionInput,
   previewGuideInput,
   createPropertyInput,
+  heroAltInput,
   propertyIdInput,
   savePropertyInput,
   saveSectionInput,
   setGuidePublishedInput,
 } from './guide-validation';
 import {
+  deleteHero,
   deleteProperty as deleteOwnedProperty,
   insertCopy,
   insertProperty,
@@ -27,6 +30,7 @@ import {
   readPropertyEssentials,
   setPropertyPublished,
   updateAlertEmail as updateOwnedAlertEmail,
+  updateHeroAlt,
   updateProperty,
   updateSection,
 } from './guide.server';
@@ -112,6 +116,39 @@ export const deleteProperty = createServerFn({ method: 'POST' })
         return true;
       });
       if (!deleted) return { error: 'invalid_input' } satisfies FnError;
+      return { ok: true as const };
+    }),
+  );
+
+export const saveHeroAlt = createServerFn({ method: 'POST' })
+  .validator((value: unknown) => value as { propertyId: string; alt: string })
+  .handler(async ({ data }) =>
+    runGuarded(async () => {
+      if (!isGuardedMutation()) return { error: 'invalid_input' } satisfies FnError;
+      const input = heroAltInput.safeParse(data);
+      if (!input.success) return { error: 'invalid_input' } satisfies FnError;
+      const host = await aal2Host();
+      if ('error' in host) return host;
+      const saved = await withOwnerContext(host.userId, (tx) =>
+        updateHeroAlt(tx, input.data.propertyId, input.data.alt),
+      );
+      if (!saved) return { error: 'invalid_input' } satisfies FnError;
+      return { ok: true as const };
+    }),
+  );
+
+export const removeHero = createServerFn({ method: 'POST' })
+  .validator((value: unknown) => value as { propertyId: string })
+  .handler(async ({ data }) =>
+    runGuarded(async () => {
+      if (!isGuardedMutation()) return { error: 'invalid_input' } satisfies FnError;
+      const input = propertyIdInput.safeParse(data);
+      if (!input.success) return { error: 'invalid_input' } satisfies FnError;
+      const host = await aal2Host();
+      if ('error' in host) return host;
+      const removed = await withOwnerContext(host.userId, (tx) => deleteHero(tx, input.data.propertyId));
+      if (!removed) return { error: 'invalid_input' } satisfies FnError;
+      await drainStorageDeletions().catch(() => 0);
       return { ok: true as const };
     }),
   );

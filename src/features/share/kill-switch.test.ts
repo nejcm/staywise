@@ -4,6 +4,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { withLinkContext } from '../../lib/db.server';
 import { bumpGuestCounter } from '../guest/guest-counters.server';
 import { submitGuestMessage } from '../messages/messages.server';
+import { Route as heroRoute } from '../../routes/g.$shareId_.hero';
 import { exchangeGuestLink, readGuestPage, withActiveGuestLink } from './share.server';
 
 const killSwitch = vi.hoisted(() => ({ on: true }));
@@ -34,6 +35,14 @@ const message = {
   body: 'Where is the router?',
   replyEmail: '',
 } as const;
+
+type Handler = (ctx: { request: Request; params: { shareId: string } }) => Promise<Response>;
+const heroGet = (heroRoute.options as unknown as { server: { handlers: { GET: Handler } } }).server.handlers.GET;
+const readHero = () =>
+  heroGet({
+    request: new Request(`http://localhost/g/${shareId}/hero`, { headers: { cookie: `sw_guest=${secret}` } }),
+    params: { shareId },
+  });
 
 beforeEach(() => {
   vi.mocked(withLinkContext).mockReset().mockResolvedValue(null);
@@ -71,6 +80,11 @@ describe('kill switch on', () => {
     expect(withLinkContext).not.toHaveBeenCalled();
   });
 
+  it('denies the hero image with the uniform 404', async () => {
+    expect((await readHero()).status).toBe(404);
+    expect(withLinkContext).not.toHaveBeenCalled();
+  });
+
   it('denies message intake', async () => {
     expect(await submitGuestMessage({ shareId, sessionToken: secret, message })).toEqual({ state: 'denied' });
     expect(withLinkContext).not.toHaveBeenCalled();
@@ -87,6 +101,7 @@ describe('kill switch off', () => {
     ['active link', () => withActiveGuestLink({ shareId, sessionToken: secret }, vi.fn())],
     ['page read', () => readGuestPage({ shareId, sessionToken: secret })],
     ['message intake', () => submitGuestMessage({ shareId, sessionToken: secret, message })],
+    ['hero image', readHero],
   ])('reaches the database for %s', async (_name, call) => {
     await call();
     expect(withLinkContext).toHaveBeenCalledWith(shareId, expect.any(Function));
@@ -107,6 +122,7 @@ describe('guest entry points', () => {
         'g.$shareId.guide_.$index.tsx',
         'g.$shareId.help.tsx',
         'g.$shareId_.exchange.ts',
+        'g.$shareId_.hero.ts',
         'g.$shareId_.message.ts',
       ].toSorted(),
     );

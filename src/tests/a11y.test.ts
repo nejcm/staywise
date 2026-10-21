@@ -23,6 +23,16 @@ describe('expectNamedControlsAndHiddenIcons', () => {
     expect(check('<a href="/x"><span aria-hidden="true">Call</span></a>')).toThrow();
   });
 
+  it('rejects text that is hidden from sight', () => {
+    expect(check(`<button>${icon}<span hidden>Move up</span></button>`)).toThrow();
+    expect(check(`<button>${icon}<span style="display: none">Move up</span></button>`)).toThrow();
+  });
+
+  it('rejects an empty accessible name even when text is visible', () => {
+    expect(check('<span id="empty"></span><button aria-labelledby="empty">Move up</button>')).toThrow();
+    expect(check('<span id="label">Move up</span><button aria-labelledby="label">Move up</button>')).not.toThrow();
+  });
+
   it('rejects an exposed or focusable icon', () => {
     expect(check('<button><svg class="lucide" focusable="false"></svg>Save</button>')).toThrow();
     expect(check('<button><svg class="lucide" aria-hidden="true"></svg>Save</button>')).toThrow();

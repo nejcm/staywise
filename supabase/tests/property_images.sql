@@ -1,6 +1,4 @@
--- Hero images (ADR 0005): a private, size- and type-limited bucket with no object policies; owners
--- manage only their own row; guests read only their live link's published property; every replaced
--- or deleted object path is queued for the Storage API drain.
+-- Hero images (ADR 0005): private limited bucket, owner-only writes, live-link guest reads, queued deletions.
 begin;
 
 create extension if not exists pgtap;

@@ -20,10 +20,12 @@ import { Route as GShareIdIndexRouteImport } from './routes/g.$shareId.index'
 import { Route as GShareIdGuideRouteImport } from './routes/g.$shareId.guide'
 import { Route as GShareIdHelpRouteImport } from './routes/g.$shareId.help'
 import { Route as GShareIdExchangeRouteImport } from './routes/g.$shareId_.exchange'
+import { Route as GShareIdHeroRouteImport } from './routes/g.$shareId_.hero'
 import { Route as GShareIdMessageRouteImport } from './routes/g.$shareId_.message'
 import { Route as HostPreviewPropertyIdRouteImport } from './routes/host_.preview.$propertyId'
 import { Route as HostPropertiesPropertyIdRouteImport } from './routes/host_.properties.$propertyId'
 import { Route as GShareIdGuideIndexRouteImport } from './routes/g.$shareId.guide_.$index'
+import { Route as HostPropertiesPropertyIdHeroRouteImport } from './routes/host_.properties.$propertyId_.hero'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -80,6 +82,11 @@ const GShareIdExchangeRoute = GShareIdExchangeRouteImport.update({
   path: '/g/$shareId/exchange',
   getParentRoute: () => rootRouteImport,
 } as any)
+const GShareIdHeroRoute = GShareIdHeroRouteImport.update({
+  id: '/g/$shareId_/hero',
+  path: '/g/$shareId/hero',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const GShareIdMessageRoute = GShareIdMessageRouteImport.update({
   id: '/g/$shareId_/message',
   path: '/g/$shareId/message',
@@ -101,6 +108,12 @@ const GShareIdGuideIndexRoute = GShareIdGuideIndexRouteImport.update({
   path: '/guide/$index',
   getParentRoute: () => GShareIdRoute,
 } as any)
+const HostPropertiesPropertyIdHeroRoute =
+  HostPropertiesPropertyIdHeroRouteImport.update({
+    id: '/host_/properties/$propertyId_/hero',
+    path: '/host/properties/$propertyId/hero',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -113,11 +126,13 @@ export interface FileRoutesByFullPath {
   '/g/$shareId/guide': typeof GShareIdGuideRoute
   '/g/$shareId/help': typeof GShareIdHelpRoute
   '/g/$shareId/exchange': typeof GShareIdExchangeRoute
+  '/g/$shareId/hero': typeof GShareIdHeroRoute
   '/g/$shareId/message': typeof GShareIdMessageRoute
   '/host/preview/$propertyId': typeof HostPreviewPropertyIdRoute
   '/host/properties/$propertyId': typeof HostPropertiesPropertyIdRoute
   '/g/$shareId/': typeof GShareIdIndexRoute
   '/g/$shareId/guide/$index': typeof GShareIdGuideIndexRoute
+  '/host/properties/$propertyId/hero': typeof HostPropertiesPropertyIdHeroRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -129,11 +144,13 @@ export interface FileRoutesByTo {
   '/g/$shareId/guide': typeof GShareIdGuideRoute
   '/g/$shareId/help': typeof GShareIdHelpRoute
   '/g/$shareId/exchange': typeof GShareIdExchangeRoute
+  '/g/$shareId/hero': typeof GShareIdHeroRoute
   '/g/$shareId/message': typeof GShareIdMessageRoute
   '/host/preview/$propertyId': typeof HostPreviewPropertyIdRoute
   '/host/properties/$propertyId': typeof HostPropertiesPropertyIdRoute
   '/g/$shareId': typeof GShareIdIndexRoute
   '/g/$shareId/guide/$index': typeof GShareIdGuideIndexRoute
+  '/host/properties/$propertyId/hero': typeof HostPropertiesPropertyIdHeroRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -147,11 +164,13 @@ export interface FileRoutesById {
   '/g/$shareId/guide': typeof GShareIdGuideRoute
   '/g/$shareId/help': typeof GShareIdHelpRoute
   '/g/$shareId_/exchange': typeof GShareIdExchangeRoute
+  '/g/$shareId_/hero': typeof GShareIdHeroRoute
   '/g/$shareId_/message': typeof GShareIdMessageRoute
   '/host_/preview/$propertyId': typeof HostPreviewPropertyIdRoute
   '/host_/properties/$propertyId': typeof HostPropertiesPropertyIdRoute
   '/g/$shareId/': typeof GShareIdIndexRoute
   '/g/$shareId/guide_/$index': typeof GShareIdGuideIndexRoute
+  '/host_/properties/$propertyId_/hero': typeof HostPropertiesPropertyIdHeroRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -166,11 +185,13 @@ export interface FileRouteTypes {
     | '/g/$shareId/guide'
     | '/g/$shareId/help'
     | '/g/$shareId/exchange'
+    | '/g/$shareId/hero'
     | '/g/$shareId/message'
     | '/host/preview/$propertyId'
     | '/host/properties/$propertyId'
     | '/g/$shareId/'
     | '/g/$shareId/guide/$index'
+    | '/host/properties/$propertyId/hero'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -182,11 +203,13 @@ export interface FileRouteTypes {
     | '/g/$shareId/guide'
     | '/g/$shareId/help'
     | '/g/$shareId/exchange'
+    | '/g/$shareId/hero'
     | '/g/$shareId/message'
     | '/host/preview/$propertyId'
     | '/host/properties/$propertyId'
     | '/g/$shareId'
     | '/g/$shareId/guide/$index'
+    | '/host/properties/$propertyId/hero'
   id:
     | '__root__'
     | '/'
@@ -199,11 +222,13 @@ export interface FileRouteTypes {
     | '/g/$shareId/guide'
     | '/g/$shareId/help'
     | '/g/$shareId_/exchange'
+    | '/g/$shareId_/hero'
     | '/g/$shareId_/message'
     | '/host_/preview/$propertyId'
     | '/host_/properties/$propertyId'
     | '/g/$shareId/'
     | '/g/$shareId/guide_/$index'
+    | '/host_/properties/$propertyId_/hero'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -215,9 +240,11 @@ export interface RootRouteChildren {
   GShareIdRoute: typeof GShareIdRouteWithChildren
   HostSettingsRoute: typeof HostSettingsRoute
   GShareIdExchangeRoute: typeof GShareIdExchangeRoute
+  GShareIdHeroRoute: typeof GShareIdHeroRoute
   GShareIdMessageRoute: typeof GShareIdMessageRoute
   HostPreviewPropertyIdRoute: typeof HostPreviewPropertyIdRoute
   HostPropertiesPropertyIdRoute: typeof HostPropertiesPropertyIdRoute
+  HostPropertiesPropertyIdHeroRoute: typeof HostPropertiesPropertyIdHeroRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -299,6 +326,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof GShareIdExchangeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/g/$shareId_/hero': {
+      id: '/g/$shareId_/hero'
+      path: '/g/$shareId/hero'
+      fullPath: '/g/$shareId/hero'
+      preLoaderRoute: typeof GShareIdHeroRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/g/$shareId_/message': {
       id: '/g/$shareId_/message'
       path: '/g/$shareId/message'
@@ -326,6 +360,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/g/$shareId/guide/$index'
       preLoaderRoute: typeof GShareIdGuideIndexRouteImport
       parentRoute: typeof GShareIdRoute
+    }
+    '/host_/properties/$propertyId_/hero': {
+      id: '/host_/properties/$propertyId_/hero'
+      path: '/host/properties/$propertyId/hero'
+      fullPath: '/host/properties/$propertyId/hero'
+      preLoaderRoute: typeof HostPropertiesPropertyIdHeroRouteImport
+      parentRoute: typeof rootRouteImport
     }
   }
 }
@@ -357,9 +398,11 @@ const rootRouteChildren: RootRouteChildren = {
   GShareIdRoute: GShareIdRouteWithChildren,
   HostSettingsRoute: HostSettingsRoute,
   GShareIdExchangeRoute: GShareIdExchangeRoute,
+  GShareIdHeroRoute: GShareIdHeroRoute,
   GShareIdMessageRoute: GShareIdMessageRoute,
   HostPreviewPropertyIdRoute: HostPreviewPropertyIdRoute,
   HostPropertiesPropertyIdRoute: HostPropertiesPropertyIdRoute,
+  HostPropertiesPropertyIdHeroRoute: HostPropertiesPropertyIdHeroRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

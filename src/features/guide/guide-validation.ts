@@ -171,6 +171,7 @@ export const heroAltSchema = z
   .min(1, 'Describe the photo for guests who cannot see it')
   .max(200, 'Photo description must be 200 characters or fewer')
   .refine((value) => !hasControlCharacters(value), 'Remove control characters');
+export const heroAltInput = z.object({ propertyId: z.uuid(), alt: heroAltSchema });
 export const heroWriteInput = z.object({
   propertyId: z.uuid(),
   alt: heroAltSchema,

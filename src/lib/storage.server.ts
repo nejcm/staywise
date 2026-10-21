@@ -34,3 +34,16 @@ export async function drainStorageDeletions(limit = 50): Promise<number> {
   await sql`delete from app.storage_deletions where object_path in ${sql(paths)}`;
   return paths.length;
 }
+
+export function imageResponse(image: ReadableStream<Uint8Array> | null): Response {
+  if (!image) return new Response(null, { status: 404, headers: { 'cache-control': 'private, no-store' } });
+  return new Response(image, {
+    status: 200,
+    headers: {
+      'content-type': 'image/jpeg',
+      'x-content-type-options': 'nosniff',
+      'content-disposition': 'inline',
+      'cache-control': 'private, no-store',
+    },
+  });
+}

@@ -1,5 +1,5 @@
--- One hero photo per property (ADR 0005). The bucket has no storage.objects policies: only the server
--- touches it with the secret key, after reading the row under owner or live guest-link context.
+-- One hero photo per property (ADR 0005); the bucket has no storage.objects policies, only the server key.
+
 -- Only scratch_-prefixed test databases, which have no Storage schema, may skip the bucket.
 do $$
 begin
