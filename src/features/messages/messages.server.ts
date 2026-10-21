@@ -181,8 +181,7 @@ export async function readInbox(tx: postgres.TransactionSql, propertyId: string)
 
 export type GuideGap = { category: SectionCategory | null; asked: number; lastAsked: string };
 
-// Counts only, never bodies: questions tagged "not in the guide" since the newest section in that
-// category, so adding a section clears the gap. Owner context; retention bounds the window.
+// Counts only, never bodies; questions older than the newest section in their category stop counting.
 export async function readGuideGaps(tx: postgres.TransactionSql, propertyId: string): Promise<GuideGap[]> {
   const rows = await tx<{ category: string | null; asked: number; last_asked: Date }[]>`
     select m.category, count(*)::int as asked, max(m.created_at) as last_asked

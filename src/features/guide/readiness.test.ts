@@ -56,7 +56,7 @@ describe('readiness', () => {
       'link',
     ]);
     expect(items.every((item) => !item.done)).toBe(true);
-    expect(items.find((item) => item.key === 'arrival')?.pane).toBe('new');
+    expect(items.find((item) => item.key === 'arrival')).toMatchObject({ pane: 'new', anchor: 'section-new-heading' });
   });
 
   it('counts only published guest sections and points at an existing draft', () => {
@@ -70,6 +70,9 @@ describe('readiness', () => {
     );
     const done = Object.fromEntries(items.map((item) => [item.key, item.done]));
     expect(done).toMatchObject({ checkinTime: true, wifiPassword: true, arrival: false, published: true, link: true });
-    expect(items.find((item) => item.key === 'arrival')?.pane).toBe('s-arrival');
+    expect(items.find((item) => item.key === 'arrival')).toMatchObject({
+      pane: 's-arrival',
+      anchor: 'section-title-s-arrival',
+    });
   });
 });

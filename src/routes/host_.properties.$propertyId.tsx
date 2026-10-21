@@ -464,7 +464,9 @@ function GuestLinkPanel({ property, share }: { property: EditorProperty; share: 
   return (
     <section className={`${styles.panel} stack`} aria-labelledby="guest-link-heading" data-testid="guest-link-panel">
       <header className={editorStyles.panelTitle}>
-        <h2 id="guest-link-heading">Guest link</h2>
+        <h2 id="guest-link-heading" tabIndex={-1}>
+          Guest link
+        </h2>
         <Pill tone={share?.link ? 'positive' : 'neutral'}>{share?.link ? 'On' : 'Off'}</Pill>
       </header>
       <p data-testid="guest-link-status">
@@ -1016,6 +1018,7 @@ function SectionForm({
               required
               aria-invalid={Boolean(errors.title)}
               aria-describedby={errors.title ? `section-title-error-${section.id}` : undefined}
+              id={`section-title-${section.id}`}
               data-testid="section-title"
             />
           </Field>
@@ -1455,7 +1458,9 @@ function AddSectionForm({ propertyId, onCreated }: { propertyId: string; onCreat
 
   return (
     <section className="stack" aria-labelledby="section-new-heading" data-testid="section-new-form">
-      <h2 id="section-new-heading">Add a section</h2>
+      <h2 id="section-new-heading" tabIndex={-1}>
+        Add a section
+      </h2>
       <p className="small muted">Pick what it covers. You can rename it and change the text next.</p>
       <div className={editorStyles.chips}>
         {sectionCategories.map((category: SectionCategory) => (

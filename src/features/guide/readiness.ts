@@ -14,8 +14,12 @@ export function readiness(editor: GuideEditorData, linkIssued: boolean): Readine
   const { property, sections } = editor;
   const live = (category: SectionCategory) =>
     sections.some((section) => section.category === category && section.visibility === 'guest' && section.published);
-  const sectionPane = (category: SectionCategory) =>
-    sections.find((section) => section.category === category)?.id ?? 'new';
+  const sectionItem = (key: SectionCategory, label: string) => {
+    const id = sections.find((section) => section.category === key)?.id;
+    return id
+      ? { key, label, done: live(key), pane: id, anchor: `section-title-${id}` }
+      : { key, label, done: live(key), pane: 'new', anchor: 'section-new-heading' };
+  };
   const field = (key: keyof GuideEditorData['property'], label: string, done: boolean) => ({
     key,
     label,
@@ -33,20 +37,8 @@ export function readiness(editor: GuideEditorData, linkIssued: boolean): Readine
       'Wi-Fi password or a published Wi-Fi section',
       Boolean(property.wifiPassword) || live('wifi'),
     ),
-    {
-      key: 'arrival',
-      label: 'Published Arrival section',
-      done: live('arrival'),
-      pane: sectionPane('arrival'),
-      anchor: null,
-    },
-    {
-      key: 'emergency',
-      label: 'Published Emergency section',
-      done: live('emergency'),
-      pane: sectionPane('emergency'),
-      anchor: null,
-    },
+    sectionItem('arrival', 'Published Arrival section'),
+    sectionItem('emergency', 'Published Emergency section'),
     { key: 'published', label: 'Guide published', done: property.published, pane: null, anchor: 'guide-publish' },
     { key: 'link', label: 'Guest link issued', done: linkIssued, pane: null, anchor: 'guest-link-heading' },
   ];

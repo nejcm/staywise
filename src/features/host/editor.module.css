@@ -376,7 +376,9 @@
     align-content: start;
     gap: var(--space-3);
     padding: var(--space-6);
+    color: #000;
     text-align: center;
+    background: #fff;
   }
 
   .printOnly {

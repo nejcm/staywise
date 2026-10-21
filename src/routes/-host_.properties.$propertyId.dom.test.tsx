@@ -263,6 +263,15 @@ describe('ReadinessPanel', () => {
     await waitFor(() => expect(screen.queryByTestId('readiness-checkinTime')).toBeNull());
     expect(screen.getByTestId('readiness-checkoutTime')).toBeTruthy();
   });
+
+  it('focuses the section and guest link targets', async () => {
+    vi.mocked(getGuestLink).mockResolvedValue({ share: { link: null, guidePublished: false } } as never);
+    await renderEditor();
+    await userEvent.click(screen.getByTestId('readiness-arrival'));
+    await waitFor(() => expect(document.activeElement?.id).toBe('section-new-heading'));
+    await userEvent.click(screen.getByTestId('readiness-link'));
+    await waitFor(() => expect(document.activeElement?.id).toBe('guest-link-heading'));
+  });
 });
 
 describe('GapPanel', () => {
