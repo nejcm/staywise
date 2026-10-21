@@ -103,6 +103,9 @@
 
 .foot > :last-child {
   align-self: flex-start;
+  padding: 0 10px;
+  font-weight: 400;
+  color: var(--muted);
 }
 
 .main {
@@ -134,6 +137,8 @@
   .nav {
     flex-direction: row;
     flex-wrap: wrap;
+    order: 1;
+    width: 100%;
   }
 
   .foot {
