@@ -50,7 +50,7 @@
 }
 
 .navItem {
-  flex: 1;
+  flex: 1 0 100%;
   min-width: 0;
   min-height: 44px;
   padding: 8px 10px;
