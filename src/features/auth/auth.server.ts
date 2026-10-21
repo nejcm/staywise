@@ -38,16 +38,13 @@ export function createRequestAuth(cookieHeader: string | null, forwardedFor: str
 
 export type HostAuthState =
   | { state: 'signed_out' }
-  | { state: 'enroll'; factorId: string | null; optional: boolean }
+  | { state: 'enroll'; factorId: string | null }
   | { state: 'verify'; factorId: string }
   | { state: 'workspace'; totpFactorIds: string[] };
 
 // A verified authenticator always gates the workspace at AAL2; without one, enrollment is forced
-// only by MFA_REQUIRED or when the host asked to set one up.
-export async function getHostAuthState(
-  client: SupabaseClient,
-  options: { setup?: boolean } = {},
-): Promise<HostAuthState> {
+// only by MFA_REQUIRED (optional enrollment lives on the settings page).
+export async function getHostAuthState(client: SupabaseClient): Promise<HostAuthState> {
   const session = await verifiedSession(client);
   if (!session) return { state: 'signed_out' };
   const { data: factors, error: factorsError } = await client.auth.mfa.listFactors();
@@ -59,12 +56,8 @@ export async function getHostAuthState(
     if (aal?.currentLevel === 'aal2') return { state: 'workspace', totpFactorIds: verified.map((f) => f.id) };
     return { state: 'verify', factorId: verified[0]!.id };
   }
-  if (!serverEnv.mfaRequired && !options.setup) return { state: 'workspace', totpFactorIds: [] };
-  return {
-    state: 'enroll',
-    factorId: totp.find((f) => f.status === 'unverified')?.id ?? null,
-    optional: !serverEnv.mfaRequired,
-  };
+  if (!serverEnv.mfaRequired) return { state: 'workspace', totpFactorIds: [] };
+  return { state: 'enroll', factorId: totp.find((f) => f.status === 'unverified')?.id ?? null };
 }
 
 export type VerifiedSession = { userId: string; email: string | null };

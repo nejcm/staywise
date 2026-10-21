@@ -15,6 +15,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AuthSignInRouteImport } from './routes/auth.sign-in'
 import { Route as GShareIdRouteImport } from './routes/g.$shareId'
+import { Route as HostSettingsRouteImport } from './routes/host_.settings'
 import { Route as GShareIdIndexRouteImport } from './routes/g.$shareId.index'
 import { Route as GShareIdGuideRouteImport } from './routes/g.$shareId.guide'
 import { Route as GShareIdHelpRouteImport } from './routes/g.$shareId.help'
@@ -52,6 +53,11 @@ const AuthSignInRoute = AuthSignInRouteImport.update({
 const GShareIdRoute = GShareIdRouteImport.update({
   id: '/g/$shareId',
   path: '/g/$shareId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HostSettingsRoute = HostSettingsRouteImport.update({
+  id: '/host_/settings',
+  path: '/host/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
 const GShareIdIndexRoute = GShareIdIndexRouteImport.update({
@@ -103,6 +109,7 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/g/$shareId': typeof GShareIdRouteWithChildren
+  '/host/settings': typeof HostSettingsRoute
   '/g/$shareId/guide': typeof GShareIdGuideRoute
   '/g/$shareId/help': typeof GShareIdHelpRoute
   '/g/$shareId/exchange': typeof GShareIdExchangeRoute
@@ -118,6 +125,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
+  '/host/settings': typeof HostSettingsRoute
   '/g/$shareId/guide': typeof GShareIdGuideRoute
   '/g/$shareId/help': typeof GShareIdHelpRoute
   '/g/$shareId/exchange': typeof GShareIdExchangeRoute
@@ -135,6 +143,7 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/g/$shareId': typeof GShareIdRouteWithChildren
+  '/host_/settings': typeof HostSettingsRoute
   '/g/$shareId/guide': typeof GShareIdGuideRoute
   '/g/$shareId/help': typeof GShareIdHelpRoute
   '/g/$shareId_/exchange': typeof GShareIdExchangeRoute
@@ -153,6 +162,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/auth/sign-in'
     | '/g/$shareId'
+    | '/host/settings'
     | '/g/$shareId/guide'
     | '/g/$shareId/help'
     | '/g/$shareId/exchange'
@@ -168,6 +178,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/auth/callback'
     | '/auth/sign-in'
+    | '/host/settings'
     | '/g/$shareId/guide'
     | '/g/$shareId/help'
     | '/g/$shareId/exchange'
@@ -184,6 +195,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/auth/sign-in'
     | '/g/$shareId'
+    | '/host_/settings'
     | '/g/$shareId/guide'
     | '/g/$shareId/help'
     | '/g/$shareId_/exchange'
@@ -201,6 +213,7 @@ export interface RootRouteChildren {
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthSignInRoute: typeof AuthSignInRoute
   GShareIdRoute: typeof GShareIdRouteWithChildren
+  HostSettingsRoute: typeof HostSettingsRoute
   GShareIdExchangeRoute: typeof GShareIdExchangeRoute
   GShareIdMessageRoute: typeof GShareIdMessageRoute
   HostPreviewPropertyIdRoute: typeof HostPreviewPropertyIdRoute
@@ -249,6 +262,13 @@ declare module '@tanstack/react-router' {
       path: '/g/$shareId'
       fullPath: '/g/$shareId'
       preLoaderRoute: typeof GShareIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/host_/settings': {
+      id: '/host_/settings'
+      path: '/host/settings'
+      fullPath: '/host/settings'
+      preLoaderRoute: typeof HostSettingsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/g/$shareId/': {
@@ -335,6 +355,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthCallbackRoute: AuthCallbackRoute,
   AuthSignInRoute: AuthSignInRoute,
   GShareIdRoute: GShareIdRouteWithChildren,
+  HostSettingsRoute: HostSettingsRoute,
   GShareIdExchangeRoute: GShareIdExchangeRoute,
   GShareIdMessageRoute: GShareIdMessageRoute,
   HostPreviewPropertyIdRoute: HostPreviewPropertyIdRoute,

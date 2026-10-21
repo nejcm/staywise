@@ -68,6 +68,7 @@ export const propertyFields = z.object({
   enabledLocales: enabledLocalesSchema.default([]),
   timezone: z.string().max(64).optional(),
 });
+export const createPropertyInput = propertyFields.pick({ displayName: true });
 
 // Credentials are stored verbatim; whitespace-only is refused so a blank-looking value is never stored.
 const essentialText = (max: number, message: string) =>
@@ -145,6 +146,15 @@ export const saveSectionInput = z
 export const savePropertyInput = propertyFields
   .extend({ propertyId: z.uuid(), theme: guestThemeSchema.optional(), ...essentialsShape })
   .refine(answerHoursPaired, answerHoursPairedIssue);
+export const hostSettingsInput = essentialsFields
+  .pick({ checkinTime: true, checkoutTime: true, contactPhone: true, answerFrom: true, answerTo: true })
+  .extend({
+    theme: guestThemeSchema,
+    sourceLocale: guestLocaleSchema,
+    enabledLocales: enabledLocalesSchema.default([]),
+    timezone: z.string().max(64).refine(isTimeZone, 'Choose a time zone'),
+  })
+  .refine((value) => !value.answerFrom === !value.answerTo, answerHoursPairedIssue);
 export const copyPropertyInput = z.object({ sourcePropertyId: z.uuid() });
 export const setGuidePublishedInput = z.object({ propertyId: z.uuid(), published: z.boolean() });
 export const moveSectionInput = z.object({

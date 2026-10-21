@@ -147,10 +147,15 @@ async function createProperty(host: VerifiedHost, enabledLocales: string[] = [],
   const created = decode<{ propertyId: string }>(
     await guideFn('createProperty', {
       jar: host.jar,
-      data: { displayName: 'Synthetic translation villa', sourceLocale, enabledLocales },
+      data: { displayName: 'Synthetic translation villa' },
     }),
   )?.result;
   if (!created?.propertyId) throw new Error('synthetic property creation failed');
+  const saved = await guideFn('saveProperty', {
+    jar: host.jar,
+    data: { propertyId: created.propertyId, displayName: 'Synthetic translation villa', sourceLocale, enabledLocales },
+  });
+  if (decode<{ ok?: boolean }>(saved)?.result?.ok !== true) throw new Error('synthetic property locales failed');
   return created.propertyId;
 }
 

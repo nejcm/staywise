@@ -4,9 +4,9 @@ import { canonicalInput } from '../../lib/canonical-input.server';
 import {
   alertEmailSchema,
   copyPropertyInput,
+  createPropertyInput,
   createSectionInput,
   moveSectionInput,
-  propertyFields,
   propertyIdInput,
   savePropertyInput,
   saveSectionInput,
@@ -17,6 +17,7 @@ import {
   isTimeZone,
   timeZones,
 } from './guide-validation';
+import { builtInHostSettings, readHostSettings } from '../host/settings.server';
 
 // Canonical guide write/read layer for any trusted caller (host server functions now, the token
 // API and PMS workers later): call it inside withOwnerContext; RLS enforces ownership and the
@@ -327,19 +328,23 @@ export async function readGuestGuide(
   };
 }
 
+// Defaults come from the owner's host settings, read in this transaction, never from the caller.
 // alertEmail carries the host's sign-in address for the minimal new-message alert; a value that is
 // not a valid address is dropped rather than failing property creation.
 export async function insertProperty(
   tx: postgres.TransactionSql,
-  input: { displayName: string; sourceLocale: string; enabledLocales: string[] },
+  input: { displayName: string },
   alertEmail: string | null = null,
 ): Promise<string> {
-  const parsed = canonicalInput(propertyFields, input);
+  const parsed = canonicalInput(createPropertyInput, input);
   const parsedEmail = alertEmail ? alertEmailSchema.safeParse(alertEmail) : null;
   const email = parsedEmail?.success ? parsedEmail.data : null;
+  const d = (await readHostSettings(tx)) ?? builtInHostSettings;
   const [row] = await tx<{ id: string }[]>`
-    insert into app.properties (owner_id, display_name, source_locale, enabled_locales, alert_email)
-    values (app.current_owner_id(), ${parsed.displayName}, ${parsed.sourceLocale}, ${parsed.enabledLocales}, ${email})
+    insert into app.properties (owner_id, display_name, source_locale, enabled_locales, timezone, theme, contact_phone,
+      answer_from, answer_to, checkin_time, checkout_time, alert_email)
+    values (app.current_owner_id(), ${parsed.displayName}, ${d.sourceLocale}, ${d.enabledLocales}, ${d.timezone},
+      ${d.theme}, ${d.contactPhone}, ${d.answerFrom}, ${d.answerTo}, ${d.checkinTime}, ${d.checkoutTime}, ${email})
     returning id
   `;
   return row!.id;

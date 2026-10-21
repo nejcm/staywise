@@ -91,7 +91,7 @@ describe('getHostAuthState', () => {
 
   it('reports an interrupted enrollment with its unverified factor id', async () => {
     const { client } = stubClient({ user, factors: [unverifiedFactor] });
-    expect(await getHostAuthState(client)).toEqual({ state: 'enroll', factorId: unverifiedFactor.id, optional: false });
+    expect(await getHostAuthState(client)).toEqual({ state: 'enroll', factorId: unverifiedFactor.id });
   });
 
   it('requires the second factor when one is verified at AAL1', async () => {
@@ -135,16 +135,6 @@ describe('MFA optional', () => {
     const { client } = stubClient({ user, factors: [unverifiedFactor], currentLevel: 'aal1' });
     expect(await getHostAuthState(client)).toEqual({ state: 'workspace', totpFactorIds: [] });
     expect(await aal2Session(client)).toEqual({ outcome: 'ok', session: { userId: user.id, email: user.email } });
-  });
-
-  it('offers enrollment when the host asks to set it up', async () => {
-    mfa.required = false;
-    const { client } = stubClient({ user, factors: [] });
-    expect(await getHostAuthState(client, { setup: true })).toEqual({
-      state: 'enroll',
-      factorId: null,
-      optional: true,
-    });
   });
 
   it('still gates a host who has a verified factor', async () => {
