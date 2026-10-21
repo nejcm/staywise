@@ -61,6 +61,7 @@ describe('guest message intake', () => {
     const response = await post(valid);
     expect(response.status).toBe(status);
     expect((await response.json()).state).toBe(state);
+    expect(sendGuestMessageAlert).not.toHaveBeenCalled();
   });
 
   it('returns field errors and never reaches storage for an invalid body', async () => {
