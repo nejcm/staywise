@@ -1,6 +1,6 @@
 import { Link, createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router';
 import { useState, type FormEvent } from 'react';
-import { encode } from 'uqr';
+import { QrSvg } from '../components/qr-svg';
 import { getHostAuthState } from '../features/host/host-fns';
 import {
   createSection,
@@ -455,7 +455,8 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
           <Button type="button" onClick={() => void copy(url)} data-testid="guest-link-copy">
             Copy link
           </Button>
-          <QrSvg value={url} />
+          {/* Drawn in the browser from the one-time secret, so server-rendered HTML never carries it. */}
+          <QrSvg value={url} label="QR code for the guest link" className={editorStyles.qr} testId="guest-qr" />
           <p className="small">
             Rotating creates a new link and immediately stops the old one, including any guest who already opened it.
           </p>
@@ -494,40 +495,6 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
       </Toast>
       {dialog}
     </section>
-  );
-}
-
-// QR SVG is generated in the browser from the one-time secret, so the server-rendered HTML never
-// carries the capability; runs of dark modules keep the path compact.
-function QrSvg({ value }: { value: string }) {
-  const { data } = encode(value, { ecc: 'M', border: 4 });
-  const size = data.length;
-  const runs: string[] = [];
-  data.forEach((row, y) => {
-    let x = 0;
-    while (x < size) {
-      if (!row[x]) {
-        x += 1;
-        continue;
-      }
-      let length = 1;
-      while (x + length < size && row[x + length]) length += 1;
-      runs.push(`M${x} ${y}h${length}v1h-${length}z`);
-      x += length;
-    }
-  });
-  return (
-    <svg
-      className={editorStyles.qr}
-      viewBox={`0 0 ${size} ${size}`}
-      role="img"
-      aria-label="QR code for the guest link"
-      shapeRendering="crispEdges"
-      data-testid="guest-qr"
-    >
-      <rect width={size} height={size} fill="#ffffff" />
-      <path d={runs.join('')} fill="#000000" />
-    </svg>
   );
 }
 

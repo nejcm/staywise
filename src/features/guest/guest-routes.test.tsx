@@ -103,6 +103,7 @@ describe('guest routes', () => {
     expect(html).toContain('4821');
     expect(html).toContain('15:00');
     expect(html).not.toContain('guest-copy-');
+    expect(html).not.toContain('guest-wifi-qr');
     expect(html).not.toContain('Check-out');
   });
 

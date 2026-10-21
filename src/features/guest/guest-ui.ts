@@ -99,6 +99,10 @@ export const guestUiKeys = [
   'guide.missing',
   'help.privacy.title',
   'essentials.stay',
+  'essentials.showQr',
+  'essentials.hideQr',
+  'essentials.qrLabel',
+  'essentials.qrHint',
 ] as const;
 export type GuestUiKey = (typeof guestUiKeys)[number];
 
@@ -197,6 +201,10 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'guide.missing': 'This section is no longer in the guide.',
     'help.privacy.title': 'What happens to your message',
     'essentials.stay': 'Check-in · out',
+    'essentials.showQr': 'Show QR code',
+    'essentials.hideQr': 'Hide QR code',
+    'essentials.qrLabel': 'QR code to join {name}',
+    'essentials.qrHint': "Scan it with another device's camera to join the Wi-Fi.",
   },
   de: {
     'nav.home': 'Start',
@@ -297,6 +305,10 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'guide.missing': 'Dieser Abschnitt ist nicht mehr im Gästeführer.',
     'help.privacy.title': 'Was mit Ihrer Nachricht passiert',
     'essentials.stay': 'Anreise · Abreise',
+    'essentials.showQr': 'QR-Code anzeigen',
+    'essentials.hideQr': 'QR-Code ausblenden',
+    'essentials.qrLabel': 'QR-Code zum Verbinden mit {name}',
+    'essentials.qrHint': 'Mit der Kamera eines anderen Geräts scannen, um ins WLAN zu kommen.',
   },
   sl: {
     'nav.home': 'Domov',
@@ -393,6 +405,10 @@ export const guestUi: Record<GuestLocale, Record<GuestUiKey, string>> = {
     'guide.missing': 'Tega razdelka ni več v vodiču.',
     'help.privacy.title': 'Kaj se zgodi z vašim sporočilom',
     'essentials.stay': 'Prihod · odhod',
+    'essentials.showQr': 'Pokaži kodo QR',
+    'essentials.hideQr': 'Skrij kodo QR',
+    'essentials.qrLabel': 'Koda QR za povezavo z omrežjem {name}',
+    'essentials.qrHint': 'Za povezavo z Wi-Fi jo skenirajte s kamero druge naprave.',
   },
 };
 

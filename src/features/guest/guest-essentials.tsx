@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
+import { QrSvg } from '../../components/qr-svg';
 import { Toast } from '../../components/toast';
 import { buttonClass } from '../../components/button';
 import type { PropertyEssentials } from '../guide/guide.server';
@@ -80,6 +81,12 @@ export function CallStrip({
   );
 }
 
+// shortcut: assumes WPA/WPA2/WPA3 when a password is set (no security-type field); add one if hosts run WEP.
+export function wifiQrPayload(name: string, password: string | null): string {
+  const escape = (text: string) => text.replace(/[\\;,:"]/g, '\\$&');
+  return password ? `WIFI:T:WPA;S:${escape(name)};P:${escape(password)};;` : `WIFI:T:nopass;S:${escape(name)};;`;
+}
+
 export function hasEssentials(essentials: PropertyEssentials): boolean {
   return essentialKeys.some((key) => essentials[key]);
 }
@@ -108,6 +115,7 @@ export function ArrivalCard({
 export function EssentialsList({ essentials, locale }: { essentials: PropertyEssentials; locale: string }) {
   const [hydrated, setHydrated] = useState(false);
   const [message, setMessage] = useState('');
+  const [showQr, setShowQr] = useState(false);
   const values = useRef<Partial<Record<keyof PropertyEssentials, HTMLElement | null>>>({});
   useEffect(() => setHydrated(true), []);
 
@@ -163,6 +171,33 @@ export function EssentialsList({ essentials, locale }: { essentials: PropertyEss
           );
         })}
       </dl>
+      {hydrated && essentials.wifiName ? (
+        <div className={styles.wifiQr}>
+          <button
+            type="button"
+            className={styles.copy}
+            aria-expanded={showQr}
+            aria-controls="guest-wifi-qr"
+            onClick={() => setShowQr((open) => !open)}
+            data-testid="guest-wifi-qr-toggle"
+          >
+            {guestUiText(locale, showQr ? 'essentials.hideQr' : 'essentials.showQr')}
+          </button>
+          <div id="guest-wifi-qr" hidden={!showQr}>
+            {showQr ? (
+              <>
+                <QrSvg
+                  value={wifiQrPayload(essentials.wifiName, essentials.wifiPassword)}
+                  label={guestUiText(locale, 'essentials.qrLabel', { name: essentials.wifiName })}
+                  className={styles.qr}
+                  testId="guest-wifi-qr"
+                />
+                <p>{guestUiText(locale, 'essentials.qrHint')}</p>
+              </>
+            ) : null}
+          </div>
+        </div>
+      ) : null}
       <Toast testId="guest-essentials-toast">{message}</Toast>
     </>
   );

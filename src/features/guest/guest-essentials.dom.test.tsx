@@ -2,7 +2,7 @@
 import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { AddressLine, EssentialsList, hasEssentials } from './guest-essentials';
+import { AddressLine, EssentialsList, hasEssentials, wifiQrPayload } from './guest-essentials';
 
 afterEach(() => {
   cleanup();
@@ -47,6 +47,24 @@ describe('essentials', () => {
     await user.click(await screen.findByTestId('guest-copy-wifiPassword'));
     expect((await screen.findByRole('status')).textContent).not.toMatch(/copied/i);
     expect(window.getSelection()?.toString()).toBe('synthetic-pass');
+  });
+
+  it('shows the Wi-Fi QR code only after the toggle is pressed', async () => {
+    const user = userEvent.setup();
+    render(<EssentialsList essentials={essentials} locale="en" />);
+    const toggle = await screen.findByTestId('guest-wifi-qr-toggle');
+    expect(toggle.getAttribute('aria-expanded')).toBe('false');
+    expect(screen.queryByTestId('guest-wifi-qr')).toBeNull();
+    await user.click(toggle);
+    expect(toggle.getAttribute('aria-expanded')).toBe('true');
+    expect(screen.getByRole('img', { name: 'QR code to join SyntheticNet' })).toBeTruthy();
+    await user.click(toggle);
+    expect(screen.queryByTestId('guest-wifi-qr')).toBeNull();
+  });
+
+  it('escapes the Wi-Fi QR payload and handles open networks', () => {
+    expect(wifiQrPayload('Net;1', 'p:a,s"s\\')).toBe('WIFI:T:WPA;S:Net\\;1;P:p\\:a\\,s\\"s\\\\;;');
+    expect(wifiQrPayload('Open', null)).toBe('WIFI:T:nopass;S:Open;;');
   });
 
   it('links the address to a map search that opens safely', () => {
