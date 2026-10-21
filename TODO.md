@@ -5,7 +5,7 @@
 - make UI more rich
   - wifi qr code
   - property images, other images...
-- add more languages
+- add more languages (fr, es)
 
 ## Code review follow-up (2026-10-20)
 

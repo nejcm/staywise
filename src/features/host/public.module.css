@@ -1,7 +1,19 @@
 .page {
+  --page-max: 1120px;
   display: flex;
   flex-direction: column;
   min-height: 100vh;
+}
+
+.pageProse {
+  --page-max: 760px;
+}
+
+.top,
+.foot {
+  width: 100%;
+  max-width: var(--page-max);
+  margin: 0 auto;
 }
 
 .top {
@@ -20,7 +32,7 @@
   align-items: stretch;
   gap: var(--space-4);
   width: 100%;
-  max-width: 1120px;
+  max-width: var(--page-max);
   margin: 0 auto;
   padding: var(--space-4) clamp(16px, 4vw, 40px) 40px;
 }
@@ -111,7 +123,7 @@
   flex-direction: column;
   gap: 14px;
   width: 100%;
-  max-width: calc(68ch + 2 * clamp(16px, 4vw, 40px));
+  max-width: var(--page-max);
   margin: 0 auto;
   padding: var(--space-6) clamp(16px, 4vw, 40px) 64px;
   font-size: 17px;

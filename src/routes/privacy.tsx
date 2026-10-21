@@ -10,7 +10,7 @@ export const Route = createFileRoute('/privacy')({
 
 function PrivacyNotice() {
   return (
-    <div className={styles.page}>
+    <div className={`${styles.page} ${styles.pageProse}`}>
       <header className={styles.top}>
         <Link to="/">
           <Mark />
