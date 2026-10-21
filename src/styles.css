@@ -41,7 +41,7 @@
   --radius-control: 8px;
   --radius-panel: 20px;
   --radius-button: 999px;
-  --control-height: 40px;
+  --control-height: 38px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -147,7 +147,7 @@ textarea {
   display: block;
   width: 100%;
   min-height: var(--control-height);
-  padding: 7px 12px;
+  padding: 6px 12px;
   font-size: 16px;
   line-height: 24px;
   background: var(--surface);
@@ -180,10 +180,52 @@ textarea:focus-visible {
 
 input[type='checkbox'],
 input[type='radio'] {
-  width: 16px;
-  height: 16px;
+  display: inline-grid;
+  place-content: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
   margin: 0;
-  accent-color: var(--accent);
+  appearance: none;
+  background: var(--surface);
+  border: 1.5px solid var(--control);
+  border-radius: 5px;
+  cursor: pointer;
+  transition:
+    background-color var(--t-hover) ease,
+    border-color var(--t-hover) ease;
+}
+
+input[type='radio'] {
+  border-radius: 50%;
+}
+
+:is(input[type='checkbox'], input[type='radio']):hover:not(:disabled) {
+  border-color: var(--accent);
+}
+
+:is(input[type='checkbox'], input[type='radio']):checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+input[type='checkbox']:checked::before {
+  width: 6px;
+  height: 11px;
+  margin-top: -2px;
+  content: '';
+  border: solid var(--on-accent);
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+input[type='radio']:checked {
+  box-shadow: inset 0 0 0 4px var(--surface);
+}
+
+:is(input[type='checkbox'], input[type='radio']):disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
 }
 
 label:where(:has(> input[type='checkbox'], > input[type='radio'])) {

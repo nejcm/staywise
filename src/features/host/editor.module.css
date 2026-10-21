@@ -100,7 +100,7 @@
 }
 
 .iconButton {
-  width: var(--control-height);
+  width: 26px;
   padding: 0;
 }
 
@@ -164,10 +164,11 @@
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  min-height: 36px;
+  min-height: 34px;
   padding: 0 12px;
   font: inherit;
   font-size: 14px;
+  line-height: 20px;
   font-weight: 500;
   color: var(--pill-neutral-ink);
   cursor: pointer;
