@@ -64,8 +64,9 @@ insert into app.agent_grants (id, owner_id, kind, name, token_hash, scopes, crea
 insert into app.agent_grants (id, owner_id, kind, name, client_id, resource, scopes, created_at, expires_at) values
   ('a6e00000-0000-4000-8000-0000000000a9', 'a6e00000-0000-4000-8000-0000000000a1', 'oauth', 'Client A', 'https://claude.ai/oauth/client.json', 'https://staywise.test/mcp', '{read}', '2026-10-01T00:00:00Z', '2026-12-29T00:00:00Z'),
   ('a6e00000-0000-4000-8000-0000000000b9', 'a6e00000-0000-4000-8000-0000000000b1', 'oauth', 'Client B', 'https://chatgpt.com/oauth/client.json', 'https://staywise.test/mcp', '{read}', '2026-10-01T00:00:00Z', '2026-12-29T00:00:00Z');
+insert into app.agent_grant_tokens (token_hash, grant_id, kind, expires_at, code_challenge, redirect_uri) values
+  (sha256('code-a9'), 'a6e00000-0000-4000-8000-0000000000a9', 'code', '2026-10-19T12:00:00Z', repeat('A', 43), 'http://127.0.0.1/cb');
 insert into app.agent_grant_tokens (token_hash, grant_id, kind, expires_at) values
-  (sha256('code-a9'), 'a6e00000-0000-4000-8000-0000000000a9', 'code', '2026-10-19T12:00:00Z'),
   (sha256('access-a9'), 'a6e00000-0000-4000-8000-0000000000a9', 'access', '2026-10-19T11:00:00Z'),
   (sha256('refresh-a9'), 'a6e00000-0000-4000-8000-0000000000a9', 'refresh', '2026-10-19T12:00:01Z'),
   (sha256('refresh-a6'), 'a6e00000-0000-4000-8000-0000000000a6', 'refresh', '2026-12-01T00:00:00Z'),

@@ -404,6 +404,7 @@ function AgentAccess({ grants, properties, endpoint }: Omit<AgentData, 'enabled'
             <li key={grant.id} data-testid="agent-grant">
               <p>
                 <strong>{grant.name}</strong>
+                {grant.kind === 'oauth' ? ` · connected app from ${grant.clientHost}` : ''}
               </p>
               <p className="small muted">
                 {grant.scopes.join(', ')} · {grant.propertyName ?? 'All properties'} · expires{' '}

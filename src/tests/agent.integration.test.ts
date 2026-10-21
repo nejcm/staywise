@@ -258,7 +258,13 @@ describeLocal('agent access against the local stack', () => {
     expect(forbidden.status).toBe(403);
     expect((await fetch(`${APP}/mcp`)).status).toBe(405);
 
-    const principal = { grantId: randomUUID(), ownerId: randomUUID(), scopes: ['read' as const], propertyId: null };
+    const principal = {
+      grantId: randomUUID(),
+      ownerId: randomUUID(),
+      scopes: ['read' as const],
+      propertyId: null,
+      kind: 'pat' as const,
+    };
     for (let request = 0; request < agentLimits.perToken; request += 1) {
       expect(await agentRequestAllowed(principal)).toBe(true);
     }
@@ -529,14 +535,26 @@ describeLocal('agent access against the local stack', () => {
     expect(statuses.slice(0, -1).every((status) => status === 401)).toBe(true);
     expect(statuses.at(-1)).toBe(429);
 
-    const writer = { grantId: randomUUID(), ownerId: randomUUID(), scopes: ['inbox:write' as const], propertyId: null };
+    const writer = {
+      grantId: randomUUID(),
+      ownerId: randomUUID(),
+      scopes: ['inbox:write' as const],
+      propertyId: null,
+      kind: 'pat' as const,
+    };
     for (let write = 0; write < agentLimits.writesPerToken; write += 1) {
       expect(await agentWriteAllowed(writer)).toBe(true);
     }
     expect(await agentWriteAllowed(writer)).toBe(false);
 
     const ownerId = randomUUID();
-    const grant = () => ({ grantId: randomUUID(), ownerId, scopes: ['read' as const], propertyId: null });
+    const grant = () => ({
+      grantId: randomUUID(),
+      ownerId,
+      scopes: ['read' as const],
+      propertyId: null,
+      kind: 'pat' as const,
+    });
     for (const principal of [grant(), grant()]) {
       for (let request = 0; request < agentLimits.perHost / 2; request += 1) {
         expect(await agentRequestAllowed(principal)).toBe(true);

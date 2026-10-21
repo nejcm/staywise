@@ -5,9 +5,16 @@ import { serverEnv } from '../../lib/env.server';
 import { utcWindow } from '../guest/guest-counters.server';
 import type { AgentScope, grantLifetimes } from './agent-validation';
 
-export type AgentPrincipal = { grantId: string; ownerId: string; scopes: AgentScope[]; propertyId: string | null };
+export type AgentPrincipal = {
+  grantId: string;
+  ownerId: string;
+  kind: 'pat' | 'oauth';
+  scopes: AgentScope[];
+  propertyId: string | null;
+};
 
-const personalTokenPattern = /^sw_pat_[A-Za-z0-9_-]{43}$/;
+export const mcpResource = `${serverEnv.appOrigin}/mcp`;
+const bearerPattern = /^sw_(pat|at)_[A-Za-z0-9_-]{43}$/;
 const lastUsedEveryMs = 10 * 60 * 1000;
 export const agentLimits = {
   perToken: 60,
@@ -17,12 +24,14 @@ export const agentLimits = {
   windowSeconds: 60,
 } as const;
 
-const tokenDigest = (token: string) => createHash('sha256').update(token).digest();
+export const tokenDigest = (token: string) => createHash('sha256').update(token).digest();
 
-export function mintPersonalToken(): { token: string; digest: Buffer } {
-  const token = `sw_pat_${randomBytes(32).toString('base64url')}`;
+export function mintToken(prefix: 'pat' | 'ac' | 'at' | 'rt'): { token: string; digest: Buffer } {
+  const token = `sw_${prefix}_${randomBytes(32).toString('base64url')}`;
   return { token, digest: tokenDigest(token) };
 }
+
+export const mintPersonalToken = () => mintToken('pat');
 
 export function bearerToken(authorization: string | null): string | null {
   return /^Bearer ([^\s]+)$/i.exec(authorization ?? '')?.[1] ?? null;
@@ -38,16 +47,23 @@ export async function resolveAgentToken(
   token: string | null,
   userAgent: string | null,
 ): Promise<AgentPrincipal | null> {
-  if (serverEnv.agentAccessDisabled || !token || !personalTokenPattern.test(token)) return null;
-  const [row] = await sql<
-    {
-      grant_id: string;
-      owner_id: string;
-      scopes: AgentScope[];
-      property_id: string | null;
-      last_used_at: Date | null;
-    }[]
-  >`select grant_id, owner_id, scopes, property_id, last_used_at from app.resolve_agent_token(${tokenDigest(token)})`;
+  const kind = serverEnv.agentAccessDisabled ? undefined : bearerPattern.exec(token ?? '')?.[1];
+  if (!token || !kind) return null;
+  const digest = tokenDigest(token);
+  type Row = {
+    grant_id: string;
+    owner_id: string;
+    scopes: AgentScope[];
+    property_id: string | null;
+    last_used_at: Date | null;
+  };
+  const [row] =
+    kind === 'pat'
+      ? await sql<Row[]>`
+          select grant_id, owner_id, scopes, property_id, last_used_at from app.resolve_agent_token(${digest})`
+      : await sql<Row[]>`
+          select grant_id, owner_id, scopes, property_id, last_used_at
+          from app.resolve_agent_access_token(${digest}, ${mcpResource})`;
   if (!row) return null;
   if (!row.last_used_at || Date.now() - row.last_used_at.getTime() >= lastUsedEveryMs) {
     const label = userAgent ? cleanText(userAgent, 100) || null : null;
@@ -59,7 +75,13 @@ export async function resolveAgentToken(
       `,
     );
   }
-  return { grantId: row.grant_id, ownerId: row.owner_id, scopes: row.scopes, propertyId: row.property_id };
+  return {
+    grantId: row.grant_id,
+    ownerId: row.owner_id,
+    kind: kind === 'pat' ? 'pat' : 'oauth',
+    scopes: row.scopes,
+    propertyId: row.property_id,
+  };
 }
 
 const limitKey = (scope: string, id: string) =>
@@ -105,6 +127,8 @@ export async function recordAgentFailure(clientIp: string | null): Promise<void>
 
 export type AgentGrantSummary = {
   id: string;
+  kind: 'pat' | 'oauth';
+  clientHost: string | null;
   name: string;
   scopes: AgentScope[];
   propertyName: string | null;
@@ -118,6 +142,8 @@ export async function readActiveGrants(tx: postgres.TransactionSql): Promise<Age
   const rows = await tx<
     {
       id: string;
+      kind: 'pat' | 'oauth';
+      client_id: string | null;
       name: string;
       scopes: AgentScope[];
       property_name: string | null;
@@ -127,14 +153,20 @@ export async function readActiveGrants(tx: postgres.TransactionSql): Promise<Age
       client_label: string | null;
     }[]
   >`
-    select g.id, g.name, g.scopes, p.display_name as property_name, g.created_at, g.expires_at, g.last_used_at, g.client_label
+    select g.id, g.kind, g.client_id, g.name, g.scopes, p.display_name as property_name, g.created_at, g.expires_at,
+      g.last_used_at, g.client_label
     from app.agent_grants g
     left join app.properties p on p.id = g.property_id
     where g.revoked_at is null and g.expires_at > now()
+      and (g.kind = 'pat' or exists (
+        select 1 from app.agent_grant_tokens t where t.grant_id = g.id and t.kind = 'refresh' and t.expires_at > now()
+      ))
     order by g.created_at desc
   `;
   return rows.map((row) => ({
     id: row.id,
+    kind: row.kind,
+    clientHost: row.client_id ? (URL.parse(row.client_id)?.host ?? null) : null,
     name: row.name,
     scopes: row.scopes,
     propertyName: row.property_name,

@@ -55,6 +55,7 @@ describe('resolveAgentToken', () => {
       ownerId: grant.owner_id,
       scopes: ['read'],
       propertyId: null,
+      kind: 'pat',
     });
   });
 

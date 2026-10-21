@@ -50,7 +50,7 @@ Environment: copy `.env.example` to `.env.local`; never commit real values. `APP
 | `APP_ORIGIN` | outside local | Public origin, used for same-origin checks and links |
 | `SHARE_HMAC_KEY` | outside local | At least 32 characters; keys guest link hashes and rate-limit windows |
 | `GUEST_ACCESS_DISABLED` | no | Operator kill switch (below) |
-| `AGENT_ACCESS_DISABLED` | no | Agent kill switch: `true` denies every token at `/mcp` and hides the settings tokens section; defaults to `true` outside `local` |
+| `AGENT_ACCESS_DISABLED` | no | Agent kill switch: `true` denies every token at `/mcp`, turns off the OAuth endpoints (`/oauth/*` and the `/.well-known` metadata) and hides the settings tokens section; defaults to `true` outside `local` |
 | `MFA_REQUIRED` | no | `true` forces every host to enroll TOTP; default lets hosts opt in from `/host/settings` |
 | `GOOGLE_TRANSLATE_SERVICE_ACCOUNT` | no | Enables guide translation egress; unset means nothing is sent |
 
@@ -146,7 +146,7 @@ Setup time is the interval between a host's first `sign_in` and first `publish_c
 psql "postgresql://<owner role>:<password>@<host>:5432/postgres" -c "select app.retention_cleanup();"
 ```
 
-Production must either enable `pg_cron` in the Supabase project (the guarded migration block then creates the job) or run that statement nightly as the database owner. Provider backup/PITR retention is separate from these windows and must be confirmed in the provider console before real data; after any restore, run the overdue cleanup and `bun run storage:drain` before reopening guest traffic. The same cleanup covers `app.guest_counters`: UTC-day rows older than 400 days are deleted, and the rest cascade on property deletion. Agent access tables (`app.agent_grants`, `app.agent_grant_tokens`, `app.guide_section_revisions`) are schema-only in this tree: the cleanup deletes grants 90 days after revoke or expiry, token digests at expiry, and revisions after 90 days; property-bound rows cascade with the property, owner-level rows with account deletion, and there is no token-management UI yet. Details and rehearsal evidence: `plans/implementation_plan.md`, Phase 7a progress.
+Production must either enable `pg_cron` in the Supabase project (the guarded migration block then creates the job) or run that statement nightly as the database owner. Provider backup/PITR retention is separate from these windows and must be confirmed in the provider console before real data; after any restore, run the overdue cleanup and `bun run storage:drain` before reopening guest traffic. The same cleanup covers `app.guest_counters`: UTC-day rows older than 400 days are deleted, and the rest cascade on property deletion. Agent access tables (`app.agent_grants`, `app.agent_grant_tokens`, `app.guide_section_revisions`) back `/mcp` and the OAuth endpoints: the cleanup deletes grants 90 days after revoke or expiry, token digests at expiry, and revisions after 90 days; property-bound rows cascade with the property and owner-level rows with account deletion. OAuth refresh tokens rotate strictly: replaying a spent one, including a client retry after a timed-out token response, revokes the whole grant and the host reconnects the app. Details and rehearsal evidence: `plans/implementation_plan.md`, Phase 7a progress.
 
 `app.auth_rate_limits` holds HMAC-keyed magic-link windows (5 per client IP and 3 per address per 15 minutes, IP read from Netlify's `x-nf-client-connection-ip`) and is purged in the same cleanup.
 

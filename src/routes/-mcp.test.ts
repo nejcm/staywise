@@ -6,6 +6,8 @@ import {
   resolveAgentToken,
   type AgentPrincipal,
 } from '../features/agent/agent-auth.server';
+import { toolScopes } from '../features/agent/agent-tools.server';
+import { resourceMetadataUrl } from '../features/agent/oauth.server';
 import { serverEnv } from '../lib/env.server';
 import { Route } from './mcp';
 
@@ -29,6 +31,7 @@ const principal: AgentPrincipal = {
   ownerId: '00000000-0000-4000-8000-000000000002',
   scopes: ['read'],
   propertyId: null,
+  kind: 'pat',
 };
 
 function rpc(method: string, params?: unknown, headers: Record<string, string> = {}, raw?: string) {
@@ -48,10 +51,10 @@ function rpc(method: string, params?: unknown, headers: Record<string, string> =
   });
 }
 
-async function rpcResult(response: Response): Promise<{ result?: Record<string, unknown> }> {
+async function rpcResult(response: Response): Promise<{ result?: Record<string, unknown>; error?: unknown }> {
   const text = await response.text();
   const data = text.startsWith('{') ? text : (/^data: (.*)$/m.exec(text)?.[1] ?? '{}');
-  return JSON.parse(data) as { result?: Record<string, unknown> };
+  return JSON.parse(data) as { result?: Record<string, unknown>; error?: unknown };
 }
 
 const initialize = {
@@ -88,11 +91,22 @@ describe('/mcp boundary', () => {
     expect((await rpc('initialize', initialize, { origin: serverEnv.appOrigin })).status).toBe(200);
   });
 
-  it('answers a missing, bad, expired or revoked token with 401 invalid_token', async () => {
+  it('answers a bad, expired or revoked token with 401 invalid_token and the metadata link', async () => {
+    vi.mocked(resolveAgentToken).mockResolvedValue(null);
+    const response = await rpc('initialize', initialize);
+    expect(response.status).toBe(401);
+    expect(response.headers.get('www-authenticate')).toBe(
+      `Bearer error="invalid_token", scope="read", resource_metadata="${resourceMetadataUrl}"`,
+    );
+  });
+
+  it('answers a missing token with 401 and only the metadata link', async () => {
     vi.mocked(resolveAgentToken).mockResolvedValue(null);
     const response = await rpc('initialize', initialize, { authorization: '' });
     expect(response.status).toBe(401);
-    expect(response.headers.get('www-authenticate')).toBe('Bearer error="invalid_token"');
+    expect(response.headers.get('www-authenticate')).toBe(
+      `Bearer scope="read", resource_metadata="${resourceMetadataUrl}"`,
+    );
     expect(await response.json()).toEqual({ error: 'invalid_token' });
     expect(resolveAgentToken).toHaveBeenCalledWith(null, null);
     expect(agentRequestAllowed).not.toHaveBeenCalled();
@@ -127,6 +141,28 @@ describe('/mcp boundary', () => {
     const response = await rpc('tools/list');
     expect(response.status).toBe(429);
     expect(agentRequestAllowed).toHaveBeenCalledWith(principal);
+  });
+
+  it('steps an OAuth token up with 403 insufficient_scope for a tool outside its scopes', async () => {
+    vi.mocked(resolveAgentToken).mockResolvedValue({ ...principal, kind: 'oauth' });
+    const response = await rpc('tools/call', { name: 'upsert_section', arguments: {} });
+    expect(response.status).toBe(403);
+    expect(response.headers.get('www-authenticate')).toBe(
+      `Bearer error="insufficient_scope", scope="content:write", resource_metadata="${resourceMetadataUrl}"`,
+    );
+    expect(await response.json()).toEqual({ error: 'insufficient_scope' });
+  });
+
+  it('passes an in-scope OAuth call and unknown tools through to the server', async () => {
+    vi.mocked(resolveAgentToken).mockResolvedValue({ ...principal, kind: 'oauth' });
+    expect((await rpc('tools/call', { name: 'list_properties', arguments: {} })).status).toBe(200);
+    expect((await rpc('tools/call', { name: 'no_such_tool', arguments: {} })).status).toBe(200);
+  });
+
+  it('keeps a personal token out of scope inside JSON-RPC, never a 403', async () => {
+    const response = await rpc('tools/call', { name: 'upsert_section', arguments: {} });
+    expect(response.status).toBe(200);
+    expect(await rpcResult(response)).toMatchObject({ error: { message: 'Tool upsert_section not found' } });
   });
 
   it('returns 405 for GET and DELETE without touching auth', async () => {
@@ -175,6 +211,15 @@ describe('/mcp boundary', () => {
     vi.mocked(resolveAgentToken).mockResolvedValue({ ...principal, scopes: [...scopes] });
     const { result } = await rpcResult(await rpc('tools/list'));
     expect(((result?.tools ?? []) as { name: string }[]).map((tool) => tool.name)).toEqual(names);
+  });
+
+  it('keeps the step-up scope map in line with the tools each scope lists', async () => {
+    for (const scope of ['read', 'content:write', 'reservations:write', 'inbox:write'] as const) {
+      vi.mocked(resolveAgentToken).mockResolvedValue({ ...principal, scopes: [scope] });
+      const { result } = await rpcResult(await rpc('tools/list'));
+      const listed = ((result?.tools ?? []) as { name: string }[]).map((tool) => tool.name);
+      expect(listed).toEqual([...toolScopes].filter(([, needed]) => needed === scope).map(([name]) => name));
+    }
   });
 
   it('annotates writes per the plan', async () => {

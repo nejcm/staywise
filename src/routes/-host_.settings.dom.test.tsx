@@ -208,6 +208,8 @@ const activeGrant = {
   expiresAt: '2026-10-31T09:00:00.000Z',
   lastUsedAt: '2026-10-20T08:00:00.000Z',
   clientLabel: 'claude-code/2.0',
+  kind: 'pat' as const,
+  clientHost: null,
 };
 
 function enableAgentAccess(grants = [activeGrant]) {

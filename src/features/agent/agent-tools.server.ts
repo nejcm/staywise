@@ -58,6 +58,22 @@ const toolError = (text: string): CallToolResult => ({ content: [{ type: 'text',
 // A refusal the agent may read; anything else surfaces as a generic error.
 export class AgentRefusal extends Error {}
 
+// The scope each tool's runTool call checks; /mcp reads it to answer OAuth tokens with a step-up.
+export const toolScopes = new Map<string, AgentScope>([
+  ['list_properties', 'read'],
+  ['get_property', 'read'],
+  ['list_reservations', 'read'],
+  ['list_inbox', 'read'],
+  ['update_property', 'content:write'],
+  ['upsert_section', 'content:write'],
+  ['move_section', 'content:write'],
+  ['review_translation', 'content:write'],
+  ['upsert_reservations', 'reservations:write'],
+  ['create_stay_link', 'reservations:write'],
+  ['revoke_stay_link', 'reservations:write'],
+  ['mark_inbox_handled', 'inbox:write'],
+]);
+
 // Single choke point (Q9, Q22): scope and property restriction, owner-scoped RLS, and one audit row per call.
 export async function runTool<T extends Record<string, unknown>>(
   principal: AgentPrincipal,

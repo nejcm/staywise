@@ -16,6 +16,7 @@ const principal: AgentPrincipal = {
   ownerId: '00000000-0000-4000-8000-000000000002',
   scopes: ['read'],
   propertyId: null,
+  kind: 'pat',
 };
 
 let audits: unknown[][];
