@@ -126,6 +126,17 @@
   border: 1px solid var(--secondary-edge);
   border-radius: 16px;
   box-shadow: 0 12px 32px rgb(19 32 31 / 18%);
+  transform-origin: top right;
+  transition:
+    opacity 150ms var(--ease-out),
+    transform 150ms var(--ease-out);
+}
+
+@starting-style {
+  .languages[open] ul {
+    opacity: 0;
+    transform: scale(0.97);
+  }
 }
 
 .languages a {
@@ -634,6 +645,24 @@
   color: #fff;
   background: var(--accent);
   border-radius: 20px;
+  transition:
+    opacity 300ms var(--ease-out),
+    transform 300ms var(--ease-out);
+}
+
+.sent + .recap {
+  transition: opacity 300ms var(--ease-out) 60ms;
+}
+
+@starting-style {
+  .sent {
+    opacity: 0;
+    transform: translateY(8px) scale(0.98);
+  }
+
+  .sent + .recap {
+    opacity: 0;
+  }
 }
 
 .closed {
