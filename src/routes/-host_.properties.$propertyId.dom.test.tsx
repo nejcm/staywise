@@ -21,6 +21,7 @@ import {
   rejectGuideTranslation,
 } from '../features/translation/translation-fns';
 import type { GuideEditorData } from '../features/guide/guide.server';
+import { expectNamedControlsAndHiddenIcons } from '../tests/a11y';
 
 vi.mock('../features/host/host-fns', () => ({ getHostAuthState: vi.fn() }));
 vi.mock('../features/guide/guide-fns', () => ({
@@ -153,6 +154,20 @@ beforeEach(() => {
   vi.mocked(getInbox).mockResolvedValue({ messages: [] } as never);
 });
 afterEach(cleanup);
+
+describe('PropertyEditor', () => {
+  it('names every control in text and hides every icon', async () => {
+    const second = { ...editor.sections[0]!, id: '44444444-4444-4444-8444-444444444444', category: 'parking' as const };
+    vi.mocked(getPropertyEditor).mockResolvedValue({
+      editor: { ...editor, sections: [...editor.sections, second] },
+      gaps: [],
+    } as never);
+    await renderEditor();
+    expect(screen.getAllByTestId('section-move-up')).toHaveLength(1);
+    expect(document.querySelectorAll('svg.lucide').length).toBeGreaterThan(0);
+    expectNamedControlsAndHiddenIcons(document.body);
+  });
+});
 
 describe('GuidePublish', () => {
   it('disables the button while publishing and refreshes on success', async () => {

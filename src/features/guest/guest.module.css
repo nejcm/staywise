@@ -41,17 +41,6 @@
   color: var(--muted);
 }
 
-.icon {
-  flex: none;
-  width: 18px;
-  height: 18px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 .control,
 .languages summary,
 .locales a {
@@ -168,6 +157,7 @@
   display: flex;
   align-items: center;
   justify-content: center;
+  gap: 6px;
   min-height: 48px;
   padding: 6px 10px;
   text-align: center;
@@ -226,6 +216,12 @@
 
 .sectionTitle {
   padding-top: 6px;
+}
+
+.titleIcon {
+  margin-inline-end: 0.25em;
+  font-size: 0.8em;
+  color: var(--accent-ink);
 }
 
 .subtitle,
@@ -334,7 +330,12 @@
   color: var(--muted);
 }
 
-.rows .icon {
+.rows .rowIcon {
+  font-size: 22px;
+  color: var(--accent-ink);
+}
+
+.rows .chevron {
   color: var(--control);
 }
 
@@ -708,6 +709,9 @@
 }
 
 .essentials dt {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: 14px;
   color: var(--accent-track);
 }

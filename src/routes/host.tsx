@@ -1,10 +1,12 @@
 import { Link, createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router';
+import { Plus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
 import { getHostAuthState, listOwnProperties, mfaEnroll } from '../features/host/host-fns';
 import { TotpEnrollment } from '../features/host/totp-enrollment';
 import { HostShell, SignOutButton } from '../components/app-shell';
 import { Button, buttonClass } from '../components/button';
 import { Field } from '../components/field';
+import { Icon } from '../components/icons';
 import { Mark } from '../components/mark';
 import { Pill } from '../components/pill';
 import { Toast } from '../components/toast';
@@ -166,7 +168,7 @@ function HostPage() {
           <p className={styles.sub}>{workspaceSummary(properties)}</p>
         </div>
         <a href="#create-heading" className={buttonClass('primary')} data-testid="host-add-property">
-          <PlusIcon />
+          <Icon icon={Plus} />
           Add property
         </a>
       </div>
@@ -209,7 +211,7 @@ function HostPage() {
             </li>
           </ol>
           <a href="#create-heading" className={buttonClass('primary')}>
-            <PlusIcon />
+            <Icon icon={Plus} />
             Add your first property
           </a>
         </section>
@@ -423,14 +425,6 @@ function AlertDrift({ properties, email }: { properties: PropertySummary[]; emai
         ))}
       </ul>
     </div>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg viewBox="0 0 24 24" aria-hidden="true" className={styles.icon}>
-      <path d="M12 5v14M5 12h14" />
-    </svg>
   );
 }
 

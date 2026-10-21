@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { ChevronIcon } from '../features/guest/guest-essentials';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { Icon, categoryIcon } from '../components/icons';
 import { sectionHref } from '../features/guest/guest-sections';
 import { guestLink, guestLocaleName, guestUiText } from '../features/guest/guest-ui';
 import styles from '../features/guest/guest.module.css';
@@ -30,6 +31,7 @@ function GuestSection() {
   return (
     <>
       <h1 className={styles.sectionTitle} lang={sourceLang}>
+        <Icon icon={categoryIcon(section.category)} className={styles.titleIcon} />
         {section.title}
       </h1>
       <article className={`${styles.card} ${styles.prose}`}>
@@ -50,12 +52,12 @@ function GuestSection() {
                 <small>{guestUiText(locale, 'guide.next')}</small>
                 <strong>{next.title}</strong>
               </span>
-              <ChevronIcon direction="forward" />
+              <Icon icon={ChevronRight} />
             </a>
           ) : null}
           {previous ? (
             <a href={sectionHref(home, position - 1, lang)} rel="prev">
-              <ChevronIcon direction="back" />
+              <Icon icon={ChevronLeft} />
               <span>
                 <small>{guestUiText(locale, 'guide.previous')}</small>
                 <strong>{previous.title}</strong>

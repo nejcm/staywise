@@ -1,4 +1,5 @@
 import { Link, createFileRoute, redirect, useBlocker, useNavigate, useRouter } from '@tanstack/react-router';
+import { ArrowDown, ArrowUp, ChevronLeft, Circle, Plus, Trash } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { QrSvg } from '../components/qr-svg';
 import { getHostAuthState } from '../features/host/host-fns';
@@ -28,6 +29,7 @@ import { Button, buttonClass } from '../components/button';
 import { useConfirmDialog } from '../components/confirm-dialog';
 import { useHostAction } from '../components/host-action';
 import { Field } from '../components/field';
+import { Icon } from '../components/icons';
 import { Pill } from '../components/pill';
 import { Toast } from '../components/toast';
 import {
@@ -210,7 +212,7 @@ function PropertyEditorPage() {
             onClick={() => open('new')}
             data-testid="section-add"
           >
-            <PlusIcon />
+            <Icon icon={Plus} />
             Add section
           </button>
         </nav>
@@ -220,7 +222,7 @@ function PropertyEditorPage() {
             className={`${buttonClass('ghost')} ${editorStyles.back}`}
             onClick={() => setView('list')}
           >
-            <BackIcon />
+            <Icon icon={ChevronLeft} />
             Sections
           </button>
           {/* Inactive editors stay mounted so unsaved text survives switching sections. */}
@@ -244,30 +246,6 @@ function PropertyEditorPage() {
       </div>
       <InboxPanel propertyId={property.id} messages={inbox} />
     </HostShell>
-  );
-}
-
-function PlusIcon() {
-  return (
-    <svg className={editorStyles.icon} viewBox="0 0 24 24" aria-hidden="true">
-      <path d="M12 5v14M5 12h14" />
-    </svg>
-  );
-}
-
-function BackIcon() {
-  return (
-    <svg className={editorStyles.icon} viewBox="0 0 24 24" aria-hidden="true">
-      <path d="m15 6-6 6 6 6" />
-    </svg>
-  );
-}
-
-function ArrowIcon({ direction }: { direction: 'up' | 'down' }) {
-  return (
-    <svg className={editorStyles.icon} viewBox="0 0 24 24" aria-hidden="true">
-      <path d={direction === 'up' ? 'M12 19V5M6 11l6-6 6 6' : 'M12 5v14M6 13l6 6 6-6'} />
-    </svg>
   );
 }
 
@@ -336,7 +314,7 @@ function SectionNavRow({
           disabled={busy}
           data-testid="section-move-up"
         >
-          <ArrowIcon direction="up" />
+          <Icon icon={ArrowUp} />
         </button>
       )}
       {last ? null : (
@@ -348,7 +326,7 @@ function SectionNavRow({
           disabled={busy}
           data-testid="section-move-down"
         >
-          <ArrowIcon direction="down" />
+          <Icon icon={ArrowDown} />
         </button>
       )}
       {failed ? (
@@ -1038,6 +1016,7 @@ function PropertyDangerZone({ propertyId }: { propertyId: string }) {
           disabled={busy}
           data-testid="property-delete"
         >
+          <Icon icon={Trash} />
           Delete property
         </Button>
         <Toast testId="property-delete-message" tone={messageFailed ? 'error' : undefined}>
@@ -1545,6 +1524,7 @@ function ReadinessPanel({ items, onJump }: { items: ReadinessItem[]; onJump: (it
               onClick={() => onJump(item)}
               data-testid={`readiness-${item.key}`}
             >
+              <Icon icon={Circle} />
               {item.label}
             </button>
           </li>

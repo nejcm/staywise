@@ -1,8 +1,10 @@
 import { Link, useRouter } from '@tanstack/react-router';
+import { House, Shield, SlidersHorizontal } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { signOut } from '../features/host/host-fns';
 import styles from './app-shell.module.css';
 import { Button } from './button';
+import { Icon } from './icons';
 import { Mark } from './mark';
 
 export function SignOutButton({ variant }: { variant?: 'ghost' }) {
@@ -35,21 +37,15 @@ export function HostShell({ email, children }: { email?: string | null; children
         </Link>
         <nav aria-label="Workspace" className={styles.nav}>
           <Link to="/host" activeOptions={{ exact: true }}>
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M3 11 12 4l9 7M5 10v10h14V10" />
-            </svg>
+            <Icon icon={House} />
             Properties
           </Link>
           <Link to="/host/settings" data-testid="host-settings-link">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M4 7h10M18 7h2M4 17h4M12 17h8M16 5v4M10 15v4" />
-            </svg>
+            <Icon icon={SlidersHorizontal} />
             Settings
           </Link>
           <Link to="/privacy">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-              <path d="M12 3 4 6v6c0 5 3.5 8 8 9 4.5-1 8-4 8-9V6z" />
-            </svg>
+            <Icon icon={Shield} />
             Privacy notice
           </Link>
         </nav>

@@ -1,6 +1,8 @@
 import { useRouter } from '@tanstack/react-router';
+import { Check } from 'lucide-react';
 import { useState } from 'react';
 import { Button } from '../../components/button';
+import { Icon } from '../../components/icons';
 import { useConfirmDialog } from '../../components/confirm-dialog';
 import { Pill } from '../../components/pill';
 import { Toast } from '../../components/toast';
@@ -81,7 +83,14 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
                 <span data-testid="inbox-item-locale">{guestLocaleName(entry.locale)}</span>
                 <span data-testid="inbox-item-created">{stamp(entry.createdAt)}</span>
                 <Pill tone={entry.state === 'handled' ? 'positive' : 'attention'} testId="inbox-item-state">
-                  {entry.state === 'handled' ? 'Handled' : 'New'}
+                  {entry.state === 'handled' ? (
+                    <>
+                      <Icon icon={Check} />
+                      Handled
+                    </>
+                  ) : (
+                    'New'
+                  )}
                 </Pill>
                 {entry.handledAt ? <span data-testid="inbox-item-handled"> {stamp(entry.handledAt)}</span> : null}
               </p>

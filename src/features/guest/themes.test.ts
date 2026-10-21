@@ -45,6 +45,8 @@ const pairs = [
   ['--muted', '--ground', 4.5],
   ['--muted', '--surface', 4.5],
   ['--accent-ink', '--accent-soft', 4.5],
+  ['--accent-ink', '--surface', 4.5],
+  ['--accent-ink', '--ground', 4.5],
   ['--on-accent', '--accent', 4.5],
   ['--link', '--surface', 4.5],
   ['--control', '--surface', 3],

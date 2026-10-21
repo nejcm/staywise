@@ -105,17 +105,6 @@
   padding: 0;
 }
 
-.icon {
-  width: 16px;
-  height: 16px;
-  flex: none;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 .addButton {
   justify-self: start;
   margin: 6px 4px 0;
@@ -346,6 +335,9 @@
 }
 
 .linkButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 0;
   font: inherit;
   color: var(--accent-ink);
