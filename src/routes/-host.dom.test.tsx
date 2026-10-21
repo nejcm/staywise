@@ -78,7 +78,16 @@ async function renderWith(properties: ReturnType<typeof property>[]) {
 describe('host alert drift', () => {
   it('flags a property whose alert address differs from the sign-in address', async () => {
     await renderWith([property({ alertEmail: 'old@example.test' })]);
-    expect(screen.getByTestId('host-alert-drift').textContent).toContain('go to old@example.test');
+    expect(screen.getByTestId('host-alert-drift').textContent).toBe(
+      'Guest alerts for Synthetic loft go to old@example.test, not your sign-in address.',
+    );
+  });
+
+  it('says when a property has no alert address', async () => {
+    await renderWith([property({ alertEmail: null })]);
+    expect(screen.getByTestId('host-alert-drift').textContent).toBe(
+      'Guest alerts for Synthetic loft have no address set.',
+    );
   });
 
   it('stays hidden when the addresses match ignoring case', async () => {

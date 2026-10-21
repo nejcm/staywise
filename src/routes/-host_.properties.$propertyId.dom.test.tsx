@@ -330,6 +330,27 @@ describe('GapPanel', () => {
     await userEvent.click(screen.getByTestId('gap-add-parking'));
     expect(createSection).toHaveBeenCalledWith({ data: { propertyId, category: 'parking', fromGap: true } });
   });
+
+  it('opens the new section and focuses its title', async () => {
+    const parkingId = '55555555-5555-4555-8555-555555555555';
+    const parking = { ...editor.sections[0]!, id: parkingId, category: 'parking', title: '', translations: [] };
+    let resolveRefetch: (value: unknown) => void = () => {};
+    const refetched = new Promise((resolve) => (resolveRefetch = resolve));
+    vi.mocked(getPropertyEditor)
+      .mockResolvedValueOnce({
+        editor,
+        gaps: [{ category: 'parking', asked: 3, lastAsked: '2026-10-20T10:00:00.000Z' }],
+      } as never)
+      .mockReturnValue(refetched as never);
+    vi.mocked(createSection).mockResolvedValue({ sectionId: parkingId } as never);
+    await renderEditor();
+    await userEvent.click(screen.getByTestId('gap-add-parking'));
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(document.getElementById(`section-title-${parkingId}`)).toBeNull();
+    resolveRefetch({ editor: { ...editor, sections: [...editor.sections, parking] }, gaps: [] });
+    await waitFor(() => expect(document.activeElement?.id).toBe(`section-title-${parkingId}`));
+    expect(screen.queryByTestId('guide-gaps')).toBeNull();
+  });
 });
 
 describe('GuestLinkPanel', () => {

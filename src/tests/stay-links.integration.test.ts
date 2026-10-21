@@ -67,6 +67,27 @@ describeLocal('stay links against the local database', () => {
     }
   });
 
+  it('expires at noon the day after check-out in the property timezone', async () => {
+    const { ownerId, propertyId } = await fixture();
+    try {
+      await admin`update app.properties set timezone = 'Europe/Ljubljana' where id = ${propertyId}`;
+      const link = newShareLink();
+      await withOwnerContext(ownerId, (tx) =>
+        createStayLink(tx, {
+          propertyId,
+          stayStart: '2026-10-20',
+          stayEnd: '2026-10-23',
+          id: link.id,
+          hmac: link.hmac,
+        }),
+      );
+      const [row] = await admin<{ at: Date }[]>`select expires_at as at from app.share_links where id = ${link.id}`;
+      expect(row!.at.toISOString()).toBe('2026-10-24T10:00:00.000Z');
+    } finally {
+      await admin`delete from auth.users where id = ${ownerId}`;
+    }
+  });
+
   it('clamps the guest session to the stay link expiry', async () => {
     const { ownerId, propertyId } = await fixture();
     try {

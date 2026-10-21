@@ -1,5 +1,5 @@
 import { Link, createFileRoute, redirect, useBlocker, useNavigate, useRouter } from '@tanstack/react-router';
-import { useRef, useState, type FormEvent } from 'react';
+import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { QrSvg } from '../components/qr-svg';
 import { getHostAuthState } from '../features/host/host-fns';
 import {
@@ -114,6 +114,21 @@ function PropertyEditorPage() {
     if (anchor) requestAnimationFrame(() => document.getElementById(anchor)?.focus());
   }
 
+  const pendingFocus = useRef<string | null>(null);
+
+  // The new section's title only renders once the loader refetch returns it.
+  useEffect(() => {
+    const title = pendingFocus.current && document.getElementById(`section-title-${pendingFocus.current}`);
+    if (!title) return;
+    title.focus();
+    pendingFocus.current = null;
+  });
+
+  function openCreated(sectionId: string) {
+    open(sectionId);
+    pendingFocus.current = sectionId;
+  }
+
   return (
     <HostShell key={property.id}>
       <nav aria-label="Breadcrumb" className={styles.crumb}>
@@ -152,7 +167,7 @@ function PropertyEditorPage() {
         </div>
       </div>
       <ReadinessPanel items={readiness(editor, Boolean(share?.link))} onJump={jump} />
-      <GapPanel propertyId={property.id} gaps={gaps} onCreated={open} />
+      <GapPanel propertyId={property.id} gaps={gaps} onCreated={openCreated} />
       <div className={editorStyles.workspace} data-view={view}>
         <nav className={`${styles.panel} ${editorStyles.sectionNav}`} aria-labelledby="sections-heading">
           <h2 id="sections-heading">Guide sections</h2>
@@ -218,7 +233,7 @@ function PropertyEditorPage() {
               <SectionForm propertyId={property.id} sourceLocale={property.sourceLocale} section={section} />
             </div>
           ))}
-          {active === 'new' ? <AddSectionForm propertyId={property.id} onCreated={open} /> : null}
+          {active === 'new' ? <AddSectionForm propertyId={property.id} onCreated={openCreated} /> : null}
         </div>
       </div>
       <div className={editorStyles.panels}>

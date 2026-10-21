@@ -418,7 +418,7 @@ function AlertDrift({ properties, email }: { properties: PropertySummary[]; emai
             <Link to="/host/properties/$propertyId" params={{ propertyId: property.id }} hash="alert-email-heading">
               {property.displayName}
             </Link>{' '}
-            {property.alertEmail ? `go to ${property.alertEmail}` : 'go nowhere'}, not your sign-in address.
+            {property.alertEmail ? `go to ${property.alertEmail}, not your sign-in address.` : 'have no address set.'}
           </li>
         ))}
       </ul>

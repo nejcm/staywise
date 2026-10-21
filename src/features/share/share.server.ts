@@ -192,13 +192,6 @@ export const revokeStayLinkInput = z.object({ propertyId: z.uuid(), reservationI
 
 export type Stay = { reservationId: string; stayStart: string; stayEnd: string; linkOn: boolean; expiresAt: string };
 
-// shortcut: expires at UTC noon the day after check-out; use the property timezone once one is stored.
-export function stayLinkExpiry(stayEnd: string): Date {
-  const expiry = new Date(`${stayEnd}T12:00:00Z`);
-  expiry.setUTCDate(expiry.getUTCDate() + 1);
-  return expiry;
-}
-
 export async function createStayLink(
   tx: postgres.TransactionSql,
   input: { propertyId: string; stayStart: string; stayEnd: string; id: string; hmac: Buffer },
@@ -211,9 +204,12 @@ export async function createStayLink(
     returning id
   `;
   if (!reservation) return null;
+  // Noon the day after check-out, in the property's own timezone.
   await tx`
     insert into app.share_links (id, secret_hmac, property_id, kind, reservation_id, expires_at)
-    values (${parsed.id}, ${parsed.hmac}, ${parsed.propertyId}, 'stay', ${reservation.id}, ${stayLinkExpiry(parsed.stayEnd)})
+    select ${parsed.id}, ${parsed.hmac}, p.id, 'stay', ${reservation.id},
+      ((${parsed.stayEnd}::date + 1) + time '12:00') at time zone p.timezone
+    from app.properties p where p.id = ${parsed.propertyId}
   `;
   return reservation.id;
 }
