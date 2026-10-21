@@ -1,7 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { toGuestGuideDto, type GuestGuideRow } from './guide.server';
 
-const property = { display_name: 'Synthetic villa', source_locale: 'en', enabled_locales: [] as string[] };
+const property = {
+  display_name: 'Synthetic villa',
+  source_locale: 'en',
+  enabled_locales: [] as string[],
+  theme: 'staywise',
+};
 
 function row(overrides: Partial<GuestGuideRow> & { secret_value?: string | null }): GuestGuideRow {
   return {
@@ -33,6 +38,7 @@ describe('toGuestGuideDto', () => {
       sourceLocale: 'en',
       locale: 'en',
       locales: ['en'],
+      theme: 'staywise',
       sections: [
         { category: 'wifi', title: 'First', body: 'Synthetic body', provenance: 'source' },
         { category: 'wifi', title: 'Second', body: 'Synthetic body', provenance: 'source' },
@@ -41,6 +47,10 @@ describe('toGuestGuideDto', () => {
     for (const section of dto.sections) {
       expect(Object.keys(section)).toEqual(['category', 'title', 'body', 'provenance']);
     }
+  });
+
+  it('carries the property theme', () => {
+    expect(toGuestGuideDto({ ...property, theme: 'alpine' }, [], 'en').theme).toBe('alpine');
   });
 
   it('drops secret values and host-only notes even when the rows carry them', () => {

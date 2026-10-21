@@ -14,6 +14,7 @@
   --accent-soft: #e3f0ef;
   --accent-track: #cfe5e3;
   --accent-ink: #0b4a4e;
+  --on-accent: #ffffff;
   --negative: #b42318;
   --negative-soft: #fdecea;
   --negative-ink: #8c1c13;
@@ -38,6 +39,8 @@
   --fs-small: 13px;
   --radius-card: 14px;
   --radius-control: 8px;
+  --radius-panel: 20px;
+  --radius-button: 999px;
   --control-height: 40px;
   --space-1: 4px;
   --space-2: 8px;

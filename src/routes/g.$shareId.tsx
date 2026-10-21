@@ -83,11 +83,11 @@ function GuestLayout() {
       </main>
     );
   }
-  const { locale, locales, sourceLocale, sections } = guest.guest;
+  const { locale, locales, sourceLocale, sections, theme } = guest.guest;
   const home = `/g/${shareId}`;
   const reviewed = sections.some((section) => section.provenance === 'reviewed');
   return (
-    <main className={styles.shell} lang={locale}>
+    <main className={styles.shell} lang={locale} data-theme={theme}>
       <a
         className={styles.skipLink}
         href="#guest-content"

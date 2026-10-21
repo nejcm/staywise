@@ -79,6 +79,7 @@ export const saveProperty = createServerFn({ method: 'POST' })
         answerFrom?: string;
         answerTo?: string;
         timezone?: string;
+        theme?: string;
       },
   )
   .handler(async ({ data }) =>

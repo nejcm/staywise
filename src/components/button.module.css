@@ -24,12 +24,12 @@
 }
 
 .primary {
-  color: #fff;
+  color: var(--on-accent);
   background: var(--accent);
 }
 
 .primary:hover:not(:disabled) {
-  color: #fff;
+  color: var(--on-accent);
   background: var(--accent-hover);
 }
 

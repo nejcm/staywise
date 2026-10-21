@@ -251,6 +251,7 @@ describeLocal('guest link trust boundaries against the local stack', () => {
       expect(page.html).toContain(`tel:${CONTACT_PHONE}`);
       expect(page.html).toContain(HOURS_MARKER);
       expect(page.html).not.toContain('guest-copy-');
+      expect(page.html).toContain('data-theme="staywise"');
 
       const read = decode<GuestPage>(
         await guestFn('getGuestPage', { data: { shareId: link.shareId }, jar: jarFor(guestCookie) }),
@@ -276,6 +277,7 @@ describeLocal('guest link trust boundaries against the local stack', () => {
       expect(revoked.html).not.toContain(KEYBOX_CODE);
       expect(revoked.html).not.toContain(CONTACT_PHONE);
       expect(revoked.html).not.toContain(HOURS_MARKER);
+      expect(revoked.html).not.toMatch(/<main[^>]*data-theme/);
       const log = devServerLog();
       if (log === null) throw new Error('dev-server log capture is missing; cannot check credentials stay out of logs');
       expect(log).not.toContain(KEYBOX_CODE);

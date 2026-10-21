@@ -12,7 +12,7 @@ TanStack Start (React 19, SSR, server functions) with CSS Modules, Bun, Supabase
 
 ## Host workspace
 
-`/host` lists each property with its address, published state, guide categories, unpublished sections, guest link state, which guest languages are fully reviewed, and the latest waiting messages. The property editor has a guest preview in phone and tablet device frames at `/host/preview/<propertyId>`.
+`/host` lists each property with its address, published state, guide categories, unpublished sections, guest link state, which guest languages are fully reviewed, and the latest waiting messages. The property editor has a guest preview in phone and tablet device frames at `/host/preview/<propertyId>`. Each property picks one of five preset guest page themes ([ADR 0003](docs/adr/0003-guest-themes-are-presets.md)).
 
 ## Development
 

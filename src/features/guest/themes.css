@@ -1,0 +1,104 @@
+/* Guest page presets keyed by app.properties.theme; staywise is the :root palette. Light only. */
+[data-theme] {
+  font-family: var(--font);
+  color: var(--text);
+  background: var(--ground);
+}
+
+:root:has(main[data-theme='coast']),
+[data-theme='coast'] {
+  --ground: #f6f0e4;
+  --surface: #fffcf6;
+  --raised: #eee6d6;
+  --border: #e4d9c5;
+  --rule: #eee6d6;
+  --text: #13223a;
+  --muted: #4b5568;
+  --accent: #1c4f8a;
+  --accent-hover: #153d6c;
+  --accent-soft: #e2ebf5;
+  --accent-track: #c8d8eb;
+  --accent-ink: #153d6c;
+  --on-accent: #ffffff;
+  --link: #19467a;
+  --secondary-edge: #d5c9b3;
+  --secondary-hover: #f2ebdd;
+  --control: #8c8475;
+  --disabled-edge: #ddd3c1;
+}
+
+:root:has(main[data-theme='alpine']),
+[data-theme='alpine'] {
+  --ground: #f6f7f3;
+  --surface: #ffffff;
+  --raised: #eaede6;
+  --border: #dee3da;
+  --rule: #eaede6;
+  --text: #16211a;
+  --muted: #4a564c;
+  --accent: #1e5236;
+  --accent-hover: #163f29;
+  --accent-soft: #e1ede5;
+  --accent-track: #c7dccf;
+  --accent-ink: #163f29;
+  --on-accent: #ffffff;
+  --link: #1b4a30;
+  --secondary-edge: #c9d2c7;
+  --secondary-hover: #eef2ec;
+  --radius-card: 8px;
+  --radius-control: 4px;
+  --radius-panel: 10px;
+  --radius-button: 4px;
+  --control: #87928a;
+  --disabled-edge: #d3dbd2;
+}
+
+:root:has(main[data-theme='terracotta']),
+[data-theme='terracotta'] {
+  --ground: #faf2e8;
+  --surface: #fffaf3;
+  --raised: #f1e5d6;
+  --border: #e9d9c6;
+  --rule: #f1e5d6;
+  --text: #2a1a12;
+  --muted: #5d4a3f;
+  --accent: #a3452a;
+  --accent-hover: #853820;
+  --accent-soft: #f6e2d7;
+  --accent-track: #ecc8b6;
+  --accent-ink: #7a3119;
+  --on-accent: #ffffff;
+  --link: #8c3a20;
+  --secondary-edge: #ddc8b3;
+  --secondary-hover: #f5eadd;
+  --control: #98877a;
+  --disabled-edge: #e2d2c1;
+  --font: 'Source Serif 4 Variable', Georgia, 'Times New Roman', serif;
+}
+
+:root:has(main[data-theme='classic']),
+[data-theme='classic'] {
+  --ground: #fbfbf8;
+  --surface: #ffffff;
+  --raised: #efefea;
+  --border: #e1e1db;
+  --rule: #efefea;
+  --text: #151a24;
+  --muted: #4c5160;
+  --accent: #1f2d4f;
+  --accent-hover: #151f38;
+  --accent-soft: #e5e8f0;
+  --accent-track: #ccd2e1;
+  --accent-ink: #1f2d4f;
+  --on-accent: #ffffff;
+  --link: #23356a;
+  --secondary-edge: #cdd0d8;
+  --secondary-hover: #f1f2f5;
+  --radius-card: 4px;
+  --radius-control: 2px;
+  --radius-panel: 4px;
+  --radius-button: 2px;
+  --control: #878b96;
+  --disabled-edge: #d6d8de;
+  --font: 'Source Serif 4 Variable', Georgia, 'Times New Roman', serif;
+}
