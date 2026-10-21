@@ -25,12 +25,6 @@ export async function putImage(path: string, bytes: Uint8Array): Promise<boolean
   return !error;
 }
 
-export async function removeImage(path: string): Promise<boolean> {
-  if (!bucket) return false;
-  const { error } = await bucket.remove([path]).catch((caught: unknown) => ({ error: caught }));
-  return !error;
-}
-
 export async function getImage(path: string): Promise<ReadableStream<Uint8Array> | null> {
   if (!bucket) return null;
   const { data, error } = await bucket.download(path).asStream();
@@ -41,7 +35,7 @@ export async function getImage(path: string): Promise<ReadableStream<Uint8Array>
 export async function drainStorageDeletions(limit = 50): Promise<number> {
   if (!bucket) return 0;
   const rows = await sql<{ object_path: string }[]>`
-    select object_path from app.storage_deletions order by queued_at limit ${limit}
+    select object_path from app.storage_deletions where not_before <= now() order by queued_at limit ${limit}
   `;
   if (rows.length === 0) return 0;
   const paths = rows.map((row) => row.object_path);

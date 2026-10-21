@@ -8,7 +8,9 @@ if (!serverEnv.supabaseSecretKey) {
   process.exitCode = 1;
 } else {
   const drained = await drainAllStorageDeletions();
-  const [left] = await sql<{ n: number }[]>`select count(*)::int as n from app.storage_deletions`;
+  const [left] = await sql<
+    { n: number }[]
+  >`select count(*)::int as n from app.storage_deletions where not_before <= now()`;
   console.log(`Removed ${drained} queued objects; ${left?.n ?? 0} still queued.`);
   if (left?.n) process.exitCode = 1;
 }

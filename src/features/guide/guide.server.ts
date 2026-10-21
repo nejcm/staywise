@@ -184,11 +184,17 @@ export async function readHeroPath(tx: postgres.TransactionSql, propertyId: stri
   return row?.object_path ?? null;
 }
 
-export function heroObjectPath(propertyId: string): string {
-  return `${canonicalInput(propertyIdInput, { propertyId }).propertyId}/${crypto.randomUUID()}.jpg`;
+// Queues a fresh key before upload, so bytes from a failed or abandoned upload are drained later (ADR 0005).
+export async function reserveHeroUpload(tx: postgres.TransactionSql, propertyId: string): Promise<string | null> {
+  const parsed = canonicalInput(propertyIdInput, { propertyId });
+  const objectPath = `${parsed.propertyId}/${crypto.randomUUID()}.jpg`;
+  const [row] = await tx<{ reserved: boolean }[]>`
+    select app.reserve_hero_upload(${parsed.propertyId}, ${objectPath}) as reserved
+  `;
+  return row?.reserved ? objectPath : null;
 }
 
-// The object is uploaded first under a fresh key; replacing the row queues the old object for the drain (ADR 0005).
+// Claims the reservation in the row's transaction; replacing the row queues the old object for the drain.
 export async function upsertHero(
   tx: postgres.TransactionSql,
   objectPath: string,
@@ -197,6 +203,13 @@ export async function upsertHero(
   const parsed = canonicalInput(heroWriteInput, input);
   if (!objectPath.startsWith(`${parsed.propertyId}/`)) throw new Error('invalid_input');
   if (!(await ownsProperty(tx, parsed.propertyId))) return null;
+  // Claims only well before not_before, so a drain can never remove bytes this commit will reference.
+  const claimed = await tx`
+    delete from app.storage_deletions
+    where object_path = ${objectPath} and not_before > clock_timestamp() + interval '5 minutes'
+    returning object_path
+  `;
+  if (claimed.length !== 1) throw new Error('upload_reservation_expired');
   const [row] = await tx<HeroRow[]>`
     insert into app.property_images (property_id, object_path, alt, width, height, bytes)
     values (${parsed.propertyId}, ${objectPath}, ${parsed.alt}, ${parsed.width}, ${parsed.height}, ${parsed.bytes})

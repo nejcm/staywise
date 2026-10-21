@@ -52,19 +52,11 @@ describe('storage', () => {
     expect(seen.map((signal) => signal instanceof AbortSignal)).toEqual([true, true, false]);
   });
 
-  it('removes one object and reports failure without throwing', async () => {
-    const { removeImage } = await import('./storage.server');
-    bucket.remove.mockResolvedValueOnce({ data: [], error: null });
-    expect(await removeImage('p/a.jpg')).toBe(true);
-    expect(bucket.remove).toHaveBeenCalledWith(['p/a.jpg']);
-    bucket.remove.mockRejectedValueOnce(new Error('timeout'));
-    expect(await removeImage('p/a.jpg')).toBe(false);
-  });
-
-  it('drains queued paths and clears them only after Storage accepts the removal', async () => {
+  it('drains due paths and clears them only after Storage accepts the removal', async () => {
     const { drainStorageDeletions } = await import('./storage.server');
     bucket.remove.mockResolvedValue({ data: [{ name: 'p/a.jpg' }], error: null });
     expect(await drainStorageDeletions()).toBe(2);
+    expect(String(sql.mock.calls[0]?.[0])).toContain('where not_before <= now()');
     expect(bucket.remove).toHaveBeenCalledWith(['p/a.jpg', 'p/b.jpg']);
     expect(sql).toHaveBeenCalledWith(['p/a.jpg', 'p/b.jpg']);
 

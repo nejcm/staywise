@@ -5,7 +5,7 @@ import {
   readHeroPath,
   toGuestGuideDto,
   updateHeroAlt,
-  heroObjectPath,
+  reserveHeroUpload,
   upsertHero,
   type GuestGuideRow,
 } from './guide.server';
@@ -159,22 +159,35 @@ describe('hero writes', () => {
   const created = new Date('2026-10-21T10:00:00.000Z');
   const input = { propertyId, alt: '  Lake view  ', width: 1600, height: 1067, bytes: 900000 };
 
-  it('stores a new key under the property prefix and returns no path to guests', async () => {
-    const { tx, queries } = fakeTx([{}], [{ alt: 'Lake view', width: 1600, height: 1067, created_at: created }]);
-    const objectPath = heroObjectPath(propertyId);
-    expect(objectPath).toMatch(new RegExp(`^${propertyId}/[0-9a-f-]{36}\\.jpg$`));
+  const objectPath = `${propertyId}/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jpg`;
+
+  it('reserves a fresh key under the property prefix', async () => {
+    const first = fakeTx([{ reserved: true }]);
+    const path = await reserveHeroUpload(first.tx, propertyId);
+    expect(path).toMatch(new RegExp(`^${propertyId}/[0-9a-f-]{36}\\.jpg$`));
+    expect(first.queries[0]?.values).toEqual([propertyId, path]);
+    expect(await reserveHeroUpload(fakeTx([{ reserved: true }]).tx, propertyId)).not.toBe(path);
+    expect(await reserveHeroUpload(fakeTx([{ reserved: false }]).tx, propertyId)).toBeNull();
+    await expect(reserveHeroUpload(fakeTx().tx, '../other')).rejects.toThrow('invalid_input');
+  });
+
+  it('claims the reservation, then stores the row and returns no path to guests', async () => {
+    const stored = { alt: 'Lake view', width: 1600, height: 1067, created_at: created };
+    const { tx, queries } = fakeTx([{}], [{ object_path: objectPath }], [stored]);
     expect(await upsertHero(tx, objectPath, input)).toEqual({
       alt: 'Lake view',
       width: 1600,
       height: 1067,
       version: String(created.getTime()),
     });
-    expect(queries[1]?.values).toEqual([propertyId, objectPath, 'Lake view', 1600, 1067, 900000]);
+    expect(queries[1]?.text).toContain('delete from app.storage_deletions');
+    expect(queries[2]?.values).toEqual([propertyId, objectPath, 'Lake view', 1600, 1067, 900000]);
   });
 
-  it('gives every upload a fresh key and rejects a key outside the property prefix', async () => {
-    expect(heroObjectPath(propertyId)).not.toBe(heroObjectPath(propertyId));
-    expect(() => heroObjectPath('../other')).toThrow('invalid_input');
+  it('refuses an expired reservation or a key outside the property prefix', async () => {
+    const expired = fakeTx([{}], []);
+    await expect(upsertHero(expired.tx, objectPath, input)).rejects.toThrow('upload_reservation_expired');
+    expect(expired.queries).toHaveLength(2);
     const { tx, queries } = fakeTx([{}]);
     await expect(upsertHero(tx, 'other/x.jpg', input)).rejects.toThrow('invalid_input');
     expect(queries).toHaveLength(0);

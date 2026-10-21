@@ -111,8 +111,10 @@ function PrivacyNotice() {
               window.
             </li>
             <li>
-              A cover photo is deleted when the host replaces or removes it, deletes the property, or deletes the
-              account. Deletions that fail are queued and retried until the stored file is gone.
+              When the host replaces or removes a cover photo, deletes the property, or deletes the account, access to
+              the photo ends immediately. The stored file is queued for deletion and removed by the next drain (after
+              uploads and deletions, or the operator&apos;s <code>storage:drain</code> command); failed removals stay
+              queued for a later drain.
             </li>
             <li>
               Audit and setup events are deleted after 90 days. Disabled-link metadata is deleted after 30 days; expired

@@ -3,7 +3,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(21);
+select plan(27);
 
 do $$ begin execute format('grant app_runtime to %I with set true', current_user); end $$;
 
@@ -155,6 +155,33 @@ select pg_temp.as_owner('runtime drains', '1e1e0000-0000-4000-8000-0000000000a1'
 select is((select n from probes where name = 'queue count'), 4, 'the runtime reads every queued path');
 select is((select n from probes where name = 'runtime forges path'), 0, 'the runtime cannot queue a path itself');
 select is((select count(*)::integer from app.storage_deletions), 3, 'the runtime drains a queued path');
+
+select pg_temp.as_owner('reserve', '1e1e0000-0000-4000-8000-0000000000a1',
+  $$insert into probes select 'reserve own', app.reserve_hero_upload('1e1e0000-0000-4000-8000-0000000000a2',
+      '1e1e0000-0000-4000-8000-0000000000a2/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jpg')::int;
+    insert into probes select 'reserve foreign path', app.reserve_hero_upload('1e1e0000-0000-4000-8000-0000000000a2',
+      'forged/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jpg')::int$$);
+select pg_temp.as_owner('reserve as stranger', '1e1e0000-0000-4000-8000-0000000000b1',
+  $$insert into probes select 'reserve stranger', app.reserve_hero_upload('1e1e0000-0000-4000-8000-0000000000a2',
+      '1e1e0000-0000-4000-8000-0000000000a2/cccccccc-cccc-4ccc-8ccc-cccccccccccc.jpg')::int$$);
+
+select is((select n from probes where name = 'reserve own'), 1, 'an owner reserves a fresh key under their property');
+select ok(
+  (select not_before >= now() + interval '9 minutes' from app.storage_deletions
+    where object_path = '1e1e0000-0000-4000-8000-0000000000a2/aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa.jpg'),
+  'a reservation is not due for the drain while the upload may still be in flight'
+);
+select is((select n from probes where name = 'reserve foreign path'), 0, 'a reservation outside the property prefix is refused');
+select is((select n from probes where name = 'reserve stranger'), 0, 'another host cannot reserve under the property');
+select ok(
+  (select bool_and(not_before <= now()) from app.storage_deletions where object_path not like '%aaaaaaaa-aaaa%'),
+  'paths queued by replace or delete are due immediately'
+);
+select ok(
+  not has_function_privilege('authenticated', 'app.reserve_hero_upload(uuid, text)', 'execute')
+    and not has_function_privilege('anon', 'app.reserve_hero_upload(uuid, text)', 'execute'),
+  'only the runtime may reserve uploads'
+);
 
 select * from finish();
 rollback;
