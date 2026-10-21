@@ -195,6 +195,10 @@
   gap: var(--space-4);
 }
 
+.panels[hidden] {
+  display: none;
+}
+
 .panels > * {
   flex: 1 1 280px;
 }
@@ -227,6 +231,28 @@
   flex: 1;
   font-size: 15px;
   font-weight: 600;
+}
+
+.localeChoices {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-top: 8px;
+}
+
+.localeChoices input {
+  cursor: pointer;
+}
+
+.localeChoices label {
+  display: flex;
+  flex: 1 0 130px;
+  gap: 8px;
+  align-items: center;
+  padding: 8px 12px;
+  cursor: pointer;
+  border: 1px solid var(--rule);
+  border-radius: 10px;
 }
 
 .chips {

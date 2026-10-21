@@ -101,27 +101,57 @@ function localeName(code: string): string {
   return languageNames[code as GuestLocaleOption] ?? code;
 }
 
+const tabs = [
+  { id: 'property', label: 'Property' },
+  { id: 'guide', label: 'Guide' },
+  { id: 'share', label: 'Share' },
+  { id: 'inbox', label: 'Inbox' },
+] as const;
+type TabId = (typeof tabs)[number]['id'];
+
+const anchorTabs: Record<string, TabId> = {
+  'cover-photo-heading': 'property',
+  'guest-link-heading': 'share',
+};
+
 function PropertyEditorPage() {
   const { editor, gaps, heroUpload, share, stays, inbox } = Route.useLoaderData();
   const { property, sections } = editor;
-  const [selected, setSelected] = useState(sections[0]?.id ?? 'basics');
+  const [tab, setTab] = useState<TabId>('property');
+  const [selected, setSelected] = useState(sections[0]?.id ?? 'new');
+  const pendingAnchor = useRef<string | null>(null);
+  const [, setFocusTick] = useState(0);
   const [view, setView] = useState<'list' | 'editor'>('list');
-  const active = selected === 'new' || sections.some((section) => section.id === selected) ? selected : 'basics';
+  const active = selected === 'new' || sections.some((section) => section.id === selected) ? selected : 'new';
   const unpublished = sections.filter((section) => section.visibility === 'guest' && !section.published).length;
 
   function open(id: string) {
+    setTab('guide');
     setSelected(id);
     setView('editor');
   }
 
+  function focusAnchor(anchor: string | null, tabId?: TabId) {
+    if (tabId) setTab(tabId);
+    pendingAnchor.current = anchor;
+    setFocusTick((tick) => tick + 1);
+  }
+
   function jump(item: ReadinessItem) {
-    if (item.pane) open(item.pane);
-    const anchor = item.anchor;
-    // The pane un-hides on the next render, so focus after it.
-    if (anchor) requestAnimationFrame(() => document.getElementById(anchor)?.focus());
+    if (item.pane === 'basics') focusAnchor(item.anchor, 'property');
+    else if (item.pane) {
+      open(item.pane);
+      focusAnchor(item.anchor);
+    } else focusAnchor(item.anchor, item.anchor ? anchorTabs[item.anchor] : undefined);
   }
 
   const pendingFocus = useRef<string | null>(null);
+
+  // The tab un-hides on the commit, so focus the anchor after it.
+  useEffect(() => {
+    if (pendingAnchor.current) document.getElementById(pendingAnchor.current)?.focus();
+    pendingAnchor.current = null;
+  });
 
   // The new section's title only renders once the loader refetch returns it.
   useEffect(() => {
@@ -167,90 +197,123 @@ function PropertyEditorPage() {
           >
             Preview
           </Link>
-          <a href="#guest-link-heading" className={buttonClass()}>
+          <button type="button" className={buttonClass()} onClick={() => focusAnchor('guest-link-heading', 'share')}>
             Share link / QR
-          </a>
+          </button>
           <GuidePublish propertyId={property.id} published={property.published} />
         </div>
       </div>
       <ReadinessPanel items={readiness(editor, Boolean(share?.link), heroUpload)} onJump={jump} />
       <GapPanel propertyId={property.id} gaps={gaps} onCreated={openCreated} />
-      <CoverPhotoPanel propertyId={property.id} hero={editor.hero} available={heroUpload} />
-      <div className={editorStyles.workspace} data-view={view}>
-        <nav className={`${styles.panel} ${editorStyles.sectionNav}`} aria-labelledby="sections-heading">
-          <h2 id="sections-heading">Guide sections</h2>
-          <div className={editorStyles.navRow}>
+      <div className={editorStyles.tabs} role="tablist" aria-label="Property sections">
+        {tabs.map((entry) => (
+          <button
+            key={entry.id}
+            type="button"
+            role="tab"
+            id={`editor-tab-${entry.id}`}
+            aria-selected={tab === entry.id}
+            aria-controls={`editor-tabpanel-${entry.id}`}
+            onClick={() => setTab(entry.id)}
+            data-testid={`editor-tab-${entry.id}`}
+          >
+            {entry.label}
+          </button>
+        ))}
+      </div>
+      {/* Inactive tabs stay mounted so unsaved text survives switching. */}
+      <div
+        role="tabpanel"
+        id="editor-tabpanel-property"
+        aria-labelledby="editor-tab-property"
+        hidden={tab !== 'property'}
+        className="stack"
+      >
+        <div className={`${styles.panel} stack`}>
+          <PropertyForm property={property} timeZones={editor.timeZones} />
+        </div>
+        <CoverPhotoPanel propertyId={property.id} hero={editor.hero} available={heroUpload} />
+        <PropertyDangerZone propertyId={property.id} />
+      </div>
+      <div
+        role="tabpanel"
+        id="editor-tabpanel-guide"
+        aria-labelledby="editor-tab-guide"
+        hidden={tab !== 'guide'}
+        className="stack"
+      >
+        <div className={editorStyles.workspace} data-view={view}>
+          <nav className={`${styles.panel} ${editorStyles.sectionNav}`} aria-labelledby="sections-heading">
+            <h2 id="sections-heading">Guide sections</h2>
+            {sections.length === 0 ? (
+              <p className={editorStyles.navEmpty} data-testid="editor-sections-empty">
+                No sections yet.
+              </p>
+            ) : (
+              <ol aria-label="Sections in guest order">
+                {sections.map((section, index) => (
+                  <SectionNavRow
+                    key={section.id}
+                    propertyId={property.id}
+                    section={section}
+                    active={section.id === active}
+                    first={index === 0}
+                    last={index === sections.length - 1}
+                    onOpen={() => open(section.id)}
+                  />
+                ))}
+              </ol>
+            )}
             <button
               type="button"
-              className={editorStyles.navItem}
-              aria-current={active === 'basics' ? 'true' : undefined}
-              onClick={() => open('basics')}
-              data-testid="editor-basics"
+              className={`${buttonClass('ghost')} ${editorStyles.addButton}`}
+              aria-current={active === 'new' ? 'true' : undefined}
+              onClick={() => open('new')}
+              data-testid="section-add"
             >
-              Basics
-              <small>Name, languages, Wi-Fi, times, contact</small>
+              <Icon icon={Plus} />
+              Add section
             </button>
+          </nav>
+          <div className={`${styles.panel} ${editorStyles.editorPanel}`}>
+            <button
+              type="button"
+              className={`${buttonClass('ghost')} ${editorStyles.back}`}
+              onClick={() => setView('list')}
+            >
+              <Icon icon={ChevronLeft} />
+              Sections
+            </button>
+            {sections.map((section) => (
+              <div key={section.id} hidden={active !== section.id}>
+                <SectionForm propertyId={property.id} sourceLocale={property.sourceLocale} section={section} />
+              </div>
+            ))}
+            {active === 'new' ? <AddSectionForm propertyId={property.id} onCreated={openCreated} /> : null}
           </div>
-          <hr />
-          {sections.length === 0 ? (
-            <p className={editorStyles.navEmpty} data-testid="editor-sections-empty">
-              No sections yet.
-            </p>
-          ) : (
-            <ol aria-label="Sections in guest order">
-              {sections.map((section, index) => (
-                <SectionNavRow
-                  key={section.id}
-                  propertyId={property.id}
-                  section={section}
-                  active={section.id === active}
-                  first={index === 0}
-                  last={index === sections.length - 1}
-                  onOpen={() => open(section.id)}
-                />
-              ))}
-            </ol>
-          )}
-          <button
-            type="button"
-            className={`${buttonClass('ghost')} ${editorStyles.addButton}`}
-            aria-current={active === 'new' ? 'true' : undefined}
-            onClick={() => open('new')}
-            data-testid="section-add"
-          >
-            <Icon icon={Plus} />
-            Add section
-          </button>
-        </nav>
-        <div className={`${styles.panel} ${editorStyles.editorPanel}`}>
-          <button
-            type="button"
-            className={`${buttonClass('ghost')} ${editorStyles.back}`}
-            onClick={() => setView('list')}
-          >
-            <Icon icon={ChevronLeft} />
-            Sections
-          </button>
-          {/* Inactive editors stay mounted so unsaved text survives switching sections. */}
-          <div hidden={active !== 'basics'} className="stack">
-            <PropertyForm property={property} timeZones={editor.timeZones} />
-            <PropertyDangerZone propertyId={property.id} />
-          </div>
-          {sections.map((section) => (
-            <div key={section.id} hidden={active !== section.id}>
-              <SectionForm propertyId={property.id} sourceLocale={property.sourceLocale} section={section} />
-            </div>
-          ))}
-          {active === 'new' ? <AddSectionForm propertyId={property.id} onCreated={openCreated} /> : null}
         </div>
-      </div>
-      <div className={editorStyles.panels}>
         <TranslationPanel property={property} sections={sections} />
-        <AlertPanel property={property} />
+      </div>
+      <div
+        role="tabpanel"
+        id="editor-tabpanel-share"
+        aria-labelledby="editor-tab-share"
+        hidden={tab !== 'share'}
+        className={editorStyles.panels}
+      >
         <GuestLinkPanel property={property} share={share} />
         <StaysPanel propertyId={property.id} stays={stays} />
       </div>
-      <InboxPanel propertyId={property.id} messages={inbox} />
+      <div
+        role="tabpanel"
+        id="editor-tabpanel-inbox"
+        aria-labelledby="editor-tab-inbox"
+        hidden={tab !== 'inbox'}
+        className="stack"
+      >
+        <InboxPanel propertyId={property.id} messages={inbox} />
+        <AlertPanel property={property} />
+      </div>
     </HostShell>
   );
 }
@@ -836,11 +899,11 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
           any other languages you want stored translations for; nothing is sent to a translation provider until you
           press Generate translations.
         </p>
-        {guestLocales
-          .filter((code) => code !== sourceLocale)
-          .map((code) => (
-            <p key={code} style={{ marginTop: 8 }}>
-              <label>
+        <div className={editorStyles.localeChoices}>
+          {guestLocales
+            .filter((code) => code !== sourceLocale)
+            .map((code) => (
+              <label key={code}>
                 <input
                   type="checkbox"
                   name="enabledLocales"
@@ -855,8 +918,8 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
                 />
                 {languageNames[code]}
               </label>
-            </p>
-          ))}
+            ))}
+        </div>
       </fieldset>
       <fieldset className="stack" data-testid="property-essentials">
         <legend>Essentials</legend>
@@ -1490,7 +1553,7 @@ function TranslationPanel({ property, sections }: { property: EditorProperty; se
         })}
       </ul>
       {targets.length === 0 ? (
-        <p className="small muted">No guest languages enabled yet. Add them under Basics.</p>
+        <p className="small muted">No guest languages enabled yet. Add them on the Property tab.</p>
       ) : null}
       <p className="small muted">
         Drafts are generated by Google Cloud Translation (EU) and stay invisible to guests until you approve them under

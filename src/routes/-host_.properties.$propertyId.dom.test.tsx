@@ -498,7 +498,6 @@ describe('PropertyForm and AlertPanel', () => {
   it('saves the property and refreshes', async () => {
     vi.mocked(saveProperty).mockResolvedValue({ ok: true } as never);
     await renderEditor();
-    await userEvent.click(screen.getByTestId('editor-basics'));
     await userEvent.click(screen.getByTestId('property-save'));
     expect(saveProperty).toHaveBeenCalledWith({
       data: expect.objectContaining({ propertyId, displayName: 'Synthetic villa' }),
@@ -511,7 +510,6 @@ describe('PropertyForm and AlertPanel', () => {
   it('sends a changed guest page theme with the save', async () => {
     vi.mocked(saveProperty).mockResolvedValue({ ok: true } as never);
     await renderEditor();
-    await userEvent.click(screen.getByTestId('editor-basics'));
     expect((screen.getByTestId('property-theme-staywise') as HTMLInputElement).checked).toBe(true);
     expect(screen.getByTestId('property-theme-coast').closest('[data-theme]')?.getAttribute('data-theme')).toBe(
       'coast',
@@ -524,7 +522,6 @@ describe('PropertyForm and AlertPanel', () => {
   it('shows the generic error when saving fails', async () => {
     vi.mocked(saveProperty).mockResolvedValue({ error: 'unexpected' } as never);
     await renderEditor();
-    await userEvent.click(screen.getByTestId('editor-basics'));
     await userEvent.click(screen.getByTestId('property-save'));
     await expectToast('property-save-status', generic, true);
     expect(getHostAuthState).toHaveBeenCalledTimes(1);
