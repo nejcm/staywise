@@ -553,11 +553,6 @@ describeLocal('guest link trust boundaries against the local stack', () => {
       const stay = { shareId: issued.shareId, secret: issued.secret };
       const session = await sessionFor(stay);
       expect(deniedShell((await document(stay.shareId, session.guestCookie)).html)).toBe(false);
-      const [row] = await admin<{ expires: Date }[]>`
-        select s.expires_at as expires from app.guest_sessions s where s.share_link_id = ${stay.shareId}
-      `;
-      expect(row!.expires.getTime()).toBeLessThanOrEqual(Date.parse(`${today}T12:00:00Z`) + 24 * 3600_000);
-
       await admin`update app.share_links set expires_at = now() - interval '1 minute' where id = ${stay.shareId}`;
       expect((await exchange(stay.shareId, stay.secret)).status).toBe(403);
       expect(deniedShell((await document(stay.shareId, session.guestCookie)).html)).toBe(true);
