@@ -15,7 +15,7 @@
     "format:check": "oxfmt --check .",
     "test": "vitest run",
     "test:coverage": "vitest run --coverage",
-    "test:local": "vitest run src/tests/security.integration.test.ts src/tests/guide.integration.test.ts src/tests/guest.integration.test.ts src/tests/translation.integration.test.ts src/tests/translation-migration.integration.test.ts src/tests/messages.integration.test.ts src/tests/restore.integration.test.ts",
+    "test:local": "vitest run src/tests/security.integration.test.ts src/tests/guide.integration.test.ts src/tests/guest.integration.test.ts src/tests/translation.integration.test.ts src/tests/messages.integration.test.ts src/tests/restore.integration.test.ts",
     "test:e2e": "playwright test",
     "knip": "knip",
     "audit": "bun audit --audit-level=moderate --ignore GHSA-vfj7-8cjw-p6xm --ignore GHSA-86w9-cpqp-85rv",

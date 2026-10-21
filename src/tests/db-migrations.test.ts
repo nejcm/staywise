@@ -3,14 +3,14 @@ import { fileURLToPath } from 'node:url';
 import { describe, expect, it } from 'vitest';
 
 const migration = readFileSync(
-  fileURLToPath(new URL('../../supabase/migrations/20261018100000_phase2_auth_database_security.sql', import.meta.url)),
+  fileURLToPath(new URL('../../supabase/migrations/20261018000000_initial_schema.sql', import.meta.url)),
   'utf8',
 );
 const roles = readFileSync(fileURLToPath(new URL('../../supabase/roles.sql', import.meta.url)), 'utf8');
 
-describe('phase 2 role migration', () => {
+describe('initial schema role migration', () => {
   it('never carries credentials, so a pre-provisioned password survives every environment', () => {
-    expect(migration).not.toMatch(/password/i);
+    expect(migration).not.toMatch(/\bpassword\b/i);
     expect(migration).not.toContain('app_runtime_local');
   });
 

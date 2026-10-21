@@ -220,7 +220,7 @@ describe('guest routes', () => {
   });
 
   it('keeps the retention SQL in step with the disclosed period', () => {
-    const sql = readFileSync('supabase/migrations/20261019170000_phase7d_auth_limits.sql', 'utf8');
+    const sql = readFileSync('supabase/migrations/20261018000000_initial_schema.sql', 'utf8');
     expect(sql).toContain(`v_event_cutoff timestamptz := p_now - interval '${messageRetentionDays} days'`);
     expect(sql).toContain('delete from app.guest_messages where created_at < v_event_cutoff');
   });

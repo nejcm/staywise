@@ -26,4 +26,4 @@ A share link has a `kind`: `property` (the existing long-lived link, still one e
 - Audit actions `stay_link_created` and `stay_link_revoked`.
 - Not included: iCal import and the `api_tokens` ingestion API. A later change to the property timezone does not move existing stay expiries.
 
-Code: `supabase/migrations/20261021200000_stay_links.sql`, `src/features/share/share.server.ts`, `src/features/share/share-fns.ts`, `StaysPanel` in `src/routes/host_.properties.$propertyId.tsx`.
+Code: `supabase/migrations/20261018000000_initial_schema.sql`, `src/features/share/share.server.ts`, `src/features/share/share-fns.ts`, `StaysPanel` in `src/routes/host_.properties.$propertyId.tsx`.

@@ -135,15 +135,15 @@ Setup time is the interval between a host's first `sign_in` and first `publish_c
 
 ### Retention cleanup
 
-`supabase/migrations/20261019150000_phase7a_retention.sql` adds `app.retention_cleanup()` and, when the migration runs in the database named by `cron.database_name` and `pg_cron` is available and preloaded, schedules the job `staywise-retention-cleanup` at 03:17 UTC. Other databases (migration or restore scratch databases) skip the schedule. Run it by hand with an owner-privileged connection — `app_runtime` deliberately cannot execute it:
+`supabase/migrations/20261018000000_initial_schema.sql` defines `app.retention_cleanup()` and, when the migration runs in the database named by `cron.database_name` (default `postgres`), creates `pg_cron` and schedules the job `staywise-retention-cleanup` at 03:17 UTC. Only `scratch_`-prefixed databases (migration or restore scratch databases) skip the schedule; any other database fails the migration. Run it by hand with an owner-privileged connection — `app_runtime` deliberately cannot execute it:
 
 ```sh
 psql "postgresql://<owner role>:<password>@<host>:5432/postgres" -c "select app.retention_cleanup();"
 ```
 
-Production must either enable `pg_cron` in the Supabase project (the guarded migration block then creates the job) or run that statement nightly as the database owner. Provider backup/PITR retention is separate from these windows and must be confirmed in the provider console before real data; after any restore, run the overdue cleanup before reopening guest traffic. `supabase/migrations/20261021190000_counter_retention.sql` adds `app.guest_counters` to the same cleanup: UTC-day rows older than 400 days are deleted, and the rest cascade on property deletion. API-token tables are schema-only in this tree; property-bound rows cascade with the property, owner-level rows cascade with account deletion, and there is no token-management UI. Details and rehearsal evidence: `plans/implementation_plan.md`, Phase 7a progress.
+Production must either enable `pg_cron` in the Supabase project (the guarded migration block then creates the job) or run that statement nightly as the database owner. Provider backup/PITR retention is separate from these windows and must be confirmed in the provider console before real data; after any restore, run the overdue cleanup before reopening guest traffic. The same cleanup covers `app.guest_counters`: UTC-day rows older than 400 days are deleted, and the rest cascade on property deletion. API-token tables are schema-only in this tree; property-bound rows cascade with the property, owner-level rows cascade with account deletion, and there is no token-management UI. Details and rehearsal evidence: `plans/implementation_plan.md`, Phase 7a progress.
 
-`supabase/migrations/20261019170000_phase7d_auth_limits.sql` adds `app.auth_rate_limits` (HMAC-keyed magic-link windows: 5 per client IP and 3 per address per 15 minutes, IP read from Netlify's `x-nf-client-connection-ip`), purges it in the same cleanup, and raises a migration warning when the retention job is not scheduled in that database.
+`app.auth_rate_limits` holds HMAC-keyed magic-link windows (5 per client IP and 3 per address per 15 minutes, IP read from Netlify's `x-nf-client-connection-ip`) and is purged in the same cleanup.
 
 ## Documentation
 
