@@ -19,6 +19,12 @@
     transform 120ms ease;
 }
 
+.sm {
+  --control-height: 30px;
+  padding: var(--space-1) 10px;
+  font-size: var(--fs-small);
+}
+
 .button:active:not(:disabled) {
   transform: translateY(1px);
 }

@@ -100,6 +100,7 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
                     Answer was in the guide?
                     <select
                       id={`inbox-answer-${entry.id}`}
+                      className="control-sm"
                       value={entry.answerInGuide === null ? '' : entry.answerInGuide ? 'yes' : 'no'}
                       disabled={busyIds.has(entry.id)}
                       onChange={(event) =>
@@ -128,6 +129,7 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
                 <div className="actions">
                   <Button
                     type="button"
+                    size="sm"
                     variant={entry.state === 'handled' ? undefined : 'primary'}
                     disabled={busyIds.has(entry.id) || entry.state === 'handled'}
                     onClick={() =>
@@ -139,6 +141,7 @@ export function InboxPanel({ propertyId, messages }: { propertyId: string; messa
                   </Button>
                   <Button
                     type="button"
+                    size="sm"
                     variant="danger-outline"
                     disabled={busyIds.has(entry.id)}
                     onClick={async () => {

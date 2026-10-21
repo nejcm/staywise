@@ -519,22 +519,27 @@ function PropertyRow({ property }: { property: PropertySummary }) {
             to="/host/properties/$propertyId"
             params={params}
             hash="guest-link-heading"
-            className={buttonClass('ghost')}
+            className={buttonClass('ghost', 'sm')}
           >
             Share
           </Link>
         ) : null}
         {property.published && !property.linkOn ? null : (
-          <Link to="/host/preview/$propertyId" params={params} className={buttonClass('ghost')}>
+          <Link to="/host/preview/$propertyId" params={params} className={buttonClass('ghost', 'sm')}>
             Preview
           </Link>
         )}
         {property.published && !property.linkOn ? (
-          <Link to="/host/properties/$propertyId" params={params} hash="guest-link-heading" className={buttonClass()}>
+          <Link
+            to="/host/properties/$propertyId"
+            params={params}
+            hash="guest-link-heading"
+            className={buttonClass('secondary', 'sm')}
+          >
             Turn link on
           </Link>
         ) : (
-          <Link to="/host/properties/$propertyId" params={params} className={buttonClass()}>
+          <Link to="/host/properties/$propertyId" params={params} className={buttonClass('secondary', 'sm')}>
             {property.published ? 'Edit' : 'Continue setup'}
           </Link>
         )}

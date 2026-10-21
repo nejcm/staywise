@@ -664,6 +664,7 @@ function StaysPanel({ propertyId, stays }: { propertyId: string; stays: Stay[] |
               {stay.linkOn ? (
                 <Button
                   type="button"
+                  size="sm"
                   variant="danger"
                   onClick={() => void revoke(stay.reservationId)}
                   disabled={busy}
@@ -1591,6 +1592,7 @@ function GapPanel({
             {gap.category ? (
               <Button
                 type="button"
+                size="sm"
                 onClick={() => add(gap.category as SectionCategory)}
                 disabled={busy}
                 data-testid={`gap-add-${gap.category}`}

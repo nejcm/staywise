@@ -149,6 +149,7 @@ textarea {
   min-height: var(--control-height);
   padding: 6px 12px;
   font-size: 16px;
+  font-weight: 400;
   line-height: 24px;
   background: var(--surface);
   border: 1px solid var(--control);
@@ -159,6 +160,12 @@ textarea {
   color: var(--muted);
   background: var(--raised);
   border-color: var(--disabled-edge);
+}
+
+/* Font stays 16px so iOS does not zoom on focus. */
+:is(input, select).control-sm {
+  --control-height: 30px;
+  padding-block: 2px;
 }
 
 textarea {

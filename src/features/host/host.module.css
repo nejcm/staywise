@@ -373,11 +373,6 @@
   margin-left: var(--space-1);
 }
 
-.rowActions > * {
-  min-height: 34px;
-  font-size: 14px;
-}
-
 .waitingRow {
   display: flex;
   align-items: center;
@@ -654,9 +649,10 @@
     margin-left: 0;
   }
 
-  .rowActions > * {
+  .table .rowActions > * {
+    --control-height: 38px;
     flex: 1;
-    min-height: var(--control-height);
+    font-size: var(--fs-body);
   }
 
   .rowActions > :last-child {
