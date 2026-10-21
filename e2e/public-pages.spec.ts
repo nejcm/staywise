@@ -4,7 +4,7 @@ import { expect, test } from '@playwright/test';
 const pages = [
   { path: '/', heading: 'Staywise' },
   { path: '/privacy', heading: /privacy/i },
-  { path: '/auth/sign-in', heading: /sign in/i },
+  { path: '/auth/sign-in', heading: 'A calm guest guide for your rental' },
 ];
 
 for (const { path, heading } of pages) {
