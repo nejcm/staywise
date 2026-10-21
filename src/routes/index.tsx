@@ -1,9 +1,14 @@
-import { Link, createFileRoute } from '@tanstack/react-router';
+import { Link, createFileRoute, redirect } from '@tanstack/react-router';
 import { buttonClass } from '../components/button';
 import { Mark } from '../components/mark';
+import { getHostAuthState } from '../features/host/host-fns';
 import styles from '../features/host/public.module.css';
 
 export const Route = createFileRoute('/')({
+  loader: async () => {
+    const state = await getHostAuthState();
+    if (!('error' in state) && state.state !== 'signed_out') throw redirect({ to: '/host' });
+  },
   component: HomePage,
 });
 
