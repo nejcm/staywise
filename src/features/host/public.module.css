@@ -5,10 +5,6 @@
   min-height: 100vh;
 }
 
-.pageProse {
-  --page-max: 760px;
-}
-
 .top,
 .foot {
   width: 100%;
@@ -64,6 +60,21 @@
   color: var(--accent-soft);
 }
 
+.heroChips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  padding: 0;
+  list-style: none;
+}
+
+.heroChips li {
+  padding: 6px 14px;
+  font-size: 15px;
+  background: rgb(255 255 255 / 12%);
+  border-radius: 999px;
+}
+
 .card {
   display: flex;
   flex: 1 1 360px;
@@ -76,6 +87,11 @@
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 20px;
+}
+
+.cardForm {
+  display: grid;
+  gap: var(--space-4);
 }
 
 .solo {
@@ -118,16 +134,85 @@
   font-size: 14px;
 }
 
-.prose {
+.doc {
   display: flex;
-  flex-direction: column;
-  gap: 14px;
+  flex-wrap: wrap;
+  align-items: flex-start;
+  gap: 32px 56px;
   width: 100%;
   max-width: var(--page-max);
   margin: 0 auto;
   padding: var(--space-6) clamp(16px, 4vw, 40px) 64px;
+}
+
+.toc {
+  position: sticky;
+  top: var(--space-6);
+  display: flex;
+  flex: 1 1 220px;
+  flex-direction: column;
+  gap: 2px;
+  max-width: 250px;
+}
+
+.toc span {
+  padding: 0 12px 6px;
+  font-size: 14px;
+  color: var(--muted);
+}
+
+.toc a {
+  display: flex;
+  align-items: center;
+  min-height: 38px;
+  padding: 0 12px;
+  font-size: 15px;
+  color: var(--pill-neutral-ink);
+  text-decoration: none;
+  border-radius: 8px;
+}
+
+.toc a:hover {
+  background: var(--accent-soft);
+  color: var(--accent-ink);
+}
+
+.jump {
+  display: none;
+  padding: 0 14px 8px;
+  font-size: 16px;
+  background: var(--surface);
+  border-radius: 14px;
+}
+
+.jump summary {
+  display: flex;
+  align-items: center;
+  min-height: 48px;
+  font-weight: 600;
+  color: var(--accent-ink);
+  cursor: pointer;
+}
+
+.jump a {
+  display: flex;
+  align-items: center;
+  min-height: 44px;
+}
+
+.prose {
+  display: flex;
+  flex: 999 1 520px;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;
+  max-width: 72ch;
   font-size: 17px;
   line-height: 28px;
+}
+
+.prose h2[id] {
+  scroll-margin-top: var(--space-6);
 }
 
 .prose h1 {
@@ -152,6 +237,14 @@
 }
 
 @media (max-width: 700px) {
+  .toc {
+    display: none;
+  }
+
+  .jump {
+    display: block;
+  }
+
   .split {
     align-content: flex-start;
   }

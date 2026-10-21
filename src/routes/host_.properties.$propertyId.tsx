@@ -83,72 +83,242 @@ function localeName(code: string): string {
 
 function PropertyEditorPage() {
   const { editor, share, inbox } = Route.useLoaderData();
+  const { property, sections } = editor;
+  const [selected, setSelected] = useState(sections[0]?.id ?? 'basics');
+  const [view, setView] = useState<'list' | 'editor'>('list');
+  const active = selected === 'new' || sections.some((section) => section.id === selected) ? selected : 'basics';
+  const unpublished = sections.filter((section) => section.visibility === 'guest' && !section.published).length;
+
+  function open(id: string) {
+    setSelected(id);
+    setView('editor');
+  }
+
   return (
-    <HostShell key={editor.property.id}>
+    <HostShell key={property.id}>
       <nav aria-label="Breadcrumb" className={styles.crumb}>
         <Link to="/host" data-testid="editor-back">
           Properties
         </Link>{' '}
-        / <span aria-current="page">{editor.property.displayName}</span>
+        / <span aria-current="page">{property.displayName}</span>
       </nav>
       <div className={styles.head}>
-        <div className={styles.title}>
-          <h1 data-testid="editor-property-name">{editor.property.displayName}</h1>
-          <Pill tone={editor.property.published ? 'positive' : 'neutral'} testId="guide-status">
-            {editor.property.published ? 'Guide is live' : 'Guide is offline'}
-          </Pill>
+        <div className={editorStyles.heading}>
+          <h1 data-testid="editor-property-name">{property.displayName}</h1>
+          <div className={styles.pills}>
+            <Pill tone={property.published ? 'positive' : 'neutral'} testId="guide-status">
+              {property.published ? 'Guide is live' : 'Guide is offline'}
+            </Pill>
+            {unpublished ? (
+              <Pill tone="attention">
+                {unpublished === 1 ? '1 unpublished section' : `${unpublished} unpublished sections`}
+              </Pill>
+            ) : null}
+          </div>
         </div>
         <div className="actions">
           <Link
             to="/host/preview/$propertyId"
-            params={{ propertyId: editor.property.id }}
-            className={buttonClass()}
+            params={{ propertyId: property.id }}
+            className={buttonClass('ghost')}
             data-testid="editor-preview-link"
           >
-            Open guest preview
+            Preview
           </Link>
-          <GuidePublish propertyId={editor.property.id} published={editor.property.published} />
+          <a href="#guest-link-heading" className={buttonClass()}>
+            Share link / QR
+          </a>
+          <GuidePublish propertyId={property.id} published={property.published} />
         </div>
       </div>
-      <div className={styles.columns}>
-        <div className={`${styles.column} ${styles.wide}`}>
-          <InboxPanel propertyId={editor.property.id} messages={inbox} />
-          <section className={styles.panel} aria-labelledby="sections-heading">
-            <header className={styles.panelHead}>
-              <h2 id="sections-heading">Guide</h2>
-              <span className={styles.count}>
-                {editor.sections.length === 1 ? '1 section' : `${editor.sections.length} sections`}
-              </span>
-            </header>
-            {editor.sections.length === 0 ? (
-              <p className={styles.empty} data-testid="editor-sections-empty">
-                No sections yet. Add the first one below.
-              </p>
-            ) : (
-              <ul className={styles.rows}>
-                {editor.sections.map((section, index) => (
-                  <li key={section.id}>
-                    <SectionForm
-                      propertyId={editor.property.id}
-                      section={section}
-                      first={index === 0}
-                      last={index === editor.sections.length - 1}
-                    />
-                  </li>
-                ))}
-              </ul>
-            )}
-            <AddSectionForm propertyId={editor.property.id} />
-          </section>
-          <PropertyForm property={editor.property} timeZones={editor.timeZones} />
-          <PropertyDangerZone propertyId={editor.property.id} />
-        </div>
-        <div className={`${styles.column} ${styles.side}`}>
-          <GuestLinkPanel propertyId={editor.property.id} share={share} />
-          <TranslationPanel property={editor.property} sections={editor.sections} />
+      <div className={editorStyles.workspace} data-view={view}>
+        <nav className={`${styles.panel} ${editorStyles.sectionNav}`} aria-labelledby="sections-heading">
+          <h2 id="sections-heading">Guide sections</h2>
+          <div className={editorStyles.navRow}>
+            <button
+              type="button"
+              className={editorStyles.navItem}
+              aria-current={active === 'basics' ? 'true' : undefined}
+              onClick={() => open('basics')}
+              data-testid="editor-basics"
+            >
+              Basics
+              <small>Name, languages, Wi-Fi, times, contact</small>
+            </button>
+          </div>
+          <hr />
+          {sections.length === 0 ? (
+            <p className={editorStyles.navEmpty} data-testid="editor-sections-empty">
+              No sections yet.
+            </p>
+          ) : (
+            <ol aria-label="Sections in guest order">
+              {sections.map((section, index) => (
+                <SectionNavRow
+                  key={section.id}
+                  propertyId={property.id}
+                  section={section}
+                  active={section.id === active}
+                  first={index === 0}
+                  last={index === sections.length - 1}
+                  onOpen={() => open(section.id)}
+                />
+              ))}
+            </ol>
+          )}
+          <button
+            type="button"
+            className={`${buttonClass('ghost')} ${editorStyles.addButton}`}
+            aria-current={active === 'new' ? 'true' : undefined}
+            onClick={() => open('new')}
+            data-testid="section-add"
+          >
+            <PlusIcon />
+            Add section
+          </button>
+        </nav>
+        <div className={`${styles.panel} ${editorStyles.editorPanel}`}>
+          <button
+            type="button"
+            className={`${buttonClass('ghost')} ${editorStyles.back}`}
+            onClick={() => setView('list')}
+          >
+            <BackIcon />
+            Sections
+          </button>
+          {/* Inactive editors stay mounted so unsaved text survives switching sections. */}
+          <div hidden={active !== 'basics'} className="stack">
+            <PropertyForm property={property} timeZones={editor.timeZones} />
+            <PropertyDangerZone propertyId={property.id} />
+          </div>
+          {sections.map((section) => (
+            <div key={section.id} hidden={active !== section.id}>
+              <SectionForm propertyId={property.id} sourceLocale={property.sourceLocale} section={section} />
+            </div>
+          ))}
+          {active === 'new' ? <AddSectionForm propertyId={property.id} onCreated={open} /> : null}
         </div>
       </div>
+      <div className={editorStyles.panels}>
+        <TranslationPanel property={property} sections={sections} />
+        <AlertPanel property={property} />
+        <GuestLinkPanel propertyId={property.id} share={share} />
+      </div>
+      <InboxPanel propertyId={property.id} messages={inbox} />
     </HostShell>
+  );
+}
+
+function PlusIcon() {
+  return (
+    <svg className={editorStyles.icon} viewBox="0 0 24 24" aria-hidden="true">
+      <path d="M12 5v14M5 12h14" />
+    </svg>
+  );
+}
+
+function BackIcon() {
+  return (
+    <svg className={editorStyles.icon} viewBox="0 0 24 24" aria-hidden="true">
+      <path d="m15 6-6 6 6 6" />
+    </svg>
+  );
+}
+
+function ArrowIcon({ direction }: { direction: 'up' | 'down' }) {
+  return (
+    <svg className={editorStyles.icon} viewBox="0 0 24 24" aria-hidden="true">
+      <path d={direction === 'up' ? 'M12 19V5M6 11l6-6 6 6' : 'M12 5v14M6 13l6 6 6-6'} />
+    </svg>
+  );
+}
+
+function sectionName(section: EditorSection) {
+  return section.title || sectionCategoryLabels[section.category];
+}
+
+function SectionNavRow({
+  propertyId,
+  section,
+  active,
+  first,
+  last,
+  onOpen,
+}: {
+  propertyId: string;
+  section: EditorSection;
+  active: boolean;
+  first: boolean;
+  last: boolean;
+  onOpen: () => void;
+}) {
+  const router = useRouter();
+  const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const name = sectionName(section);
+  const note = section.visibility === 'host' ? 'Private note' : section.published ? null : 'Draft · not published';
+
+  async function move(direction: 'up' | 'down') {
+    setBusy(true);
+    setFailed(false);
+    try {
+      const result = await moveSectionOrder({ data: { propertyId, sectionId: section.id, direction } });
+      if ('error' in result) {
+        setFailed(true);
+        return;
+      }
+      await router.invalidate();
+    } catch {
+      setFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  return (
+    <li className={editorStyles.navRow}>
+      <button
+        type="button"
+        className={editorStyles.navItem}
+        aria-current={active ? 'true' : undefined}
+        onClick={onOpen}
+        data-testid="section-item"
+      >
+        {name}
+        {note ? (
+          <small className={section.visibility === 'guest' ? editorStyles.draftNote : undefined}>{note}</small>
+        ) : null}
+      </button>
+      {first ? null : (
+        <button
+          type="button"
+          className={`${buttonClass('ghost')} ${editorStyles.iconButton}`}
+          aria-label={`Move ${name} up`}
+          onClick={() => void move('up')}
+          disabled={busy}
+          data-testid="section-move-up"
+        >
+          <ArrowIcon direction="up" />
+        </button>
+      )}
+      {last ? null : (
+        <button
+          type="button"
+          className={`${buttonClass('ghost')} ${editorStyles.iconButton}`}
+          aria-label={`Move ${name} down`}
+          onClick={() => void move('down')}
+          disabled={busy}
+          data-testid="section-move-down"
+        >
+          <ArrowIcon direction="down" />
+        </button>
+      )}
+      {failed ? (
+        <p role="alert" className={editorStyles.navError}>
+          Could not move. Try again.
+        </p>
+      ) : null}
+    </li>
   );
 }
 
@@ -182,7 +352,7 @@ function GuidePublish({ propertyId, published }: { propertyId: string; published
     <>
       <Button
         type="button"
-        variant={published ? undefined : 'primary'}
+        variant={published ? 'ghost' : 'primary'}
         onClick={toggle}
         disabled={busy}
         data-testid="guide-publish"
@@ -264,7 +434,10 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
 
   return (
     <section className={`${styles.panel} stack`} aria-labelledby="guest-link-heading" data-testid="guest-link-panel">
-      <h2 id="guest-link-heading">Guest link</h2>
+      <header className={editorStyles.panelTitle}>
+        <h2 id="guest-link-heading">Guest link</h2>
+        <Pill tone={share?.link ? 'positive' : 'neutral'}>{share?.link ? 'On' : 'Off'}</Pill>
+      </header>
       <p data-testid="guest-link-status">
         {share?.link ? `Active link issued ${share.link.createdAt.slice(0, 10)}.` : 'No active guest link.'}
       </p>
@@ -292,7 +465,7 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
         {share?.link ? (
           <>
             <Button type="button" onClick={() => void run('rotate')} disabled={busy} data-testid="guest-link-rotate">
-              Rotate link
+              Make new link
             </Button>
             <Button
               type="button"
@@ -301,7 +474,7 @@ function GuestLinkPanel({ propertyId, share }: { propertyId: string; share: Shar
               disabled={busy}
               data-testid="guest-link-disable"
             >
-              Disable link
+              Turn link off
             </Button>
           </>
         ) : (
@@ -388,13 +561,9 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
   const router = useRouter();
   const [sourceLocale, setSourceLocale] = useState(property.sourceLocale);
   const [enabledLocales, setEnabledLocales] = useState<readonly string[]>(property.enabledLocales);
-  const [alertEmail, setAlertEmail] = useState(property.alertEmail);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [message, setMessage] = useState('');
   const [messageFailed, setMessageFailed] = useState(false);
-  const [alertMessage, setAlertMessage] = useState('');
-  const [alertMessageFailed, setAlertMessageFailed] = useState(false);
-  const [alertBusy, setAlertBusy] = useState(false);
   const [busy, setBusy] = useState(false);
   const timeZoneOptions = timeZones.includes(property.timezone) ? timeZones : [property.timezone, ...timeZones];
 
@@ -448,32 +617,9 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
     }
   }
 
-  async function resyncEmail() {
-    setAlertBusy(true);
-    setAlertMessage('');
-    setAlertMessageFailed(false);
-    try {
-      const result = await resyncAlertEmail({ data: { propertyId: property.id } });
-      if ('error' in result) {
-        setAlertMessage('Something went wrong. Try again.');
-        setAlertMessageFailed(true);
-        return;
-      }
-      setAlertEmail(result.alertEmail);
-      setAlertMessage('Alert address updated to your current sign-in address.');
-      setAlertMessageFailed(false);
-      await router.invalidate();
-    } catch {
-      setAlertMessage('Something went wrong. Try again.');
-      setAlertMessageFailed(true);
-    } finally {
-      setAlertBusy(false);
-    }
-  }
-
   return (
-    <form onSubmit={submit} noValidate className={`${styles.panel} stack`} data-testid="property-form">
-      <h2>Property settings</h2>
+    <form onSubmit={submit} noValidate className="stack" data-testid="property-form">
+      <h2>Basics</h2>
       <div className={editorStyles.fieldGrid}>
         <Field
           label="Property name"
@@ -623,25 +769,6 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
           })}
         </div>
       </fieldset>
-      <section aria-labelledby="alert-email-heading" className="stack">
-        <h3 id="alert-email-heading">New-message alerts</h3>
-        <p className="small" data-testid="alert-email">
-          {alertEmail ? `Alerts go to ${alertEmail}.` : 'No alert address is stored for this property.'}
-        </p>
-        <div className="actions">
-          <Button
-            type="button"
-            onClick={() => void resyncEmail()}
-            disabled={alertBusy}
-            data-testid="alert-email-resync"
-          >
-            Use my current sign-in address
-          </Button>
-        </div>
-        <Toast testId="alert-email-message" tone={alertMessageFailed ? 'error' : undefined}>
-          {alertMessage}
-        </Toast>
-      </section>
       <div className="actions">
         <Button type="submit" variant="primary" disabled={busy} data-testid="property-save">
           Save property
@@ -651,6 +778,61 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
         </Toast>
       </div>
     </form>
+  );
+}
+
+function AlertPanel({ property }: { property: EditorProperty }) {
+  const router = useRouter();
+  const [alertEmail, setAlertEmail] = useState(property.alertEmail);
+  const [alertMessage, setAlertMessage] = useState('');
+  const [alertMessageFailed, setAlertMessageFailed] = useState(false);
+  const [alertBusy, setAlertBusy] = useState(false);
+
+  async function resyncEmail() {
+    setAlertBusy(true);
+    setAlertMessage('');
+    setAlertMessageFailed(false);
+    try {
+      const result = await resyncAlertEmail({ data: { propertyId: property.id } });
+      if ('error' in result) {
+        setAlertMessage('Something went wrong. Try again.');
+        setAlertMessageFailed(true);
+        return;
+      }
+      setAlertEmail(result.alertEmail);
+      setAlertMessage('Alert address updated to your current sign-in address.');
+      setAlertMessageFailed(false);
+      await router.invalidate();
+    } catch {
+      setAlertMessage('Something went wrong. Try again.');
+      setAlertMessageFailed(true);
+    } finally {
+      setAlertBusy(false);
+    }
+  }
+
+  return (
+    <section className={`${styles.panel} stack`} aria-labelledby="alert-email-heading">
+      <h2 id="alert-email-heading">Message alerts</h2>
+      <p data-testid="alert-email">
+        {alertEmail ? (
+          <>
+            New guest messages are emailed to <strong>{alertEmail}</strong>.
+          </>
+        ) : (
+          'No alert address is stored for this property.'
+        )}
+      </p>
+      <div className="actions">
+        <Button type="button" onClick={() => void resyncEmail()} disabled={alertBusy} data-testid="alert-email-resync">
+          Use my current sign-in address
+        </Button>
+      </div>
+      <p className="small muted">Only the alert goes there. Messages stay in your inbox.</p>
+      <Toast testId="alert-email-message" tone={alertMessageFailed ? 'error' : undefined}>
+        {alertMessage}
+      </Toast>
+    </section>
   );
 }
 
@@ -690,7 +872,7 @@ function PropertyDangerZone({ propertyId }: { propertyId: string }) {
   return (
     <section
       aria-labelledby="property-delete-heading"
-      className={`${styles.panel} ${styles.danger} stack`}
+      className={`${styles.danger} ${editorStyles.dangerZone} stack`}
       data-testid="property-danger-zone"
     >
       <h2 id="property-delete-heading">Delete property</h2>
@@ -716,18 +898,21 @@ function PropertyDangerZone({ propertyId }: { propertyId: string }) {
   );
 }
 
+function translationTone(translation: EditorTranslation) {
+  return translation.state === 'approved' && !translation.stale ? styles.reviewed : styles.review;
+}
+
 function SectionForm({
   propertyId,
+  sourceLocale,
   section,
-  first,
-  last,
 }: {
   propertyId: string;
+  sourceLocale: string;
   section: EditorSection;
-  first: boolean;
-  last: boolean;
 }) {
   const router = useRouter();
+  const [tab, setTab] = useState(sourceLocale);
   const [visibility, setVisibility] = useState<SectionVisibility>(section.visibility);
   // The fields are uncontrolled, so they still show this revision after a refresh brings a newer one.
   const [loadedRevision, setLoadedRevision] = useState(section.sourceRevision);
@@ -778,26 +963,6 @@ function SectionForm({
     }
   }
 
-  async function move(direction: 'up' | 'down') {
-    setBusy(true);
-    setMessage('');
-    setMessageFailed(false);
-    try {
-      const result = await moveSectionOrder({ data: { propertyId, sectionId: section.id, direction } });
-      if ('error' in result) {
-        setMessage('Something went wrong. Try again.');
-        setMessageFailed(true);
-        return;
-      }
-      await router.invalidate();
-    } catch {
-      setMessage('Something went wrong. Try again.');
-      setMessageFailed(true);
-    } finally {
-      setBusy(false);
-    }
-  }
-
   const status =
     section.visibility === 'host'
       ? { label: 'Private note', tone: 'accent' as const }
@@ -806,24 +971,35 @@ function SectionForm({
         : { label: 'Draft', tone: 'neutral' as const };
 
   return (
-    <details className={editorStyles.section} data-testid="section-item">
-      <summary>
-        <span className={editorStyles.sectionName}>
-          <strong>{section.title || sectionCategoryLabels[section.category]}</strong>
-          <span>
-            {[
-              section.title && section.title !== sectionCategoryLabels[section.category]
-                ? sectionCategoryLabels[section.category]
-                : null,
-              ...section.translations.map((translation) => localeName(translation.locale)),
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-          </span>
-        </span>
+    <section className="stack" aria-label={`Edit ${sectionName(section)}`}>
+      <div className={editorStyles.sectionHead}>
+        {section.translations.length ? (
+          <div className={editorStyles.tabs} role="tablist" aria-label="Language">
+            {[sourceLocale, ...section.translations.map((translation) => translation.locale)].map((locale) => {
+              const translation = section.translations.find((entry) => entry.locale === locale);
+              return (
+                <button
+                  key={locale}
+                  type="button"
+                  role="tab"
+                  aria-selected={tab === locale}
+                  onClick={() => setTab(locale)}
+                  lang={locale}
+                  aria-label={localeName(locale)}
+                  data-testid={`section-tab-${locale}`}
+                >
+                  <span className={`${styles.lang} ${translation ? translationTone(translation) : styles.original}`}>
+                    {locale.toUpperCase()}
+                  </span>
+                  <span className={editorStyles.tabName}>{localeName(locale)}</span>
+                </button>
+              );
+            })}
+          </div>
+        ) : null}
         <Pill tone={status.tone}>{status.label}</Pill>
-      </summary>
-      <div className={editorStyles.sectionBody}>
+      </div>
+      <div hidden={tab !== sourceLocale}>
         <form onSubmit={submit} noValidate className="stack" data-testid="section-form">
           <div className={editorStyles.fieldRow}>
             <Field label="Category">
@@ -848,7 +1024,7 @@ function SectionForm({
             </Field>
           </div>
           <Field
-            label="Title"
+            label="Section title"
             error={errors.title}
             errorId={`section-title-error-${section.id}`}
             errorTestId="section-title-error"
@@ -864,12 +1040,12 @@ function SectionForm({
             />
           </Field>
           <Field
-            label="Text"
+            label="Text guests read"
             error={errors.body}
             errorId={`section-body-error-${section.id}`}
             errorTestId="section-body-error"
           >
-            <textarea name="body" defaultValue={section.body} maxLength={8000} rows={6} data-testid="section-body" />
+            <textarea name="body" defaultValue={section.body} maxLength={8000} rows={14} data-testid="section-body" />
           </Field>
           {visibility === 'host' ? (
             <Field label="Secret value (stored for you only)">
@@ -902,41 +1078,23 @@ function SectionForm({
             <Button type="submit" variant="primary" disabled={busy} data-testid="section-save">
               Save section
             </Button>
-            <Button type="button" onClick={() => move('up')} disabled={busy || first} data-testid="section-move-up">
-              Move up
-            </Button>
-            <Button type="button" onClick={() => move('down')} disabled={busy || last} data-testid="section-move-down">
-              Move down
-            </Button>
             <Toast testId="section-status" tone={messageFailed ? 'error' : undefined}>
               {message}
             </Toast>
           </div>
         </form>
-        <TranslationBlocks propertyId={propertyId} translations={section.translations} />
       </div>
-    </details>
-  );
-}
-
-// Stored translations for one source section: drafts are edited and approved here, approved rows
-// are shown as guests would read them, and a revision mismatch is labelled stale and cannot be
-// approved (the canonical write re-checks the same condition).
-function TranslationBlocks({ propertyId, translations }: { propertyId: string; translations: EditorTranslation[] }) {
-  if (translations.length === 0) return null;
-  return (
-    <div data-testid="section-translations">
-      {translations.map((translation) => (
-        <TranslationBlock
-          key={`${translation.id}:${translation.sourceRevision}`}
-          propertyId={propertyId}
-          translation={translation}
-        />
+      {section.translations.map((translation) => (
+        <div key={`${translation.id}:${translation.sourceRevision}`} hidden={tab !== translation.locale}>
+          <TranslationBlock propertyId={propertyId} translation={translation} />
+        </div>
       ))}
-    </div>
+    </section>
   );
 }
 
+// Drafts are edited and approved here, approved rows are shown as guests would read them, and a
+// revision mismatch is labelled stale and cannot be approved (the canonical write re-checks it).
 function TranslationBlock({ propertyId, translation }: { propertyId: string; translation: EditorTranslation }) {
   const router = useRouter();
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -1104,6 +1262,16 @@ function TranslationBlock({ propertyId, translation }: { propertyId: string; tra
   );
 }
 
+function languageStatus(locale: string, sections: EditorSection[]) {
+  const guest = sections.filter((section) => section.visibility === 'guest' && section.published);
+  const rows = guest.map((section) => section.translations.find((entry) => entry.locale === locale));
+  if (rows.length && rows.every((row) => row?.state === 'approved' && !row.stale)) {
+    return { label: 'Reviewed', tone: 'accent' as const, chip: styles.reviewed };
+  }
+  if (rows.some(Boolean)) return { label: 'Needs review', tone: 'attention' as const, chip: styles.review };
+  return { label: 'Not translated', tone: 'neutral' as const, chip: styles.off };
+}
+
 // One explicit host action asks the provider for drafts of every changed eligible section; the
 // guest pages never call a provider and only ever read approved current rows.
 function TranslationPanel({ property, sections }: { property: EditorProperty; sections: EditorSection[] }) {
@@ -1164,14 +1332,27 @@ function TranslationPanel({ property, sections }: { property: EditorProperty; se
 
   return (
     <section className={`${styles.panel} stack`} aria-labelledby="translation-heading" data-testid="translation-panel">
-      <h2 id="translation-heading">Translations</h2>
-      <p data-testid="translation-status">
-        {targets.length === 0
-          ? 'No guest languages enabled yet: guests read the source language only.'
-          : `Enabled guest languages: ${targets.map((code) => localeName(code)).join(', ')}. Source language: ${localeName(
-              property.sourceLocale,
-            )}.`}
-      </p>
+      <h2 id="translation-heading">Languages</h2>
+      <ul className={editorStyles.languages} data-testid="translation-status">
+        <li>
+          <span className={`${styles.lang} ${styles.original}`}>{property.sourceLocale.toUpperCase()}</span>
+          <strong lang={property.sourceLocale}>{localeName(property.sourceLocale)}</strong>
+          <span className="small muted">Original</span>
+        </li>
+        {targets.map((code) => {
+          const status = languageStatus(code, sections);
+          return (
+            <li key={code}>
+              <span className={`${styles.lang} ${status.chip}`}>{code.toUpperCase()}</span>
+              <strong lang={code}>{localeName(code)}</strong>
+              <Pill tone={status.tone}>{status.label}</Pill>
+            </li>
+          );
+        })}
+      </ul>
+      {targets.length === 0 ? (
+        <p className="small muted">No guest languages enabled yet. Add them under Basics.</p>
+      ) : null}
       <p className="small muted">
         Drafts are generated by Google Cloud Translation (EU) and stay invisible to guests until you approve them under
         each section.
@@ -1193,63 +1374,51 @@ function TranslationPanel({ property, sections }: { property: EditorProperty; se
   );
 }
 
-function AddSectionForm({ propertyId }: { propertyId: string }) {
+function AddSectionForm({ propertyId, onCreated }: { propertyId: string; onCreated: (sectionId: string) => void }) {
   const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
-  const [messageFailed, setMessageFailed] = useState(false);
 
-  async function submit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
-    const values = Object.fromEntries(new FormData(event.currentTarget));
-    const parsed = createSectionInput.safeParse({ propertyId, category: values.category });
-    if (!parsed.success) {
-      setMessage('Choose a category first.');
-      setMessageFailed(true);
-      return;
-    }
+  async function add(category: SectionCategory) {
+    const parsed = createSectionInput.safeParse({ propertyId, category });
+    if (!parsed.success) return;
     setBusy(true);
     setMessage('');
-    setMessageFailed(false);
     try {
       const result = await createSection({ data: parsed.data });
       if ('error' in result) {
         setMessage('Something went wrong. Try again.');
-        setMessageFailed(true);
         return;
       }
       await router.invalidate();
+      onCreated(result.sectionId);
     } catch {
       setMessage('Something went wrong. Try again.');
-      setMessageFailed(true);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <form onSubmit={submit} noValidate className={editorStyles.addSection} data-testid="section-new-form">
-      <h3>Add a section</h3>
-      <div className="actions">
-        <select
-          name="category"
-          defaultValue="arrival"
-          aria-label="New section category"
-          data-testid="section-new-category"
-        >
-          {sectionCategories.map((category: SectionCategory) => (
-            <option key={category} value={category}>
-              {sectionCategoryLabels[category]}
-            </option>
-          ))}
-        </select>
-        <Button type="submit" disabled={busy} data-testid="section-new-submit">
-          Add section
-        </Button>
+    <section className="stack" aria-labelledby="section-new-heading" data-testid="section-new-form">
+      <h2 id="section-new-heading">Add a section</h2>
+      <p className="small muted">Pick what it covers. You can rename it and change the text next.</p>
+      <div className={editorStyles.chips}>
+        {sectionCategories.map((category: SectionCategory) => (
+          <button
+            key={category}
+            type="button"
+            onClick={() => void add(category)}
+            disabled={busy}
+            data-testid={`section-new-${category}`}
+          >
+            + {sectionCategoryLabels[category]}
+          </button>
+        ))}
       </div>
-      <Toast testId="section-new-status" tone={messageFailed ? 'error' : undefined}>
+      <Toast testId="section-new-status" tone="error">
         {message}
       </Toast>
-    </form>
+    </section>
   );
 }
