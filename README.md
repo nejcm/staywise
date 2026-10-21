@@ -66,6 +66,21 @@ Each property stores an `alert_email` snapshot of the host's sign-in address whe
 
 Each property can have one cover photo ([ADR 0005](docs/adr/0005-property-hero-image.md)), stored in the private Supabase Storage bucket `guide-images` (1 MiB, `image/jpeg` only, no object policies). The browser re-encodes the upload to JPEG (long edge 1600 px), which drops Exif/GPS; the server rejects anything that is not a complete JPEG or that still carries Exif/XMP/IPTC. Only the server touches the bucket, with `SUPABASE_SECRET_KEY`, after reading the photo's row under the owner or a live guest session; guest and owner responses are `private, no-store`, so the kill switch, link rotation, stay revocation, and stay expiry apply on the next view. Replacing or removing a photo, deleting a property, and deleting an account queue the old object paths in `app.storage_deletions` from a database trigger; the app drains the queue after each of those commits, best effort. An upload first reserves its new path in the same queue, not due for 10 minutes; the row write claims it in its own transaction, so bytes from a failed or abandoned upload are drained once due. The drain deletes due rows and removes their objects in one transaction, so it and a claim on the same path serialize on the row lock; a claim refuses a reservation that is already due. Drain anything left over, and always after a restore, with `bun run storage:drain` (needs `SUPABASE_SECRET_KEY` and `APP_DB_URL`; exits non-zero while due paths stay queued).
 
+### Agent access
+
+A host can connect their own AI agent to `https://<host>/mcp`. The design and its limits are in [ADR 0006](docs/adr/0006-agent-access.md). Agents never see guest message bodies, link secrets, property credentials or the alert email. They cannot delete properties, sections or reservations, or change the account; the only removal they can make is revoking a stay link.
+
+- **Claude Code:** in **Settings → Agent access**, create a personal token, then run:
+  ```
+  claude mcp add --transport http staywise https://<host>/mcp --header "Authorization: Bearer sw_pat_…"
+  ```
+- **Cursor:** add `{"mcpServers": {"staywise": {"url": "https://<host>/mcp", "headers": {"Authorization": "Bearer ${env:STAYWISE_TOKEN}"}}}}` to `.cursor/mcp.json`.
+- **VS Code:** in `.vscode/mcp.json`, add a server with `"type": "http"`, the same `url`, and `"headers": {"Authorization": "Bearer ${input:staywise-token}"}`, backed by a `promptString` input with `"password": true`.
+- **claude.ai and ChatGPT** (developer mode): add a custom connector with the URL `https://<host>/mcp` and no token. The app signs in through OAuth, and the host approves the scopes and an optional property on the Staywise consent page. Only client IDs under `https://claude.ai/` and `https://chatgpt.com/` are accepted, and the deploy must be public HTTPS.
+- **Revoking:** both kinds are listed under **Settings → Agent access** and revoked there. Revoke all also covers both kinds, and so does removing TOTP or deleting the account. A new consent from the same app replaces that app's earlier grant.
+
+`AGENT_ACCESS_DISABLED=true` is the agent kill switch. It defaults to `true` outside `local`, and it covers `/mcp`, `/oauth/*` and the `/.well-known` metadata. Apply it by changing the environment and redeploying. To verify it took effect, check that `POST /mcp` with a valid token is denied and `/.well-known/oauth-authorization-server` returns 404.
+
 ### Privacy and data handling
 
 The local app serves a synthetic-data notice at `/privacy`, linked from the home page, sign-in, host workspace, and guest Help. It describes stored fields, 90-day message/audit/setup retention with earlier host deletion, the property-deletion cascade, cover photos, the bearer-link capability, log/counter minimization, conditional translation egress, and immediate host account deletion from `/host/settings` (ADR 0002) with what it does not erase. The guest Help page also shows a localized summary in English, German, Slovenian, French, or Spanish. This is implemented local behavior, not a completed legal policy: a named controller/contact, processor/DPA and transfer review, production regions, and real-data approval remain unexecuted external gates.
