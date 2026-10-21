@@ -10,6 +10,10 @@ Guest portal for independent vacation-rental owners (1–10 properties): a mobil
 
 TanStack Start (React 19, SSR, server functions) with CSS Modules, Bun, Supabase (Postgres with RLS, Auth with magic link + TOTP, pg_cron), Netlify. Tests: Vitest unit and local-stack integration suites, pgTAP for the database.
 
+## Host workspace
+
+`/host` lists each property with its address, published state, guide categories, unpublished sections, guest link state, which guest languages are fully reviewed, and the latest waiting messages. The property editor has a guest preview in phone and tablet device frames at `/host/preview/<propertyId>`.
+
 ## Development
 
 Prerequisites: Bun (pinned in `package.json`), Docker (local Supabase), Node.js 24+.
