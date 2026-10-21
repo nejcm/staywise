@@ -184,14 +184,19 @@ export async function readHeroPath(tx: postgres.TransactionSql, propertyId: stri
   return row?.object_path ?? null;
 }
 
-// A new key per upload; replacing the row queues the old object for the drain (ADR 0005).
+export function heroObjectPath(propertyId: string): string {
+  return `${canonicalInput(propertyIdInput, { propertyId }).propertyId}/${crypto.randomUUID()}.jpg`;
+}
+
+// The object is uploaded first under a fresh key; replacing the row queues the old object for the drain (ADR 0005).
 export async function upsertHero(
   tx: postgres.TransactionSql,
+  objectPath: string,
   input: { propertyId: string; alt: string; width: number; height: number; bytes: number },
-): Promise<{ objectPath: string; hero: HeroImage } | null> {
+): Promise<HeroImage | null> {
   const parsed = canonicalInput(heroWriteInput, input);
+  if (!objectPath.startsWith(`${parsed.propertyId}/`)) throw new Error('invalid_input');
   if (!(await ownsProperty(tx, parsed.propertyId))) return null;
-  const objectPath = `${parsed.propertyId}/${crypto.randomUUID()}.jpg`;
   const [row] = await tx<HeroRow[]>`
     insert into app.property_images (property_id, object_path, alt, width, height, bytes)
     values (${parsed.propertyId}, ${objectPath}, ${parsed.alt}, ${parsed.width}, ${parsed.height}, ${parsed.bytes})
@@ -200,7 +205,7 @@ export async function upsertHero(
       height = excluded.height, bytes = excluded.bytes, created_at = now()
     returning alt, width, height, created_at
   `;
-  return row ? { objectPath, hero: toHeroImage(row) } : null;
+  return row ? toHeroImage(row) : null;
 }
 
 export async function updateHeroAlt(tx: postgres.TransactionSql, propertyId: string, alt: string): Promise<boolean> {

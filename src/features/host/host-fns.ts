@@ -16,6 +16,7 @@ import { recordAudit } from '../../lib/audit.server';
 import { otpSendAllowed } from '../auth/auth-limits.server';
 import { sendSecurityNotice } from '../../lib/mail.server';
 import { withOwnerContext } from '../../lib/db.server';
+import { drainAllStorageDeletions } from '../../lib/storage.server';
 import { readOwnProperties } from './host.server';
 import { logEvent } from '../../lib/log.server';
 
@@ -202,6 +203,7 @@ export const deleteAccount = createServerFn({ method: 'POST' })
       applyAuthCookies(auth);
       if (!passed) return { error: 'invalid_code' } satisfies FnError;
       if (!(await deleteAuthUser(gate.session.userId))) return { error: 'unexpected' } satisfies FnError;
+      await drainAllStorageDeletions();
       await recordAudit(null, 'account_deleted');
       await auth.client.auth.signOut({ scope: 'local' });
       applyAuthCookies(auth, true);

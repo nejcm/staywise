@@ -1,5 +1,5 @@
 import { Link, createFileRoute, redirect, useBlocker, useNavigate, useRouter } from '@tanstack/react-router';
-import { ArrowDown, ArrowUp, ChevronLeft, Circle, Plus, Trash } from 'lucide-react';
+import { ArrowDown, ArrowUp, ChevronLeft, Circle, ImageUp, Plus, Trash } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { QrSvg } from '../components/qr-svg';
 import { getHostAuthState } from '../features/host/host-fns';
@@ -8,7 +8,9 @@ import {
   deleteProperty,
   getPropertyEditor,
   moveSectionOrder,
+  removeHero,
   resyncAlertEmail,
+  saveHeroAlt,
   saveProperty,
   saveSection,
   setGuidePublished,
@@ -48,6 +50,7 @@ import {
   answerHoursPairedIssue,
   essentialsFields,
   guestLocales,
+  heroAltSchema,
   propertyFields,
   sectionCategories,
   sectionCategoryLabels,
@@ -56,7 +59,8 @@ import {
   type SectionVisibility,
 } from '../features/guide/guide-validation';
 import { guestUiText, languageNames, messageRetentionDays } from '../features/guest/guest-ui';
-import type { GuideEditorData, GuideTranslation, PropertyEssentials } from '../features/guide/guide.server';
+import type { GuideEditorData, GuideTranslation, HeroImage, PropertyEssentials } from '../features/guide/guide.server';
+import { HERO_MAX_BYTES } from '../features/guide/image-validation';
 import styles from '../features/host/host.module.css';
 import editorStyles from '../features/host/editor.module.css';
 
@@ -79,6 +83,7 @@ export const Route = createFileRoute('/host_/properties/$propertyId')({
     return {
       editor: result.editor,
       gaps: result.gaps,
+      heroUpload: result.heroUpload,
       share: 'error' in share ? null : share.share,
       stays: 'error' in share ? null : share.stays,
       inbox: 'error' in inbox ? null : inbox.messages,
@@ -97,7 +102,7 @@ function localeName(code: string): string {
 }
 
 function PropertyEditorPage() {
-  const { editor, gaps, share, stays, inbox } = Route.useLoaderData();
+  const { editor, gaps, heroUpload, share, stays, inbox } = Route.useLoaderData();
   const { property, sections } = editor;
   const [selected, setSelected] = useState(sections[0]?.id ?? 'basics');
   const [view, setView] = useState<'list' | 'editor'>('list');
@@ -168,8 +173,9 @@ function PropertyEditorPage() {
           <GuidePublish propertyId={property.id} published={property.published} />
         </div>
       </div>
-      <ReadinessPanel items={readiness(editor, Boolean(share?.link))} onJump={jump} />
+      <ReadinessPanel items={readiness(editor, Boolean(share?.link), heroUpload)} onJump={jump} />
       <GapPanel propertyId={property.id} gaps={gaps} onCreated={openCreated} />
+      <CoverPhotoPanel propertyId={property.id} hero={editor.hero} available={heroUpload} />
       <div className={editorStyles.workspace} data-view={view}>
         <nav className={`${styles.panel} ${editorStyles.sectionNav}`} aria-labelledby="sections-heading">
           <h2 id="sections-heading">Guide sections</h2>
@@ -1505,14 +1511,224 @@ function TranslationPanel({ property, sections }: { property: EditorProperty; se
   );
 }
 
+const heroLongEdge = 1600;
+
+// Re-encoding through a canvas drops Exif/GPS and normalizes HEIC or PNG sources to JPEG (ADR 0005).
+async function encodeHero(file: File): Promise<Blob | null> {
+  try {
+    const bitmap = await createImageBitmap(file);
+    const scale = Math.min(1, heroLongEdge / Math.max(bitmap.width, bitmap.height));
+    const canvas = document.createElement('canvas');
+    canvas.width = Math.round(bitmap.width * scale);
+    canvas.height = Math.round(bitmap.height * scale);
+    const context = canvas.getContext('2d');
+    if (!context) return null;
+    context.drawImage(bitmap, 0, 0, canvas.width, canvas.height);
+    bitmap.close();
+    return await new Promise((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.82));
+  } catch {
+    return null;
+  }
+}
+
+const heroUploadErrors: Record<string, string> = {
+  too_large: 'This photo is still over 1 MB after resizing. Try a smaller photo.',
+  invalid: 'This photo could not be used. Export it as JPEG and try again.',
+  unavailable: 'Cover photos are not available on this server.',
+};
+
+function CoverPhotoPanel({
+  propertyId,
+  hero,
+  available,
+}: {
+  propertyId: string;
+  hero: HeroImage | null;
+  available: boolean;
+}) {
+  const router = useRouter();
+  const { busy, notice, setNotice, run } = useHostAction();
+  const { confirm, dialog } = useConfirmDialog();
+  const [pending, setPending] = useState<{ blob: Blob; url: string } | null>(null);
+  const [alt, setAlt] = useState(hero?.alt ?? '');
+  const [altError, setAltError] = useState('');
+  const [uploading, setUploading] = useState(false);
+
+  useEffect(() => () => (pending ? URL.revokeObjectURL(pending.url) : undefined), [pending]);
+
+  async function choose(file: File | undefined) {
+    setNotice({ text: '', failed: false });
+    if (!file) return;
+    const blob = await encodeHero(file);
+    if (!blob) {
+      setNotice({ text: 'This photo could not be read. Export it as JPEG and try again.', failed: true });
+      return;
+    }
+    if (blob.size > HERO_MAX_BYTES) {
+      setNotice({ text: heroUploadErrors.too_large!, failed: true });
+      return;
+    }
+    setPending({ blob, url: URL.createObjectURL(blob) });
+  }
+
+  function checkedAlt(): string | null {
+    const parsed = heroAltSchema.safeParse(alt);
+    setAltError(parsed.success ? '' : (parsed.error.issues[0]?.message ?? 'Describe the photo'));
+    return parsed.success ? parsed.data : null;
+  }
+
+  async function upload() {
+    const text = checkedAlt();
+    if (!pending || text === null) return;
+    setUploading(true);
+    setNotice({ text: '', failed: false });
+    try {
+      const response = await fetch(`/host/properties/${propertyId}/hero`, {
+        method: 'POST',
+        headers: { 'content-type': 'image/jpeg', 'x-hero-alt': encodeURIComponent(text) },
+        body: pending.blob,
+      });
+      const result = (await response.json().catch(() => ({}))) as { state?: string };
+      if (result.state !== 'ok') {
+        setNotice({ text: heroUploadErrors[result.state ?? ''] ?? 'Something went wrong. Try again.', failed: true });
+        return;
+      }
+      setPending(null);
+      await router.invalidate();
+      setNotice({ text: 'Cover photo saved.', failed: false });
+    } catch {
+      setNotice({ text: 'Something went wrong. Try again.', failed: true });
+    } finally {
+      setUploading(false);
+    }
+  }
+
+  function saveAlt() {
+    const text = checkedAlt();
+    if (text === null) return;
+    void run(
+      () => saveHeroAlt({ data: { propertyId, alt: text } }),
+      () => 'Photo description saved.',
+    );
+  }
+
+  async function remove() {
+    const confirmed = await confirm({
+      title: 'Remove the cover photo?',
+      body: 'Guests stop seeing it right away and the stored photo is deleted.',
+      confirmLabel: 'Remove photo',
+    });
+    if (!confirmed) return;
+    await run(
+      () => removeHero({ data: { propertyId } }),
+      () => {
+        setAlt('');
+        return 'Cover photo removed.';
+      },
+    );
+  }
+
+  const shown = pending?.url ?? (hero ? `/host/properties/${propertyId}/hero?v=${hero.version}` : null);
+  const working = busy || uploading;
+  return (
+    <section className={`${styles.panel} stack`} aria-labelledby="cover-photo-heading" data-testid="cover-photo">
+      <h2 id="cover-photo-heading" tabIndex={-1}>
+        Cover photo
+      </h2>
+      {!available ? (
+        <p className="small muted" data-testid="cover-photo-unavailable">
+          Cover photos are not available on this server. Set SUPABASE_SECRET_KEY to turn them on.
+        </p>
+      ) : (
+        <>
+          {shown ? (
+            <img
+              className={editorStyles.coverPreview}
+              src={shown}
+              alt={alt || hero?.alt || ''}
+              width={hero && !pending ? hero.width : undefined}
+              height={hero && !pending ? hero.height : undefined}
+              data-testid="cover-photo-preview"
+            />
+          ) : (
+            <p className="small muted">Guests see this photo at the top of the guide&apos;s Home page.</p>
+          )}
+          <Field label="Choose a photo">
+            <input
+              id="cover-photo-file"
+              type="file"
+              accept="image/*"
+              disabled={working}
+              onChange={(event) => void choose(event.currentTarget.files?.[0])}
+              data-testid="cover-photo-file"
+            />
+          </Field>
+          <Field
+            label="Photo description for guests who cannot see it"
+            error={altError}
+            errorId="cover-photo-alt-error"
+            errorTestId="cover-photo-alt-error"
+          >
+            <input
+              value={alt}
+              maxLength={200}
+              onChange={(event) => setAlt(event.currentTarget.value)}
+              aria-invalid={Boolean(altError)}
+              aria-describedby={altError ? 'cover-photo-alt-error' : undefined}
+              data-testid="cover-photo-alt"
+            />
+          </Field>
+          <div className="actions">
+            {pending ? (
+              <Button type="button" onClick={() => void upload()} disabled={working} data-testid="cover-photo-upload">
+                <Icon icon={ImageUp} />
+                {uploading ? 'Uploading…' : hero ? 'Replace photo' : 'Upload photo'}
+              </Button>
+            ) : null}
+            {hero && !pending ? (
+              <>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  onClick={saveAlt}
+                  disabled={working}
+                  data-testid="cover-photo-alt-save"
+                >
+                  Save description
+                </Button>
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={() => void remove()}
+                  disabled={working}
+                  data-testid="cover-photo-remove"
+                >
+                  <Icon icon={Trash} />
+                  Remove photo
+                </Button>
+              </>
+            ) : null}
+          </div>
+        </>
+      )}
+      <Toast testId="cover-photo-message" tone={notice.failed ? 'error' : undefined}>
+        {notice.text}
+      </Toast>
+      {dialog}
+    </section>
+  );
+}
+
 function ReadinessPanel({ items, onJump }: { items: ReadinessItem[]; onJump: (item: ReadinessItem) => void }) {
   const pending = items.filter((item) => !item.done);
   if (!pending.length) return null;
+  const required = items.filter((item) => !item.optional);
+  const left = required.filter((item) => !item.done).length;
   return (
     <details open className={`${styles.panel} stack`} data-testid="readiness">
       <summary>
         <h2 className={editorStyles.inlineHeading}>
-          Before guests arrive: {pending.length} of {items.length} left
+          {left ? `Before guests arrive: ${left} of ${required.length} left` : 'Ready for guests'}
         </h2>
       </summary>
       <ul className="stack">

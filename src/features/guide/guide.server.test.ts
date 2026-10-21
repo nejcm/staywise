@@ -5,6 +5,7 @@ import {
   readHeroPath,
   toGuestGuideDto,
   updateHeroAlt,
+  heroObjectPath,
   upsertHero,
   type GuestGuideRow,
 } from './guide.server';
@@ -160,22 +161,28 @@ describe('hero writes', () => {
 
   it('stores a new key under the property prefix and returns no path to guests', async () => {
     const { tx, queries } = fakeTx([{}], [{ alt: 'Lake view', width: 1600, height: 1067, created_at: created }]);
-    const result = await upsertHero(tx, input);
-    expect(result?.objectPath).toMatch(new RegExp(`^${propertyId}/[0-9a-f-]{36}\\.jpg$`));
-    expect(result?.hero).toEqual({ alt: 'Lake view', width: 1600, height: 1067, version: String(created.getTime()) });
-    expect(queries[1]?.values).toEqual([propertyId, result?.objectPath, 'Lake view', 1600, 1067, 900000]);
+    const objectPath = heroObjectPath(propertyId);
+    expect(objectPath).toMatch(new RegExp(`^${propertyId}/[0-9a-f-]{36}\\.jpg$`));
+    expect(await upsertHero(tx, objectPath, input)).toEqual({
+      alt: 'Lake view',
+      width: 1600,
+      height: 1067,
+      version: String(created.getTime()),
+    });
+    expect(queries[1]?.values).toEqual([propertyId, objectPath, 'Lake view', 1600, 1067, 900000]);
   });
 
-  it('gives every upload a fresh key', async () => {
-    const stored = { alt: 'Lake view', width: 1, height: 1, created_at: created };
-    const first = await upsertHero(fakeTx([{}], [stored]).tx, input);
-    const second = await upsertHero(fakeTx([{}], [stored]).tx, input);
-    expect(first?.objectPath).not.toBe(second?.objectPath);
+  it('gives every upload a fresh key and rejects a key outside the property prefix', async () => {
+    expect(heroObjectPath(propertyId)).not.toBe(heroObjectPath(propertyId));
+    expect(() => heroObjectPath('../other')).toThrow('invalid_input');
+    const { tx, queries } = fakeTx([{}]);
+    await expect(upsertHero(tx, 'other/x.jpg', input)).rejects.toThrow('invalid_input');
+    expect(queries).toHaveLength(0);
   });
 
   it('writes nothing for a property the owner context cannot see', async () => {
     const { tx, queries } = fakeTx([]);
-    expect(await upsertHero(tx, input)).toBeNull();
+    expect(await upsertHero(tx, `${propertyId}/a.jpg`, input)).toBeNull();
     expect(queries).toHaveLength(1);
   });
 
@@ -189,7 +196,7 @@ describe('hero writes', () => {
       { ...input, propertyId: '../other' },
     ]) {
       const { tx, queries } = fakeTx();
-      await expect(upsertHero(tx, bad)).rejects.toThrow('invalid_input');
+      await expect(upsertHero(tx, `${propertyId}/a.jpg`, bad)).rejects.toThrow('invalid_input');
       expect(queries).toHaveLength(0);
     }
     await expect(updateHeroAlt(fakeTx().tx, propertyId, '')).rejects.toThrow('invalid_input');

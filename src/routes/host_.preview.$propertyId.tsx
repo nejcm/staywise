@@ -4,6 +4,7 @@ import { z } from 'zod';
 import { buttonClass } from '../components/button';
 import { Pill } from '../components/pill';
 import { AddressLine, AnswerHours, ArrivalCard, CallStrip } from '../features/guest/guest-essentials';
+import { GuestHero } from '../features/guest/guest-hero';
 import { getHostAuthState } from '../features/host/host-fns';
 import { getGuestPreview, recordPreviewOpened } from '../features/guide/guide-fns';
 import { guestCategoryLabel, guestLocaleName, guestUiText, languageNames } from '../features/guest/guest-ui';
@@ -109,6 +110,7 @@ function PreviewPage() {
                   ))}
                 </ul>
               ) : null}
+              <GuestHero hero={guest.hero} src={`/host/properties/${propertyId}/hero`} testId="preview-hero" />
               {essentials.address ? (
                 <AddressLine address={essentials.address} locale={guest.locale} testId="preview-address" />
               ) : null}

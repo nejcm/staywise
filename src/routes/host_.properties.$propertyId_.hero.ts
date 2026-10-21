@@ -1,12 +1,12 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { readHeroPath, upsertHero } from '../features/guide/guide.server';
+import { heroObjectPath, ownsProperty, readHeroPath, upsertHero } from '../features/guide/guide.server';
 import { heroAltSchema, propertyIdInput } from '../features/guide/guide-validation';
 import { HERO_MAX_BYTES, parseJpeg } from '../features/guide/image-validation';
 import { readBoundedBytes } from '../features/messages/message-validation';
 import { withOwnerContext } from '../lib/db.server';
 import { serverEnv } from '../lib/env.server';
 import { aal2Host } from '../lib/fn-guards.server';
-import { drainStorageDeletions, getImage, imageResponse, putImage } from '../lib/storage.server';
+import { drainStorageDeletions, getImage, imageResponse, putImage, removeImage } from '../lib/storage.server';
 
 function state(value: string, status: number, extra?: Record<string, unknown>): Response {
   return new Response(JSON.stringify({ state: value, ...extra }), {
@@ -21,6 +21,12 @@ function decodedAlt(header: string | null): string | null {
   } catch {
     return null;
   }
+}
+
+// A failed commit acknowledgement may still have committed, so only an object no row points at is removed.
+async function discardIfUnreferenced(userId: string, propertyId: string, objectPath: string): Promise<void> {
+  const current = await withOwnerContext(userId, (tx) => readHeroPath(tx, propertyId)).catch(() => objectPath);
+  if (current !== objectPath) await removeImage(objectPath);
 }
 
 export const Route = createFileRoute('/host_/properties/$propertyId_/hero')({
@@ -43,19 +49,27 @@ export const Route = createFileRoute('/host_/properties/$propertyId_/hero')({
           if (body.state === 'denied') return state('too_large', 413);
           const size = parseJpeg(body.bytes);
           if (!size) return state('invalid', 400);
-          // The upload runs inside the row's transaction so a Storage failure rolls back and keeps the old hero.
-          const hero = await withOwnerContext(host.userId, async (tx) => {
-            const saved = await upsertHero(tx, {
-              propertyId: property.data.propertyId,
-              alt: alt.data,
-              bytes: body.bytes.byteLength,
-              ...size,
-            });
-            if (!saved) return null;
-            if (!(await putImage(saved.objectPath, body.bytes))) throw new Error('storage upload failed');
-            return saved.hero;
-          });
-          if (!hero) return state('denied', 403);
+          const propertyId = property.data.propertyId;
+          const owned = await withOwnerContext(host.userId, (tx) => ownsProperty(tx, propertyId));
+          if (!owned) return state('denied', 403);
+          // Storage I/O stays outside any transaction; a failed upload leaves the current hero untouched.
+          const objectPath = heroObjectPath(propertyId);
+          if (!(await putImage(objectPath, body.bytes).catch(() => false))) {
+            // A timed-out upload may have landed anyway; no row references the key yet.
+            await removeImage(objectPath);
+            return state('error', 500);
+          }
+          const input = { propertyId, alt: alt.data, bytes: body.bytes.byteLength, ...size };
+          const hero = await withOwnerContext(host.userId, (tx) => upsertHero(tx, objectPath, input)).catch(
+            async (error: unknown) => {
+              await discardIfUnreferenced(host.userId, propertyId, objectPath);
+              throw error;
+            },
+          );
+          if (!hero) {
+            await removeImage(objectPath);
+            return state('denied', 403);
+          }
           await drainStorageDeletions().catch(() => 0);
           return state('ok', 200, { hero });
         } catch {

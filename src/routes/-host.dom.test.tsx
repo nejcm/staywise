@@ -66,6 +66,7 @@ function property(overrides: Record<string, unknown> = {}) {
     opens30d: 14,
     messages30d: 2,
     waiting: 0,
+    hero: null,
     ...overrides,
   };
 }
@@ -93,6 +94,16 @@ describe('host alert drift', () => {
   it('stays hidden when the addresses match ignoring case', async () => {
     await renderWith([property()]);
     expect(screen.queryByTestId('host-alert-drift')).toBeNull();
+  });
+});
+
+describe('host cover thumbnail', () => {
+  it('shows the cover through the owner route, or a placeholder without one', async () => {
+    const hero = { alt: 'Lake', width: 1600, height: 1067, version: '9' };
+    await renderWith([property({ hero }), property({ id: 'p2', displayName: 'Synthetic barn' })]);
+    expect(screen.getByTestId('host-property-thumb').getAttribute('src')).toBe('/host/properties/p1/hero?v=9');
+    expect(screen.getByTestId('host-property-thumb').getAttribute('alt')).toBe('');
+    expect(screen.getAllByTestId('host-property-thumb-empty')).toHaveLength(1);
   });
 });
 

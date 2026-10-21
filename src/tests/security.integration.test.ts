@@ -322,6 +322,12 @@ describeLocal('host auth trust boundaries against the local stack', () => {
       const settings = decode<{ accountDeletion?: boolean }>(await settingsFn('getHostSettings', { jar }))?.result;
       // The dev server only deletes accounts when it was started with SUPABASE_SECRET_KEY.
       if (!settings?.accountDeletion) ctx.skip();
+      const heroUpload = await fetch(`${APP}/host/properties/${propertyId}/hero`, {
+        method: 'POST',
+        headers: { origin: APP, cookie: jar.header(), 'content-type': 'image/jpeg', 'x-hero-alt': 'Synthetic cover' },
+        body: readFileSync(new URL('./fixtures/synthetic-hero.jpg', import.meta.url)),
+      });
+      expect(heroUpload.status).toBe(200);
 
       const deleted = await hostFn('deleteAccount', {
         jar,
@@ -342,7 +348,9 @@ describeLocal('host auth trust boundaries against the local stack', () => {
           (select count(*)::int from app.api_tokens where owner_id = ${userId}) as tokens,
           (select count(*)::int from app.audit_events where actor_id = ${userId}) as attributed,
           (select count(*)::int from app.audit_events
-            where actor_id is null and action = 'account_deleted' and created_at >= ${since}) as deletions
+            where actor_id is null and action = 'account_deleted' and created_at >= ${since}) as deletions,
+          (select count(*)::int from storage.objects where bucket_id = 'guide-images' and name like ${`${propertyId}/%`}) as objects,
+          (select count(*)::int from app.storage_deletions where object_path like ${`${propertyId}/%`}) as queued
       `;
       expect(left).toEqual({
         users: 0,
@@ -355,6 +363,8 @@ describeLocal('host auth trust boundaries against the local stack', () => {
         tokens: 0,
         attributed: 0,
         deletions: 1,
+        objects: 0,
+        queued: 0,
       });
       expect((await client.auth.getUser()).error).not.toBeNull();
     } finally {

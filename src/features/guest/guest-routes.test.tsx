@@ -25,6 +25,7 @@ const guide = {
     locale: 'de',
     locales: ['de', 'en'],
     theme: 'coast',
+    hero: null,
     sections: [
       { category: 'wifi', title: 'WLAN', body: '\n  Netz: Villa\nPasswort am Router', provenance: 'reviewed' },
       { category: 'parking', title: 'Parking', body: 'Behind the house', provenance: 'fallback' },
@@ -99,6 +100,18 @@ describe('guest routes', () => {
       expect(missing).toContain('data-testid="guest-section-missing"');
       expect(missing).not.toMatch(/von 2/);
     }
+  });
+
+  it('shows the hero above the heading on Home only, sized and described, and nothing without one', async () => {
+    const hero = { alt: 'Lake view from the terrace', width: 1600, height: 1067, version: '42' };
+    const withHero = { ...guide, guest: { ...guide.guest, hero } };
+    const html = await render('/g/synthetic?lang=de', withHero);
+    expect(html).toMatch(
+      /<img[^>]*src="\/g\/synthetic\/hero\?v=42"[^>]*alt="Lake view from the terrace"[^>]*width="1600"[^>]*height="1067"[^>]*decoding="async"[^>]*>.*<h1/s,
+    );
+    expect(html).not.toContain('loading="lazy"');
+    expect(await render('/g/synthetic/guide?lang=de', withHero)).not.toContain('guest-home-hero');
+    expect(await render('/g/synthetic?lang=de', guide)).not.toContain('guest-home-hero');
   });
 
   it('server-renders essentials as selectable text with no Copy button before hydration', async () => {

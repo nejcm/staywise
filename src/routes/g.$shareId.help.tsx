@@ -34,6 +34,7 @@ function GuestHelp() {
           <li>{guestUiText(locale, 'help.privacy.seen')}</li>
           <li>{guestUiText(locale, 'help.privacy.retention', { days: String(messageRetentionDays) })}</li>
           <li>{guestUiText(locale, 'form.noReply')}</li>
+          <li>{guestUiText(locale, 'help.privacy.photo')}</li>
         </ul>
         <a href="/privacy" data-testid="guest-privacy-link">
           {guestUiText(locale, 'help.privacy.link')}

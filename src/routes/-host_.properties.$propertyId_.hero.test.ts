@@ -2,18 +2,23 @@ import { readFileSync } from 'node:fs';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { serverEnv } from '../lib/env.server';
 import { aal2Host } from '../lib/fn-guards.server';
-import { readHeroPath, upsertHero } from '../features/guide/guide.server';
-import { drainStorageDeletions, getImage, putImage } from '../lib/storage.server';
+import { ownsProperty, readHeroPath, upsertHero } from '../features/guide/guide.server';
+import { withOwnerContext } from '../lib/db.server';
+import { drainStorageDeletions, getImage, putImage, removeImage } from '../lib/storage.server';
 import { Route } from './host_.properties.$propertyId_.hero';
 
 vi.mock('../lib/fn-guards.server', () => ({ aal2Host: vi.fn() }));
-vi.mock('../lib/db.server', () => ({
-  withOwnerContext: (_userId: string, work: (tx: unknown) => unknown) => work({}),
+vi.mock('../lib/db.server', () => ({ withOwnerContext: vi.fn() }));
+vi.mock('../features/guide/guide.server', () => ({
+  heroObjectPath: (id: string) => `${id}/new.jpg`,
+  ownsProperty: vi.fn(),
+  readHeroPath: vi.fn(),
+  upsertHero: vi.fn(),
 }));
-vi.mock('../features/guide/guide.server', () => ({ readHeroPath: vi.fn(), upsertHero: vi.fn() }));
 vi.mock('../lib/storage.server', async (importOriginal) => ({
   ...(await importOriginal<typeof import('../lib/storage.server')>()),
   putImage: vi.fn(),
+  removeImage: vi.fn(),
   getImage: vi.fn(),
   drainStorageDeletions: vi.fn(),
 }));
@@ -52,9 +57,12 @@ beforeEach(() => {
   vi.mocked(aal2Host)
     .mockReset()
     .mockResolvedValue({ userId: 'u1', email: 'host@example.test' } as never);
-  vi.mocked(upsertHero)
+  vi.mocked(withOwnerContext)
     .mockReset()
-    .mockResolvedValue({ objectPath: `${propertyId}/new.jpg`, hero });
+    .mockImplementation((_userId, work) => work({} as never));
+  vi.mocked(ownsProperty).mockReset().mockResolvedValue(true);
+  vi.mocked(upsertHero).mockReset().mockResolvedValue(hero);
+  vi.mocked(removeImage).mockReset().mockResolvedValue(true);
   vi.mocked(readHeroPath).mockReset();
   vi.mocked(putImage).mockReset().mockResolvedValue(true);
   vi.mocked(getImage).mockReset();
@@ -66,11 +74,18 @@ describe('hero upload', () => {
     const response = await upload(jpeg);
     expect(response.status).toBe(200);
     expect(await response.json()).toEqual({ state: 'ok', hero });
-    expect(upsertHero).toHaveBeenCalledWith(
-      {},
-      { propertyId, alt: 'Lake view', width: 24, height: 16, bytes: jpeg.byteLength },
-    );
     expect(putImage).toHaveBeenCalledWith(`${propertyId}/new.jpg`, new Uint8Array(jpeg));
+    expect(upsertHero).toHaveBeenCalledWith({}, `${propertyId}/new.jpg`, {
+      propertyId,
+      alt: 'Lake view',
+      width: 24,
+      height: 16,
+      bytes: jpeg.byteLength,
+    });
+    expect(vi.mocked(putImage).mock.invocationCallOrder[0]).toBeLessThan(
+      vi.mocked(upsertHero).mock.invocationCallOrder[0] ?? 0,
+    );
+    expect(removeImage).not.toHaveBeenCalled();
     expect(drainStorageDeletions).toHaveBeenCalledOnce();
   });
 
@@ -95,16 +110,54 @@ describe('hero upload', () => {
     expect(upsertHero).not.toHaveBeenCalled();
   });
 
-  it('denies a property the host does not own', async () => {
-    vi.mocked(upsertHero).mockResolvedValue(null);
+  it('denies a property the host does not own before uploading', async () => {
+    vi.mocked(ownsProperty).mockResolvedValue(false);
     expect((await upload(jpeg)).status).toBe(403);
     expect(putImage).not.toHaveBeenCalled();
   });
 
-  it('fails without draining when Storage rejects the object', async () => {
-    vi.mocked(putImage).mockResolvedValue(false);
+  it('removes the new object when the property disappears before the row write', async () => {
+    vi.mocked(upsertHero).mockResolvedValue(null);
+    expect((await upload(jpeg)).status).toBe(403);
+    expect(removeImage).toHaveBeenCalledWith(`${propertyId}/new.jpg`);
+  });
+
+  it.each([
+    ['rejects', () => vi.mocked(putImage).mockResolvedValue(false)],
+    ['throws', () => vi.mocked(putImage).mockRejectedValue(new Error('timeout'))],
+  ])('keeps the old hero row when Storage %s the upload', async (_name, arrange) => {
+    arrange();
     expect((await upload(jpeg)).status).toBe(500);
+    expect(upsertHero).not.toHaveBeenCalled();
+    expect(removeImage).toHaveBeenCalledWith(`${propertyId}/new.jpg`);
     expect(drainStorageDeletions).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['rolled back', `${propertyId}/old.jpg`, true],
+    ['committed despite the error', `${propertyId}/new.jpg`, false],
+  ])(
+    'after a failed commit that %s, removes the new object only if no row references it',
+    async (_name, current, removed) => {
+      vi.mocked(withOwnerContext)
+        .mockImplementationOnce((_userId, work) => work({} as never))
+        .mockImplementationOnce(async (_userId, work) => {
+          await work({} as never);
+          throw new Error('commit failed');
+        });
+      vi.mocked(readHeroPath).mockResolvedValue(current);
+      expect((await upload(jpeg)).status).toBe(500);
+      expect(readHeroPath).toHaveBeenCalledWith({}, propertyId);
+      expect(vi.mocked(removeImage).mock.calls).toEqual(removed ? [[`${propertyId}/new.jpg`]] : []);
+      expect(drainStorageDeletions).not.toHaveBeenCalled();
+    },
+  );
+
+  it('keeps the new object when the re-check itself fails', async () => {
+    vi.mocked(upsertHero).mockRejectedValue(new Error('connection lost'));
+    vi.mocked(readHeroPath).mockRejectedValue(new Error('connection lost'));
+    expect((await upload(jpeg)).status).toBe(500);
+    expect(removeImage).not.toHaveBeenCalled();
   });
 
   it('reports the feature unavailable without the secret key', async () => {

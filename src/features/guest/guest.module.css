@@ -193,6 +193,15 @@
   outline: none;
 }
 
+.hero {
+  display: block;
+  width: 100%;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: var(--radius-card);
+}
+
 .intro {
   display: flex;
   flex-direction: column;

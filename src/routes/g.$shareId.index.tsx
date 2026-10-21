@@ -5,6 +5,7 @@ import { avatarInitial, guestLink, guestUiText } from '../features/guest/guest-u
 import styles from '../features/guest/guest.module.css';
 import { buttonClass } from '../components/button';
 import { AddressLine, AnswerHours, ArrivalCard, hasEssentials } from '../features/guest/guest-essentials';
+import { GuestHero } from '../features/guest/guest-hero';
 import { SectionRows } from '../features/guest/guest-sections';
 
 export const Route = createFileRoute('/g/$shareId/')({
@@ -21,6 +22,7 @@ function GuestHome() {
   const home = `/g/${shareId}`;
   return (
     <>
+      <GuestHero hero={guest.guest.hero} src={`${home}/hero`} testId="guest-home-hero" />
       <div className={styles.intro}>
         <h1>{guest.guest.displayName}</h1>
         {address ? <AddressLine address={address} locale={locale} testId="guest-home-address" /> : null}

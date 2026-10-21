@@ -3,7 +3,7 @@ import { aal2Host, isGuardedMutation, runGuarded, type FnError } from '../../lib
 import { insertAudit } from '../../lib/audit.server';
 import { withOwnerContext } from '../../lib/db.server';
 import { serverEnv } from '../../lib/env.server';
-import { drainStorageDeletions } from '../../lib/storage.server';
+import { drainAllStorageDeletions, drainStorageDeletions } from '../../lib/storage.server';
 import { recordSetupEvent } from '../../lib/setup-events.server';
 import {
   copyPropertyInput,
@@ -116,6 +116,7 @@ export const deleteProperty = createServerFn({ method: 'POST' })
         return true;
       });
       if (!deleted) return { error: 'invalid_input' } satisfies FnError;
+      await drainAllStorageDeletions();
       return { ok: true as const };
     }),
   );

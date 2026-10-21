@@ -5,7 +5,7 @@ const { sql, bucket, createClient, env } = vi.hoisted(() => {
   return {
     sql: vi.fn(),
     bucket: storageBucket,
-    createClient: vi.fn(() => ({ storage: { from: () => storageBucket } })),
+    createClient: vi.fn((..._args: unknown[]) => ({ storage: { from: () => storageBucket } })),
     env: { supabaseUrl: 'http://127.0.0.1:54321', supabaseSecretKey: 'sb_secret_SYNTHETIC' as string | null },
   };
 });
@@ -19,6 +19,7 @@ beforeEach(() => {
   vi.resetModules();
   env.supabaseSecretKey = 'sb_secret_SYNTHETIC';
   sql.mockReset();
+  createClient.mockClear();
   for (const fn of Object.values(bucket)) fn.mockReset();
   sql.mockImplementation((strings: unknown) =>
     Array.isArray(strings) && 'raw' in strings && String(strings[0]).includes('select') ? queued : [],
@@ -36,6 +37,30 @@ describe('storage', () => {
     });
   });
 
+  it('bounds writes with a deadline but leaves streamed reads open', async () => {
+    await import('./storage.server');
+    const options = createClient.mock.calls[0]?.at(2) as unknown as { global: { fetch: typeof fetch } };
+    const seen: (AbortSignal | null | undefined)[] = [];
+    const spy = vi.spyOn(globalThis, 'fetch').mockImplementation((_input, init) => {
+      seen.push(init?.signal);
+      return Promise.resolve(new Response(null));
+    });
+    await options.global.fetch('http://storage.test/a', { method: 'POST' });
+    await options.global.fetch('http://storage.test/a', { method: 'DELETE' });
+    await options.global.fetch('http://storage.test/a');
+    spy.mockRestore();
+    expect(seen.map((signal) => signal instanceof AbortSignal)).toEqual([true, true, false]);
+  });
+
+  it('removes one object and reports failure without throwing', async () => {
+    const { removeImage } = await import('./storage.server');
+    bucket.remove.mockResolvedValueOnce({ data: [], error: null });
+    expect(await removeImage('p/a.jpg')).toBe(true);
+    expect(bucket.remove).toHaveBeenCalledWith(['p/a.jpg']);
+    bucket.remove.mockRejectedValueOnce(new Error('timeout'));
+    expect(await removeImage('p/a.jpg')).toBe(false);
+  });
+
   it('drains queued paths and clears them only after Storage accepts the removal', async () => {
     const { drainStorageDeletions } = await import('./storage.server');
     bucket.remove.mockResolvedValue({ data: [{ name: 'p/a.jpg' }], error: null });
@@ -47,6 +72,23 @@ describe('storage', () => {
     bucket.remove.mockResolvedValue({ data: null, error: new Error('storage down SYNTHETIC') });
     expect(await drainStorageDeletions()).toBe(0);
     expect(sql).toHaveBeenCalledTimes(1);
+  });
+
+  it('drains every batch until the queue is empty or a batch fails', async () => {
+    const { drainAllStorageDeletions } = await import('./storage.server');
+    let selects = 0;
+    sql.mockImplementation((strings: unknown) => {
+      if (!(Array.isArray(strings) && String(strings[0]).includes('select'))) return [];
+      selects += 1;
+      return selects <= 2 ? queued : [];
+    });
+    bucket.remove.mockResolvedValue({ data: [], error: null });
+    expect(await drainAllStorageDeletions()).toBe(4);
+
+    selects = 0;
+    bucket.remove.mockResolvedValue({ data: null, error: new Error('storage down SYNTHETIC') });
+    expect(await drainAllStorageDeletions()).toBe(0);
+    expect(selects).toBe(1);
   });
 
   it('streams a stored object and reports a missing one as null', async () => {
