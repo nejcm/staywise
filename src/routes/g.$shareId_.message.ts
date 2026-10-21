@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router';
-import { serverEnv } from '../lib/env.server';
+import { isSameOriginJson } from '../lib/fn-guards.server';
 import { bumpGuestCounter } from '../features/guest/guest-counters.server';
 import { sendGuestMessageAlert } from '../lib/mail.server';
 import {
@@ -25,9 +25,7 @@ export const Route = createFileRoute('/g/$shareId_/message')({
     handlers: {
       POST: async ({ request, params }) => {
         try {
-          if (request.headers.get('origin') !== serverEnv.appOrigin) return state('denied', 403);
-          const contentType = (request.headers.get('content-type') ?? '').split(';')[0]?.trim().toLowerCase();
-          if (contentType !== 'application/json') return state('denied', 403);
+          if (!isSameOriginJson(request)) return state('denied', 403);
           // Content-Length is an optional early rejection; the byte bound is enforced while reading.
           const declared = Number(request.headers.get('content-length') ?? '');
           if (Number.isFinite(declared) && declared > MESSAGE_REQUEST_MAX) return state('denied', 403);

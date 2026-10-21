@@ -1,5 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
 import { serverEnv } from '../lib/env.server';
+import { isSameOriginJson } from '../lib/fn-guards.server';
 import { exchangeGuestLink, exchangeGuestLinkInput, serializeGuestCookie } from '../features/share/share.server';
 
 // Pre-session exchange: no cookie yet, so the valid bearer secret plus an exact same-origin JSON
@@ -16,9 +17,7 @@ export const Route = createFileRoute('/g/$shareId_/exchange')({
     handlers: {
       POST: async ({ request, params }) => {
         try {
-          if (request.headers.get('origin') !== serverEnv.appOrigin) return denied();
-          const contentType = (request.headers.get('content-type') ?? '').split(';')[0]?.trim().toLowerCase();
-          if (contentType !== 'application/json') return denied();
+          if (!isSameOriginJson(request)) return denied();
           const body: unknown = await request.json().catch(() => null);
           const secret =
             typeof body === 'object' && body !== null ? (body as Record<string, unknown>).secret : undefined;
