@@ -10,6 +10,7 @@ import { parseServerEnv } from '../lib/env.server';
 import {
   APP,
   HOST_FNS,
+  SETTINGS_FNS,
   SYNTHETIC_PASSWORD,
   adminClient,
   decode,
@@ -32,6 +33,7 @@ const devServerUp = await detectDevServer();
 const describeLocal = localStack && localDbUp && devServerUp ? describe : describe.skip;
 
 const hostFn = (name: string, options?: Parameters<typeof fnCall>[2]) => fnCall(HOST_FNS, name, options);
+const settingsFn = (name: string, options?: Parameters<typeof fnCall>[2]) => fnCall(SETTINGS_FNS, name, options);
 
 const PROPERTY_NAME = 'Integration replay property (synthetic)';
 
@@ -265,7 +267,7 @@ describeLocal('host auth trust boundaries against the local stack', () => {
       await restored.end({ timeout: 0 });
     }
   }, 60_000);
-  it('deletes an account only with the typed email and a fresh code, leaving no owner row behind', async () => {
+  it('deletes an account only with the typed email and a fresh code, leaving no owner row behind', async (ctx) => {
     const local = localStack as LocalStack;
     const email = `security-delete-${Date.now()}@example.test`;
     const userId = await adminClient(local).createUser(email, SYNTHETIC_PASSWORD);
@@ -316,6 +318,10 @@ describeLocal('host auth trust boundaries against the local stack', () => {
         select count(*)::int as n from app.properties where owner_id = ${userId}
       `;
       expect(kept).toBe(1);
+
+      const settings = decode<{ accountDeletion?: boolean }>(await settingsFn('getHostSettings', { jar }))?.result;
+      // The dev server only deletes accounts when it was started with SUPABASE_SECRET_KEY.
+      if (!settings?.accountDeletion) ctx.skip();
 
       const deleted = await hostFn('deleteAccount', {
         jar,
