@@ -20,14 +20,14 @@ type EssentialItem = {
   key: keyof PropertyEssentials;
   label: GuestUiKey;
   value: string | null;
-  icon: LucideIcon;
+  icon?: LucideIcon;
   copy?: boolean;
 };
 
 function essentialItems(essentials: PropertyEssentials): EssentialItem[] {
   const { checkinTime: checkin, checkoutTime: checkout } = essentials;
   return [
-    { key: 'wifiPassword', label: 'essentials.wifiPassword', value: essentials.wifiPassword, icon: Wifi, copy: true },
+    { key: 'wifiPassword', label: 'essentials.wifiPassword', value: essentials.wifiPassword, copy: true },
     { key: 'keyboxCode', label: 'essentials.keyboxCode', value: essentials.keyboxCode, icon: KeyRound },
     checkin && checkout
       ? { key: 'checkinTime', label: 'essentials.stay', value: `${checkin} · ${checkout}`, icon: Clock }
@@ -114,7 +114,14 @@ export function ArrivalCard({
   return (
     <section className={styles.arrival} aria-labelledby={`${testId}-title`} data-testid={testId}>
       <h2 id={`${testId}-title`}>
-        {wifiName ? `${guestCategoryLabel(locale, 'wifi')} · ${wifiName}` : guestUiText(locale, 'essentials.title')}
+        {wifiName ? (
+          <>
+            <Icon icon={Wifi} />
+            {`${guestCategoryLabel(locale, 'wifi')} · ${wifiName}`}
+          </>
+        ) : (
+          guestUiText(locale, 'essentials.title')
+        )}
       </h2>
       <EssentialsList essentials={essentials} locale={locale} />
     </section>
@@ -155,7 +162,7 @@ export function EssentialsList({ essentials, locale }: { essentials: PropertyEss
           return (
             <div key={key} className={styles[key]}>
               <dt>
-                <Icon icon={icon} />
+                {icon ? <Icon icon={icon} /> : null}
                 {guestUiText(locale, label)}
               </dt>
               <dd>

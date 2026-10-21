@@ -131,6 +131,7 @@ describe('guest routes', () => {
     const { document } = new Window();
     document.body.innerHTML = await render('/g/synthetic?lang=de', guide);
     expect(document.querySelectorAll('svg.lucide').length).toBeGreaterThan(0);
+    expect(document.querySelector('[data-testid="guest-home-essentials"] h2 svg.lucide-wifi')).not.toBeNull();
     expectNamedControlsAndHiddenIcons(document.body as unknown as ParentNode);
   });
 

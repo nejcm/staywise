@@ -308,25 +308,25 @@ function SectionNavRow({
       {first ? null : (
         <button
           type="button"
-          className={`${buttonClass('ghost')} ${editorStyles.iconButton}`}
-          aria-label={`Move ${name} up`}
+          className={buttonClass('ghost', 'sm')}
           onClick={() => void move('up')}
           disabled={busy}
           data-testid="section-move-up"
         >
           <Icon icon={ArrowUp} />
+          Move up<span className={styles.srOnly}>: {name}</span>
         </button>
       )}
       {last ? null : (
         <button
           type="button"
-          className={`${buttonClass('ghost')} ${editorStyles.iconButton}`}
-          aria-label={`Move ${name} down`}
+          className={buttonClass('ghost', 'sm')}
           onClick={() => void move('down')}
           disabled={busy}
           data-testid="section-move-down"
         >
           <Icon icon={ArrowDown} />
+          Move down<span className={styles.srOnly}>: {name}</span>
         </button>
       )}
       {failed ? (

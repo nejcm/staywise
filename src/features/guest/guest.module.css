@@ -277,6 +277,9 @@
 }
 
 .arrival h2 {
+  display: flex;
+  align-items: center;
+  gap: 6px;
   font-size: var(--fs-body);
   font-weight: 500;
   color: var(--accent-track);

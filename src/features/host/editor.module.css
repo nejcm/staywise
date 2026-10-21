@@ -100,11 +100,6 @@
   color: var(--danger-ink);
 }
 
-.iconButton {
-  width: 26px;
-  padding: 0;
-}
-
 .addButton {
   justify-self: start;
   margin: 6px 4px 0;
