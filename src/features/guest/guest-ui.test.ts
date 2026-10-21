@@ -21,10 +21,18 @@ describe('guest UI resources', () => {
     }
   });
 
+  it('keeps the same placeholders for every key in every language', () => {
+    const placeholders = (text: string) => [...text.matchAll(/\{(\w+)\}/g)].map((match) => match[1]).sort();
+    for (const locale of guestLocales) {
+      for (const key of guestUiKeys)
+        expect(placeholders(guestUi[locale][key]), `${locale} ${key}`).toEqual(placeholders(guestUi.en[key]));
+    }
+  });
+
   it('names every approved language and degrades safely for anything else', () => {
     for (const locale of guestLocales) expect(languageNames[locale].trim()).not.toBe('');
-    expect(guestLocaleName('fr')).toBe('fr');
-    expect(guestUiText('fr', 'nav.home')).toBe('Home');
+    expect(guestLocaleName('it')).toBe('it');
+    expect(guestUiText('it', 'nav.home')).toBe('Home');
   });
 
   it('substitutes placeholders in the fallback notice', () => {
@@ -34,6 +42,10 @@ describe('guest UI resources', () => {
     expect(guestUiText('en', 'fallback.notice', { language: 'Deutsch' })).toBe('Showing the original text in Deutsch.');
     expect(guestUiText('sl', 'fallback.notice', { language: 'English' })).toBe(
       'Prikazano je izvirno besedilo v jeziku English.',
+    );
+    expect(guestUiText('fr', 'fallback.notice', { language: 'English' })).toBe('Texte original affiché en English.');
+    expect(guestUiText('es', 'fallback.notice', { language: 'Deutsch' })).toBe(
+      'Se muestra el texto original en Deutsch.',
     );
   });
 

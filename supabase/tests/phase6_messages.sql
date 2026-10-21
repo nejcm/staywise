@@ -4,7 +4,7 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(33);
+select plan(35);
 
 do $$ begin execute format('grant app_runtime to %I with set true', current_user); end $$;
 
@@ -67,7 +67,7 @@ declare
 begin
   begin
     insert into app.guest_messages (property_id, kind, locale, body)
-      values ('7c000000-0000-4000-8000-0000000000a2', 'issue', 'fr', 'Bonjour');
+      values ('7c000000-0000-4000-8000-0000000000a2', 'issue', 'it', 'Ciao');
   exception when others then
     blocked := true;
     get stacked diagnostics err_state = returned_sqlstate;
@@ -331,6 +331,18 @@ select is((select err_state from probe_msg_owner_handled_orphan), '23514', 'the 
 select is((select n from probe_msg_owner_delete_foreign), 0::bigint, 'owner context cannot delete another host message');
 select is((select n from probe_msg_owner_delete_own), 1::bigint, 'owner context deletes its own message before retention expiry');
 select is((select alert_email from app.properties where id = '7c000000-0000-4000-8000-0000000000b2'), 'pgtap-msg-b@example.test', 'the property stores its host alert address');
+
+-- Positive probes run last so the earlier row counts stay untouched.
+select lives_ok(
+  $$insert into app.guest_messages (property_id, kind, locale, body)
+    values ('7c000000-0000-4000-8000-0000000000a2', 'issue', 'fr', 'Message synthétique')$$,
+  'French guest messages are accepted'
+);
+select lives_ok(
+  $$insert into app.guest_messages (property_id, kind, locale, body)
+    values ('7c000000-0000-4000-8000-0000000000a2', 'issue', 'es', 'Mensaje sintético')$$,
+  'Spanish guest messages are accepted'
+);
 
 select * from finish();
 rollback;

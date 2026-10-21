@@ -28,7 +28,7 @@ export const sectionCategoryLabels: Record<SectionCategory, string> = {
 
 // Approved guest UI languages for the pilot; the guest dictionaries and the database checks are
 // generated from this list, so a locale cannot be enabled without resources behind it.
-export const guestLocales = ['en', 'de', 'sl'] as const;
+export const guestLocales = ['en', 'de', 'sl', 'fr', 'es'] as const;
 export type GuestLocale = (typeof guestLocales)[number];
 export const guestLocaleSchema = z.enum(guestLocales, 'Choose an approved guest language');
 

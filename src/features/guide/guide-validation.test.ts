@@ -46,7 +46,7 @@ describe('propertyFields', () => {
     });
     expect(parsed.success && parsed.data.enabledLocales).toEqual(['de', 'sl']);
     expect(
-      propertyFields.safeParse({ displayName: 'Villa', sourceLocale: 'en', enabledLocales: ['de', 'fr'] }).success,
+      propertyFields.safeParse({ displayName: 'Villa', sourceLocale: 'en', enabledLocales: ['de', 'it'] }).success,
     ).toBe(false);
     expect(
       propertyFields.safeParse({ displayName: 'Villa', sourceLocale: 'en', enabledLocales: ['de', 'sl', 'de', 'sl'] })

@@ -7,7 +7,7 @@ Terms with a specific meaning in this project.
 | Host | The property owner who signs in (magic link, optional TOTP) and authors guides. | [README.md](README.md) |
 | Guest | Anyone opening a guide via link or QR; has no account. | [README.md](README.md) |
 | Property | One rental unit with a guide, enabled locales, and an alert email snapshot. | `src/features/guide/` |
-| Guide | The sections of a property shown to guests, in English, German, or Slovenian. | `src/features/guide/` |
+| Guide | The sections of a property shown to guests, in English, German, Slovenian, French, or Spanish. | `src/features/guide/` |
 | Share link | Per-property bearer link; its secret lives in the URL fragment and is exchanged for a guest session. Rotating or disabling it revokes sessions. | `src/features/share/` |
 | Guest session | Short-lived `Path=/g` cookie issued by the link exchange. | `src/features/share/` |
 | Kill switch | `GUEST_ACCESS_DISABLED=true`; denies all guest entry points, including old sessions. | [README.md](README.md) |

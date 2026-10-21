@@ -4,14 +4,15 @@ begin;
 
 create extension if not exists pgtap;
 
-select plan(25);
+select plan(28);
 
 do $$ begin execute format('grant app_runtime to %I with set true', current_user); end $$;
 
 -- Fixtures; the runner inserts bypass forced RLS and the whole file rolls back.
 insert into auth.users (id, email) values
   ('7b000000-0000-4000-8000-0000000000a1', 'pgtap-loc-a@example.test'),
-  ('7b000000-0000-4000-8000-0000000000b1', 'pgtap-loc-b@example.test');
+  ('7b000000-0000-4000-8000-0000000000b1', 'pgtap-loc-b@example.test'),
+  ('7b000000-0000-4000-8000-0000000000d1', 'pgtap-loc-d@example.test');
 insert into app.properties (id, owner_id, display_name, published, source_locale, enabled_locales) values
   ('7b000000-0000-4000-8000-0000000000a2', '7b000000-0000-4000-8000-0000000000a1', 'Localized A', true, 'en', array['de', 'sl']),
   ('7b000000-0000-4000-8000-0000000000a6', '7b000000-0000-4000-8000-0000000000a1', 'No targets', true, 'en', '{}'),
@@ -77,7 +78,7 @@ declare
 begin
   begin
     insert into app.properties (owner_id, display_name, source_locale)
-      values ('7b000000-0000-4000-8000-0000000000a1', 'Bad source', 'fr');
+      values ('7b000000-0000-4000-8000-0000000000a1', 'Bad source', 'it');
   exception when others then
     blocked := true;
     get stacked diagnostics err_state = returned_sqlstate;
@@ -91,7 +92,7 @@ declare
 begin
   begin
     insert into app.properties (owner_id, display_name, enabled_locales)
-      values ('7b000000-0000-4000-8000-0000000000a1', 'Bad targets', array['de', 'fr']);
+      values ('7b000000-0000-4000-8000-0000000000a1', 'Bad targets', array['de', 'it']);
   exception when others then
     blocked := true;
     get stacked diagnostics err_state = returned_sqlstate;
@@ -105,7 +106,7 @@ declare
 begin
   begin
     insert into app.guide_translations (section_id, locale, title, body, source_revision, source_locale)
-      values ('7b000000-0000-4000-8000-0000000000a3', 'fr', 'T', 'B', 1, 'en');
+      values ('7b000000-0000-4000-8000-0000000000a3', 'it', 'T', 'B', 1, 'en');
   exception when others then
     blocked := true;
     get stacked diagnostics err_state = returned_sqlstate;
@@ -119,7 +120,7 @@ declare
 begin
   begin
     insert into app.guide_translations (section_id, locale, title, body, source_revision, source_locale)
-      values ('7b000000-0000-4000-8000-0000000000a3', 'sl', 'T', 'B', 1, 'fr');
+      values ('7b000000-0000-4000-8000-0000000000a3', 'sl', 'T', 'B', 1, 'it');
   exception when others then
     blocked := true;
     get stacked diagnostics err_state = returned_sqlstate;
@@ -237,6 +238,23 @@ select is((select n from probe_owner_translations), 7::bigint, 'owner context se
 select is((select n from probe_owner_foreign), 0::bigint, 'owner context never sees another host translation');
 select is((select n from probe_owner_cross_approve), 0::bigint, 'owner context cannot approve another host translation');
 select is((select n from probe_owner_approve), 1::bigint, 'owner context approves its own draft');
+
+-- Positive probes run last so the earlier row counts stay untouched.
+select lives_ok(
+  $$insert into app.properties (id, owner_id, display_name, source_locale, enabled_locales)
+    values ('7b000000-0000-4000-8000-0000000000d2', '7b000000-0000-4000-8000-0000000000d1', 'French source', 'fr', array['es', 'en'])$$,
+  'French source and Spanish target are approved locales'
+);
+select lives_ok(
+  $$insert into app.guide_sections (id, property_id, category, title, body, visibility, published, source_revision)
+    values ('7b000000-0000-4000-8000-0000000000d3', '7b000000-0000-4000-8000-0000000000d2', 'wifi', 'Wi-Fi', 'Corps synthétique', 'guest', true, 1)$$,
+  'a section on a French-source property is accepted'
+);
+select lives_ok(
+  $$insert into app.guide_translations (section_id, locale, title, body, source_revision, source_locale)
+    values ('7b000000-0000-4000-8000-0000000000d3', 'es', 'Wi-Fi', 'Cuerpo sintético', 1, 'fr')$$,
+  'a Spanish translation from a French source is accepted'
+);
 
 select * from finish();
 rollback;
