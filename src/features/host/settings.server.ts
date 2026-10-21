@@ -1,4 +1,5 @@
 import type postgres from 'postgres';
+import type { AuditAction } from '../../lib/audit.server';
 import type { z } from 'zod';
 import { canonicalInput } from '../../lib/canonical-input.server';
 import { hostSettingsInput, type GuestLocale, type GuestTheme } from '../guide/guide-validation';
@@ -81,4 +82,37 @@ export async function writeHostSettings(
       answer_to = excluded.answer_to, checkin_time = excluded.checkin_time, checkout_time = excluded.checkout_time,
       updated_at = now()
   `;
+}
+
+const securityActions = [
+  'sign_in',
+  'mfa_enrolled',
+  'mfa_unenrolled',
+  'agent_grant_created',
+  'agent_grant_revoked',
+  'agent_grants_revoked_all',
+] as const satisfies readonly AuditAction[];
+
+export type SecurityEvent = {
+  id: string;
+  action: (typeof securityActions)[number];
+  at: string;
+  grantName: string | null;
+};
+
+export async function readSecurityActivity(tx: postgres.TransactionSql): Promise<SecurityEvent[]> {
+  const rows = await tx<{ id: string; action: SecurityEvent['action']; created_at: Date; grant_name: string | null }[]>`
+    select a.id::text as id, a.action, a.created_at, g.name as grant_name
+    from app.audit_events a
+    left join app.agent_grants g on g.id = a.grant_id
+    where a.actor_id = app.current_owner_id() and a.action in ${tx([...securityActions])}
+    order by a.created_at desc, a.id desc
+    limit 20
+  `;
+  return rows.map((row) => ({
+    id: row.id,
+    action: row.action,
+    at: row.created_at.toISOString(),
+    grantName: row.grant_name,
+  }));
 }

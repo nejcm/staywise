@@ -14,7 +14,7 @@ TanStack Start (React 19, SSR, server functions) with CSS Modules, Bun, Supabase
 
 `/host` lists each property with its address, published state, guide categories, unpublished sections, guest link state, which guest languages are fully reviewed, and the latest waiting messages. The property editor has a guest preview in phone and tablet device frames at `/host/preview/<propertyId>`. Each property picks one of five preset guest page themes ([ADR 0003](docs/adr/0003-guest-themes-are-presets.md)).
 
-`/host/settings` holds account settings: two-step sign-in (set up or remove the authenticator), sign out, and the defaults for new properties (theme, guide and guest languages, time zone, check-in/out times, contact phone, answering hours). Defaults are copied into a property when it is created and never applied to existing properties; a copy keeps the values of its source property. Until a host saves, built-in defaults apply (`staywise` theme, English, `UTC`); the form only suggests the browser's time zone.
+`/host/settings` holds account settings: two-step sign-in (set up or remove the authenticator), security activity (the 20 most recent sign-ins, two-step changes, and agent access grants and revocations from the 90-day audit log; agent tool calls are not listed), sign out, and the defaults for new properties (theme, guide and guest languages, time zone, check-in/out times, contact phone, answering hours). Defaults are copied into a property when it is created and never applied to existing properties; a copy keeps the values of its source property. Until a host saves, built-in defaults apply (`staywise` theme, English, `UTC`); the form only suggests the browser's time zone.
 
 ## Development
 

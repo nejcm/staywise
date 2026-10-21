@@ -4,7 +4,7 @@ import { aal2Host, isGuardedMutation, runGuarded, type FnError } from '../../lib
 import { withOwnerContext } from '../../lib/db.server';
 import { serverEnv } from '../../lib/env.server';
 import { hostSettingsInput, timeZones } from '../guide/guide-validation';
-import { builtInHostSettings, readHostSettings, writeHostSettings } from './settings.server';
+import { builtInHostSettings, readHostSettings, readSecurityActivity, writeHostSettings } from './settings.server';
 
 export const getHostSettings = createServerFn({ method: 'GET' }).handler(async () =>
   runGuarded(async () => {
@@ -34,3 +34,11 @@ export const saveHostSettings = createServerFn({ method: 'POST' })
       return { ok: true as const };
     }),
   );
+
+export const getSecurityActivity = createServerFn({ method: 'GET' }).handler(async () =>
+  runGuarded(async () => {
+    const host = await aal2Host();
+    if ('error' in host) return host;
+    return { events: await withOwnerContext(host.userId, readSecurityActivity) };
+  }),
+);

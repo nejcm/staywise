@@ -9,10 +9,10 @@ import { ThemePicker } from '../features/guide/theme-picker';
 import { collectFieldErrors, guestLocales, hostSettingsInput } from '../features/guide/guide-validation';
 import { languageNames } from '../features/guest/guest-ui';
 import { deleteAccount, getHostAuthState, mfaUnenroll, restartEnrollment } from '../features/host/host-fns';
-import { getHostSettings, saveHostSettings } from '../features/host/settings-fns';
+import { getHostSettings, getSecurityActivity, saveHostSettings } from '../features/host/settings-fns';
 import { createAgentToken, getAgentAccess, revokeAgentToken, revokeAllAgentTokens } from '../features/agent/agent-fns';
 import { agentScopes, createGrantInput, grantLifetimes, scopeLabels } from '../features/agent/agent-validation';
-import type { HostSettings } from '../features/host/settings.server';
+import type { HostSettings, SecurityEvent } from '../features/host/settings.server';
 import { TotpEnrollment } from '../features/host/totp-enrollment';
 import styles from '../features/host/host.module.css';
 import editorStyles from '../features/host/editor.module.css';
@@ -26,8 +26,11 @@ export const Route = createFileRoute('/host_/settings')({
     if ('error' in result) throw redirect({ to: '/host' });
     const agent = await getAgentAccess();
     if ('error' in agent) throw redirect({ to: '/host' });
+    const activity = await getSecurityActivity();
+    if ('error' in activity && activity.error === 'auth_required') throw redirect({ to: '/host' });
     return {
       agent,
+      securityEvents: 'error' in activity ? null : activity.events,
       totpFactorIds: state.totpFactorIds,
       email: result.email,
       settings: result.settings,
@@ -40,7 +43,8 @@ export const Route = createFileRoute('/host_/settings')({
 });
 
 function SettingsPage() {
-  const { agent, totpFactorIds, email, settings, saved, timeZones, accountDeletion } = Route.useLoaderData();
+  const { agent, securityEvents, totpFactorIds, email, settings, saved, timeZones, accountDeletion } =
+    Route.useLoaderData();
   return (
     <HostShell email={email}>
       <div className={styles.head}>
@@ -56,6 +60,10 @@ function SettingsPage() {
       <section className={`${styles.panel} stack`} aria-labelledby="mfa-heading">
         <h2 id="mfa-heading">Two-step sign-in</h2>
         <TwoStep factorIds={totpFactorIds} />
+      </section>
+      <section className={`${styles.panel} stack`} aria-labelledby="security-heading" data-testid="security-activity">
+        <h2 id="security-heading">Security activity</h2>
+        <SecurityActivity events={securityEvents} />
       </section>
       {agent.enabled ? (
         <section className={`${styles.panel} stack`} aria-labelledby="agent-heading" data-testid="agent-access">
@@ -298,6 +306,55 @@ function TwoStep({ factorIds }: { factorIds: string[] }) {
 type AgentData = Extract<Awaited<ReturnType<typeof getAgentAccess>>, { enabled: true }>;
 
 const utcDate = (iso: string) => iso.slice(0, 10);
+const utcDateTime = (iso: string) => iso.slice(0, 16).replace('T', ' ');
+
+function securityLabel({ action, grantName }: SecurityEvent) {
+  const grant = grantName ? `Agent access “${grantName}”` : 'Agent access';
+  switch (action) {
+    case 'sign_in':
+      return 'Signed in';
+    case 'mfa_enrolled':
+      return 'Two-step sign-in turned on';
+    case 'mfa_unenrolled':
+      return 'Two-step sign-in removed';
+    case 'agent_grant_created':
+      return `${grant} created`;
+    case 'agent_grant_revoked':
+      return `${grant} revoked`;
+    case 'agent_grants_revoked_all':
+      return 'All agent access revoked';
+  }
+}
+
+function SecurityActivity({ events }: { events: SecurityEvent[] | null }) {
+  return (
+    <>
+      <p className="small muted">
+        Your 20 most recent sign-ins and access changes from the last 90 days. Times in UTC.
+      </p>
+      {events === null ? (
+        <p className="muted" data-testid="security-activity-error">
+          Couldn't load security activity.
+        </p>
+      ) : events.length === 0 ? (
+        <p className="muted" data-testid="security-activity-empty">
+          No security activity yet.
+        </p>
+      ) : (
+        <ol className={styles.rows}>
+          {events.map((event) => (
+            <li key={event.id}>
+              <p>{securityLabel(event)}</p>
+              <p className="small muted">
+                <time dateTime={event.at}>{utcDateTime(event.at)}</time>
+              </p>
+            </li>
+          ))}
+        </ol>
+      )}
+    </>
+  );
+}
 
 function AgentAccess({ grants, properties, endpoint }: Omit<AgentData, 'enabled'>) {
   const { busy, notice, setNotice, run } = useHostAction();

@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routeTree } from '../routeTree.gen';
 import { deleteAccount, getHostAuthState, mfaUnenroll, mfaVerify, restartEnrollment } from '../features/host/host-fns';
-import { getHostSettings, saveHostSettings } from '../features/host/settings-fns';
+import { getHostSettings, getSecurityActivity, saveHostSettings } from '../features/host/settings-fns';
 import { builtInHostSettings, type HostSettings } from '../features/host/settings.server';
 import { createAgentToken, getAgentAccess, revokeAgentToken, revokeAllAgentTokens } from '../features/agent/agent-fns';
 
@@ -17,7 +17,11 @@ vi.mock('../features/host/host-fns', () => ({
   restartEnrollment: vi.fn(),
   signOut: vi.fn(),
 }));
-vi.mock('../features/host/settings-fns', () => ({ getHostSettings: vi.fn(), saveHostSettings: vi.fn() }));
+vi.mock('../features/host/settings-fns', () => ({
+  getHostSettings: vi.fn(),
+  getSecurityActivity: vi.fn(),
+  saveHostSettings: vi.fn(),
+}));
 vi.mock('../features/agent/agent-fns', () => ({
   createAgentToken: vi.fn(),
   getAgentAccess: vi.fn(),
@@ -61,6 +65,7 @@ beforeEach(() => {
   vi.mocked(mfaUnenroll).mockReset();
   vi.mocked(deleteAccount).mockReset();
   vi.mocked(getAgentAccess).mockReset().mockResolvedValue({ enabled: false });
+  vi.mocked(getSecurityActivity).mockReset().mockResolvedValue({ events: [] });
   loadSettings(null);
 });
 afterEach(() => {
@@ -275,5 +280,39 @@ describe('host settings agent access', () => {
     await userEvent.click(screen.getByTestId('agent-grants-revoke-all'));
     expect(revokeAllAgentTokens).toHaveBeenCalledWith({ data: {} });
     await waitFor(() => expect(screen.getByTestId('agent-status').textContent).toBe('All tokens revoked.'));
+  });
+});
+
+describe('host settings security activity', () => {
+  it('shows an empty state without events', async () => {
+    await renderSettings();
+    expect(screen.getByTestId('security-activity-empty').textContent).toBe('No security activity yet.');
+  });
+
+  it('renders the page with an error in the section when the read fails', async () => {
+    vi.mocked(getSecurityActivity).mockResolvedValue({ error: 'unexpected' });
+    await renderSettings();
+    expect(screen.getByTestId('security-activity-error').textContent).toBe("Couldn't load security activity.");
+    expect(screen.queryByTestId('security-activity-empty')).toBeNull();
+  });
+
+  it('lists events newest first with UTC times and grant names', async () => {
+    vi.mocked(getSecurityActivity).mockResolvedValue({
+      events: [
+        { id: '3', action: 'agent_grant_revoked', at: '2026-10-21T09:15:42.000Z', grantName: 'Claude Code laptop' },
+        { id: '2', action: 'agent_grant_created', at: '2026-10-20T08:00:00.000Z', grantName: null },
+        { id: '1', action: 'sign_in', at: '2026-10-19T07:05:00.000Z', grantName: null },
+      ],
+    });
+    await renderSettings();
+    const section = screen.getByRole('region', { name: 'Security activity' });
+    const items = within(section).getAllByRole('listitem');
+    expect(items.map((item) => item.textContent)).toEqual([
+      'Agent access “Claude Code laptop” revoked2026-10-21 09:15',
+      'Agent access created2026-10-20 08:00',
+      'Signed in2026-10-19 07:05',
+    ]);
+    expect(items[0]?.querySelector('time')?.getAttribute('dateTime')).toBe('2026-10-21T09:15:42.000Z');
+    expect(screen.queryByTestId('security-activity-empty')).toBeNull();
   });
 });
