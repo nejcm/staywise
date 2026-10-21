@@ -21,7 +21,12 @@ import {
   resolveGuestLocale,
   serializeGuestCookie,
   serializeLanguageCookie,
+  disableShareLink,
+  insertShareLink,
+  readShareLinkState,
+  sessionExpiry,
   shareSecretMatches,
+  stayLinkExpiry,
 } from './share.server';
 
 const token = 'a'.repeat(43);
@@ -103,5 +108,34 @@ describe('guestFailure', () => {
   it('maps server failures to a retryable error and invalid links or sessions to denied', () => {
     expect(guestFailure({ error: 'unexpected' }, 'de')).toEqual({ state: 'error', locale: 'de' });
     expect(guestFailure({ state: 'denied' }, 'sl')).toEqual({ state: 'denied', locale: 'sl' });
+  });
+});
+
+describe('stay links', () => {
+  it('clamps a guest session to the link expiry', () => {
+    const end = Date.parse('2026-10-22T12:00:00Z');
+    expect(sessionExpiry(end, null).getTime()).toBe(end);
+    expect(sessionExpiry(end, new Date('2026-10-22T08:00:00Z')).toISOString()).toBe('2026-10-22T08:00:00.000Z');
+    expect(sessionExpiry(end, new Date('2026-10-23T08:00:00Z')).getTime()).toBe(end);
+  });
+
+  it('expires at UTC noon the day after check-out, across a month end', () => {
+    expect(stayLinkExpiry('2026-10-31').toISOString()).toBe('2026-11-01T12:00:00.000Z');
+  });
+
+  it('keeps the property-link functions off stay links', async () => {
+    const queries: string[] = [];
+    const tx = ((strings: TemplateStringsArray) => {
+      const query = strings.join('?');
+      queries.push(query);
+      return Promise.resolve(query.includes('app.properties') ? [{ id: 'p', published: true }] : []);
+    }) as never;
+    const propertyId = '11111111-1111-4111-8111-111111111111';
+    await readShareLinkState(tx, propertyId);
+    await insertShareLink(tx, { propertyId, id: 'a'.repeat(22), hmac: Buffer.alloc(32) });
+    await disableShareLink(tx, propertyId);
+    const linkQueries = queries.filter((query) => query.includes('app.share_links') && query.includes('enabled'));
+    expect(linkQueries.length).toBe(3);
+    for (const query of linkQueries) expect(query).toContain("kind = 'property'");
   });
 });

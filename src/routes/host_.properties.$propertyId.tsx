@@ -12,7 +12,14 @@ import {
   saveSection,
   setGuidePublished,
 } from '../features/guide/guide-fns';
-import { createGuestLink, disableGuestLink, getGuestLink, rotateGuestLink } from '../features/share/share-fns';
+import {
+  createGuestLink,
+  createStayGuestLink,
+  disableGuestLink,
+  getGuestLink,
+  revokeStayGuestLink,
+  rotateGuestLink,
+} from '../features/share/share-fns';
 import { getInbox } from '../features/messages/messages-fns';
 import { InboxPanel } from '../features/host/host-inbox';
 import { ThemePicker } from '../features/guide/theme-picker';
@@ -28,7 +35,7 @@ import {
   generateGuideTranslations,
   rejectGuideTranslation,
 } from '../features/translation/translation-fns';
-import type { ShareLinkState } from '../features/share/share.server';
+import type { ShareLinkState, Stay } from '../features/share/share.server';
 import type { GuideGap } from '../features/messages/messages.server';
 import { readiness, type ReadinessItem } from '../features/guide/readiness';
 import {
@@ -71,6 +78,7 @@ export const Route = createFileRoute('/host_/properties/$propertyId')({
       editor: result.editor,
       gaps: result.gaps,
       share: 'error' in share ? null : share.share,
+      stays: 'error' in share ? null : share.stays,
       inbox: 'error' in inbox ? null : inbox.messages,
     };
   },
@@ -87,7 +95,7 @@ function localeName(code: string): string {
 }
 
 function PropertyEditorPage() {
-  const { editor, gaps, share, inbox } = Route.useLoaderData();
+  const { editor, gaps, share, stays, inbox } = Route.useLoaderData();
   const { property, sections } = editor;
   const [selected, setSelected] = useState(sections[0]?.id ?? 'basics');
   const [view, setView] = useState<'list' | 'editor'>('list');
@@ -217,6 +225,7 @@ function PropertyEditorPage() {
         <TranslationPanel property={property} sections={sections} />
         <AlertPanel property={property} />
         <GuestLinkPanel property={property} share={share} />
+        <StaysPanel propertyId={property.id} stays={stays} />
       </div>
       <InboxPanel propertyId={property.id} messages={inbox} />
     </HostShell>
@@ -535,6 +544,150 @@ function GuestLinkPanel({ property, share }: { property: EditorProperty; share: 
         )}
       </div>
       <Toast testId="guest-link-message" tone={messageFailed ? 'error' : undefined}>
+        {message}
+      </Toast>
+      {dialog}
+    </section>
+  );
+}
+
+function StaysPanel({ propertyId, stays }: { propertyId: string; stays: Stay[] | null }) {
+  const router = useRouter();
+  const [issued, setIssued] = useState<{ reservationId: string; url: string } | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [message, setMessage] = useState('');
+  const [messageFailed, setMessageFailed] = useState(false);
+  const { confirm, dialog } = useConfirmDialog();
+
+  function fail() {
+    setMessage('Something went wrong. Try again.');
+    setMessageFailed(true);
+  }
+
+  async function act(work: () => Promise<boolean>) {
+    setBusy(true);
+    setMessage('');
+    setMessageFailed(false);
+    try {
+      if (await work()) await router.invalidate();
+    } catch {
+      fail();
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function add(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = new FormData(event.currentTarget);
+    void act(async () => {
+      const result = await createStayGuestLink({
+        data: { propertyId, stayStart: String(form.get('stayStart')), stayEnd: String(form.get('stayEnd')) },
+      });
+      if ('error' in result) {
+        setMessage('Check the dates and try again.');
+        setMessageFailed(true);
+        return false;
+      }
+      // Same one-time rule as the property link: the secret lives only in this state.
+      setIssued({
+        reservationId: result.reservationId,
+        url: `${window.location.origin}/g/${result.shareId}#${result.secret}`,
+      });
+      setMessage('Stay link ready. Share it now — for security it is never shown again.');
+      return true;
+    });
+  }
+
+  async function revoke(reservationId: string) {
+    if (
+      !(await confirm({
+        title: 'Revoke this stay link?',
+        body: 'Guests of this stay lose access at once. The property link and other stays keep working.',
+        confirmLabel: 'Revoke',
+      }))
+    )
+      return;
+    await act(async () => {
+      const result = await revokeStayGuestLink({ data: { propertyId, reservationId } });
+      if ('error' in result) {
+        fail();
+        return false;
+      }
+      if (issued?.reservationId === reservationId) setIssued(null);
+      setMessage('Stay link revoked.');
+      return true;
+    });
+  }
+
+  async function copy(value: string) {
+    try {
+      await navigator.clipboard.writeText(value);
+      setMessage('Link copied.');
+      setMessageFailed(false);
+    } catch {
+      setMessage('Copy failed. Select the link text and copy it manually.');
+      setMessageFailed(true);
+    }
+  }
+
+  return (
+    <section className={`${styles.panel} stack`} aria-labelledby="stays-heading" data-testid="stays-panel">
+      <h2 id="stays-heading">Stays</h2>
+      <p className="muted">
+        A stay link works for one booking and stops the day after check-out, so you never need to rotate the property
+        link to lock out a past guest.
+      </p>
+      {stays?.length ? (
+        <ul className="stack" data-testid="stays-list">
+          {stays.map((stay) => (
+            <li key={stay.reservationId} className={editorStyles.gap} data-testid="stay">
+              <span>
+                {stay.stayStart} → {stay.stayEnd}{' '}
+                <Pill tone={stay.linkOn ? 'positive' : 'neutral'}>{stay.linkOn ? 'Link on' : 'Revoked'}</Pill>
+              </span>
+              {stay.linkOn ? (
+                <Button
+                  type="button"
+                  variant="danger"
+                  onClick={() => void revoke(stay.reservationId)}
+                  disabled={busy}
+                  data-testid="stay-revoke"
+                >
+                  Revoke
+                </Button>
+              ) : null}
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <p data-testid="stays-empty">No current or upcoming stays.</p>
+      )}
+      {issued ? (
+        <div className={`${editorStyles.linkBox} stack`} data-testid="stay-issued">
+          <input readOnly value={issued.url} aria-label="Stay link" data-testid="stay-url" />
+          <Button type="button" onClick={() => void copy(issued.url)} data-testid="stay-copy">
+            Copy link
+          </Button>
+          <QrSvg value={issued.url} label="QR code for the stay link" className={editorStyles.qr} testId="stay-qr" />
+        </div>
+      ) : null}
+      <form onSubmit={add} className="stack" data-testid="stay-form">
+        <div className={editorStyles.fieldRow}>
+          <Field label="Check-in">
+            <input type="date" name="stayStart" required data-testid="stay-start" />
+          </Field>
+          <Field label="Check-out">
+            <input type="date" name="stayEnd" required data-testid="stay-end" />
+          </Field>
+        </div>
+        <div className="actions">
+          <Button type="submit" disabled={busy} data-testid="stay-add">
+            Add stay
+          </Button>
+        </div>
+      </form>
+      <Toast testId="stays-message" tone={messageFailed ? 'error' : undefined}>
         {message}
       </Toast>
       {dialog}

@@ -119,7 +119,7 @@ export async function readShareLinkState(
   `;
   if (!property) return null;
   const [link] = await tx<{ id: string; created_at: Date }[]>`
-    select id, created_at from app.share_links where property_id = ${parsed.propertyId} and enabled
+    select id, created_at from app.share_links where property_id = ${parsed.propertyId} and enabled and kind = 'property'
   `;
   return {
     link: link ? { id: link.id, createdAt: link.created_at.toISOString() } : null,
@@ -135,7 +135,9 @@ export async function insertShareLink(
   // Property row lock: one enabled link per property, serialized against concurrent issuance.
   const locked = await tx`select id from app.properties where id = ${parsed.propertyId} for update`;
   if (locked.length !== 1) return false;
-  const existing = await tx`select id from app.share_links where property_id = ${parsed.propertyId} and enabled`;
+  const existing = await tx`
+    select id from app.share_links where property_id = ${parsed.propertyId} and enabled and kind = 'property'
+  `;
   if (existing.length > 0) return false;
   const rows = await tx`
     insert into app.share_links (id, secret_hmac, property_id)
@@ -153,7 +155,7 @@ export async function disableShareLink(tx: postgres.TransactionSql, propertyId: 
   if (locked.length !== 1) return null;
   const [disabled] = await tx<{ id: string }[]>`
     update app.share_links set enabled = false, disabled_at = now(), secret_hmac = null
-    where property_id = ${parsed.propertyId} and enabled
+    where property_id = ${parsed.propertyId} and enabled and kind = 'property'
     returning id
   `;
   if (!disabled) return null;
@@ -174,14 +176,91 @@ export async function rotateShareLink(
   return insertShareLink(tx, parsed);
 }
 
+export function sessionExpiry(sessionEnd: number, linkExpiresAt: Date | null): Date {
+  return new Date(linkExpiresAt ? Math.min(sessionEnd, linkExpiresAt.getTime()) : sessionEnd);
+}
+
+const isoDate = z.iso.date();
+export const stayLinkInput = z
+  .object({ propertyId: z.uuid(), stayStart: isoDate, stayEnd: isoDate })
+  .refine((value) => value.stayEnd >= value.stayStart, {
+    path: ['stayEnd'],
+    message: 'Check-out must be after check-in',
+  });
+const stayLinkInsert = z.object({ ...stayLinkInput.shape, id: shareIdSchema, hmac: digestSchema });
+export const revokeStayLinkInput = z.object({ propertyId: z.uuid(), reservationId: z.uuid() });
+
+export type Stay = { reservationId: string; stayStart: string; stayEnd: string; linkOn: boolean; expiresAt: string };
+
+// shortcut: expires at UTC noon the day after check-out; use the property timezone once one is stored.
+export function stayLinkExpiry(stayEnd: string): Date {
+  const expiry = new Date(`${stayEnd}T12:00:00Z`);
+  expiry.setUTCDate(expiry.getUTCDate() + 1);
+  return expiry;
+}
+
+export async function createStayLink(
+  tx: postgres.TransactionSql,
+  input: { propertyId: string; stayStart: string; stayEnd: string; id: string; hmac: Buffer },
+): Promise<string | null> {
+  const parsed = canonicalInput(stayLinkInsert, input);
+  const [reservation] = await tx<{ id: string }[]>`
+    insert into app.reservations (property_id, source, external_id, stay_start, stay_end)
+    select p.id, 'manual', gen_random_uuid()::text, ${parsed.stayStart}, ${parsed.stayEnd}
+    from app.properties p where p.id = ${parsed.propertyId}
+    returning id
+  `;
+  if (!reservation) return null;
+  await tx`
+    insert into app.share_links (id, secret_hmac, property_id, kind, reservation_id, expires_at)
+    values (${parsed.id}, ${parsed.hmac}, ${parsed.propertyId}, 'stay', ${reservation.id}, ${stayLinkExpiry(parsed.stayEnd)})
+  `;
+  return reservation.id;
+}
+
+// Same as disabling the property link: the digest and every session go at the same commit.
+export async function revokeStayLink(
+  tx: postgres.TransactionSql,
+  input: { propertyId: string; reservationId: string },
+): Promise<boolean> {
+  const parsed = canonicalInput(revokeStayLinkInput, input);
+  const [disabled] = await tx<{ id: string }[]>`
+    update app.share_links set enabled = false, disabled_at = now(), secret_hmac = null
+    where property_id = ${parsed.propertyId} and reservation_id = ${parsed.reservationId} and enabled
+    returning id
+  `;
+  if (!disabled) return false;
+  await tx`delete from app.guest_sessions where share_link_id = ${disabled.id}`;
+  return true;
+}
+
+// Expired stays drop from the list; their reservation rows leave with the reservation retention.
+export async function readStays(tx: postgres.TransactionSql, propertyId: string): Promise<Stay[]> {
+  const parsed = canonicalInput(propertyIdInput, { propertyId });
+  const rows = await tx<{ id: string; stay_start: string; stay_end: string; link_on: boolean; expires_at: Date }[]>`
+    select r.id, r.stay_start::text, r.stay_end::text, bool_or(l.enabled) as link_on, max(l.expires_at) as expires_at
+    from app.reservations r join app.share_links l on l.reservation_id = r.id
+    where r.property_id = ${parsed.propertyId} and l.kind = 'stay' and l.expires_at > now()
+    group by r.id
+    order by r.stay_start, r.id
+  `;
+  return rows.map((row) => ({
+    reservationId: row.id,
+    stayStart: row.stay_start,
+    stayEnd: row.stay_end,
+    linkOn: row.link_on,
+    expiresAt: row.expires_at.toISOString(),
+  }));
+}
+
 export async function exchangeGuestLink(input: { shareId: string; secret: string }): Promise<string | null> {
   const parsed = canonicalInput(exchangeGuestLinkInput, input);
   if (serverEnv.guestAccessDisabled) return null;
   const token = randomBytes(32).toString('base64url');
-  const expiresAt = new Date(Date.now() + GUEST_SESSION_SECONDS * 1000);
+  const sessionEnd = Date.now() + GUEST_SESSION_SECONDS * 1000;
   const exchanged = await withLinkContext(parsed.shareId, async (tx) => {
-    const [link] = await tx<{ secret_hmac: Buffer | null; property_id: string }[]>`
-      select secret_hmac, property_id from app.share_links where id = ${parsed.shareId}
+    const [link] = await tx<{ secret_hmac: Buffer | null; property_id: string; expires_at: Date | null }[]>`
+      select secret_hmac, property_id, expires_at from app.share_links where id = ${parsed.shareId}
     `;
     if (!link || !shareSecretMatches(parsed.secret, link.secret_hmac)) return null;
     // Counted only after the secret matches, so knowing the share id alone cannot lock guests out.
@@ -193,7 +272,7 @@ export async function exchangeGuestLink(input: { shareId: string; secret: string
     await tx`delete from app.guest_sessions where share_link_id = ${parsed.shareId} and expires_at <= now()`;
     const stored = await tx`
       insert into app.guest_sessions (session_hash, share_link_id, expires_at)
-      values (${sessionHash(token)}, ${parsed.shareId}, ${expiresAt})
+      values (${sessionHash(token)}, ${parsed.shareId}, ${sessionExpiry(sessionEnd, link.expires_at)})
       returning id
     `;
     return stored.length === 1 ? { token, propertyId: link.property_id } : null;

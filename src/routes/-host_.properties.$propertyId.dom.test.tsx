@@ -13,7 +13,7 @@ import {
   saveProperty,
   setGuidePublished,
 } from '../features/guide/guide-fns';
-import { getGuestLink, rotateGuestLink } from '../features/share/share-fns';
+import { createStayGuestLink, getGuestLink, revokeStayGuestLink, rotateGuestLink } from '../features/share/share-fns';
 import { getInbox } from '../features/messages/messages-fns';
 import {
   approveGuideTranslation,
@@ -35,7 +35,9 @@ vi.mock('../features/guide/guide-fns', () => ({
 }));
 vi.mock('../features/share/share-fns', () => ({
   createGuestLink: vi.fn(),
+  createStayGuestLink: vi.fn(),
   disableGuestLink: vi.fn(),
+  revokeStayGuestLink: vi.fn(),
   getGuestLink: vi.fn(),
   rotateGuestLink: vi.fn(),
 }));
@@ -271,6 +273,40 @@ describe('ReadinessPanel', () => {
     await waitFor(() => expect(document.activeElement?.id).toBe('section-new-heading'));
     await userEvent.click(screen.getByTestId('readiness-link'));
     await waitFor(() => expect(document.activeElement?.id).toBe('guest-link-heading'));
+  });
+});
+
+describe('StaysPanel', () => {
+  const reservationId = '44444444-4444-4444-8444-444444444444';
+
+  it('adds a stay and shows its link once', async () => {
+    vi.mocked(createStayGuestLink).mockResolvedValue({ reservationId, shareId: 'stay-share', secret: 'STAY-SECRET' });
+    await renderEditor();
+    expect(screen.getByTestId('stays-empty')).toBeTruthy();
+    await userEvent.type(screen.getByTestId('stay-start'), '2026-11-01');
+    await userEvent.type(screen.getByTestId('stay-end'), '2026-11-04');
+    await userEvent.click(screen.getByTestId('stay-add'));
+    expect(createStayGuestLink).toHaveBeenCalledWith({
+      data: { propertyId, stayStart: '2026-11-01', stayEnd: '2026-11-04' },
+    });
+    expect(((await screen.findByTestId('stay-url')) as HTMLInputElement).value).toBe(
+      `${window.location.origin}/g/stay-share#STAY-SECRET`,
+    );
+    expect(screen.getByTestId('stay-qr')).toBeTruthy();
+    await expectInvalidated();
+  });
+
+  it('revokes a stay after confirmation', async () => {
+    vi.mocked(getGuestLink).mockResolvedValue({
+      share: { link: null, guidePublished: true },
+      stays: [{ reservationId, stayStart: '2026-11-01', stayEnd: '2026-11-04', linkOn: true, expiresAt: '' }],
+    } as never);
+    vi.mocked(revokeStayGuestLink).mockResolvedValue({ ok: true });
+    await renderEditor();
+    await userEvent.click(screen.getByTestId('stay-revoke'));
+    await acceptConfirm();
+    expect(revokeStayGuestLink).toHaveBeenCalledWith({ data: { propertyId, reservationId } });
+    await expectToast('stays-message', 'Stay link revoked.', false);
   });
 });
 

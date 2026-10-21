@@ -538,4 +538,35 @@ describeLocal('guest link trust boundaries against the local stack', () => {
       await adminClient(local).deleteUser(host.userId);
     }
   }, 120_000);
+
+  it('exchanges a stay link before expiry, denies it after, and leaves the property link alone', async () => {
+    const local = localStack as LocalStack;
+    const { host, propertyId } = await publishedGuide();
+    const admin = localAdmin();
+    try {
+      const property = await createLink(host, propertyId);
+      const today = new Date().toISOString().slice(0, 10);
+      const issued = decode<{ reservationId?: string; shareId?: string; secret?: string }>(
+        await shareFn('createStayGuestLink', { jar: host.jar, data: { propertyId, stayStart: today, stayEnd: today } }),
+      )?.result;
+      if (!issued?.shareId || !issued.secret || !issued.reservationId) throw new Error('synthetic stay link failed');
+      const stay = { shareId: issued.shareId, secret: issued.secret };
+      const session = await sessionFor(stay);
+      expect(deniedShell((await document(stay.shareId, session.guestCookie)).html)).toBe(false);
+      const [row] = await admin<{ expires: Date }[]>`
+        select s.expires_at as expires from app.guest_sessions s where s.share_link_id = ${stay.shareId}
+      `;
+      expect(row!.expires.getTime()).toBeLessThanOrEqual(Date.parse(`${today}T12:00:00Z`) + 24 * 3600_000);
+
+      await admin`update app.share_links set expires_at = now() - interval '1 minute' where id = ${stay.shareId}`;
+      expect((await exchange(stay.shareId, stay.secret)).status).toBe(403);
+      expect(deniedShell((await document(stay.shareId, session.guestCookie)).html)).toBe(true);
+      expect((await exchange(property.shareId, property.secret)).status).toBe(200);
+      const state = await withOwnerContext(host.userId, (tx) => readShareLinkState(tx, propertyId));
+      expect(state?.link?.id).toBe(property.shareId);
+    } finally {
+      await admin.end({ timeout: 0 });
+      await adminClient(local).deleteUser(host.userId);
+    }
+  }, 90_000);
 });
