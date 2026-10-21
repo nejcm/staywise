@@ -31,9 +31,17 @@ create temp table probe_foreign on commit drop as
     update app.host_settings set theme = 'classic' where owner_id = '5e5e0000-0000-4000-8000-0000000000a1' returning 1
   )
   select (select count(*)::integer from app.host_settings) as n, (select count(*)::integer from updated) as updated;
-select throws_ok($$insert into app.host_settings (owner_id) values ('5e5e0000-0000-4000-8000-0000000000a1')$$, '42501', null, 'another host cannot insert a row for someone else');
-select lives_ok($$insert into app.host_settings (owner_id) values ('5e5e0000-0000-4000-8000-0000000000b1')$$, 'a host creates its own row');
+do $$ begin
+  insert into app.host_settings (owner_id) values ('5e5e0000-0000-4000-8000-0000000000a1');
+  perform set_config('test.foreign_insert', 'inserted', true);
+exception when others then
+  perform set_config('test.foreign_insert', sqlstate, true);
+end $$;
+insert into app.host_settings (owner_id) values ('5e5e0000-0000-4000-8000-0000000000b1');
 reset role;
+
+select is(current_setting('test.foreign_insert'), '42501', 'another host cannot insert a row for someone else');
+select ok(exists (select 1 from app.host_settings where owner_id = '5e5e0000-0000-4000-8000-0000000000b1'), 'a host creates its own row');
 
 select is((select n from probe_owner), 1, 'the owner reads its own settings');
 select is((select theme from app.host_settings where owner_id = '5e5e0000-0000-4000-8000-0000000000a1'), 'coast', 'the owner can change its settings');
