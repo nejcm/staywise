@@ -24,6 +24,14 @@ bun run db:start               # local Supabase stack (Docker)
 bun run db:reset               # apply supabase/migrations to a clean local database
 ```
 
+Optional synthetic data for local development (not loaded by `db:reset`; idempotent):
+
+```sh
+psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/test_seed.sql
+```
+
+It creates three hosts (`maria-host@example.test`, `tomaz-host@example.test`, `jana-host@example.test`, sign in through Mailpit), four properties, and guest links (`/g/<id>#<secret>`, listed in the file header). The Bled lakeside apartment is fully filled in: essentials, address, contact and answering hours, Wi-Fi/key box credentials, sections in every category, de/sl translations, inbox messages, and reservations.
+
 Environment: copy `.env.example` to `.env.local`; never commit real values. `APP_ENV` defaults to `local` and must be set explicitly (`preview`/`production`) when `NODE_ENV=production`. Set `GUEST_ACCESS_DISABLED=true` to stop all guest exchange, reads, and message intake (see the kill switch below); omit it or set `false` for normal operation.
 
 | Variable | Required | Purpose |

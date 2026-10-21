@@ -32,6 +32,7 @@ Staywise: guest portal for independent vacation-rental owners. TanStack Start (R
 | Test | `bun run test` (integration suites skip without the local stack) |
 | Coverage | `bun run test:coverage` |
 | Integration | `bun run db:start`, dev server, `bun run test:local` (not run in CI; CI runs pgTAP only) |
+| Dev seed data | `psql "postgresql://postgres:postgres@127.0.0.1:54322/postgres" -f supabase/test_seed.sql` (synthetic, idempotent) |
 | Database tests | `bun run db:test` (needs the local stack) |
 | E2E | `bun run test:e2e` |
 | Unused code | `bun run knip` |
