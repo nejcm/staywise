@@ -12,9 +12,9 @@
 
 .sectionNav {
   display: grid;
-  flex: 1 1 230px;
+  flex: 1 1 225px;
   gap: 2px;
-  max-width: 290px;
+  max-width: 285px;
   padding: 12px 8px;
 }
 
