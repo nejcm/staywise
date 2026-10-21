@@ -1,5 +1,6 @@
+import { ChevronRight, type LucideIcon } from 'lucide-react';
+import { Icon, categoryIcon } from '../../components/icons';
 import type { GuestGuideDto } from '../guide/guide.server';
-import { ChevronIcon } from './guest-essentials';
 import { firstLine, guestLink } from './guest-ui';
 import styles from './guest.module.css';
 
@@ -31,6 +32,7 @@ export function SectionRows({
           title={section.title}
           hint={firstLine(section.body)}
           lang={section.provenance === 'fallback' ? guide.sourceLocale : undefined}
+          icon={categoryIcon(section.category)}
           testId="guest-section"
         />
       ))}
@@ -44,21 +46,24 @@ function Row({
   title,
   hint,
   lang,
+  icon,
   testId,
 }: {
   href: string;
   title: string;
   hint: string;
   lang?: string;
+  icon?: LucideIcon;
   testId?: string;
 }) {
   return (
     <a href={href} data-testid={testId}>
+      {icon ? <Icon icon={icon} className={styles.rowIcon} /> : null}
       <span lang={lang}>
         <strong>{title}</strong>
         <small>{hint}</small>
       </span>
-      <ChevronIcon direction="forward" />
+      <Icon icon={ChevronRight} className={styles.chevron} />
     </a>
   );
 }

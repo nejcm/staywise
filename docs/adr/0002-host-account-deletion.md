@@ -19,8 +19,9 @@ Hosts need to delete their own account from `/host/settings` (`src/routes/host_.
 
 ## Consequences
 
+- Hero images are not removed by the cascade itself: deleting `app.property_images` rows queues their object paths in `app.storage_deletions`, and the server drains the queue through the Storage API after `deleteUser` (ADR 0005).
 - Retained outside `app.*` and documented, not scrubbed: Supabase Auth's `auth.audit_log_entries` (payloads carry the email and there is no FK to `auth.users`; verified on the local stack), SMTP delivery logs, and provider backups/PITR. Their retention must be confirmed in the provider console before real data.
-- The secret key is service-role. It stays server-only and is used only for the magic-link IP forward and this call.
+- The secret key is service-role. It stays server-only and is used only for the magic-link IP forward, this call, and hero image I/O in the private `guide-images` bucket (ADR 0005), which happens only after RLS has allowed the row read.
 - The audit insert is not atomic with the delete; a lost `account_deleted` row is acceptable because the data deletion itself is atomic inside Auth.
 - Verification: an integration test (`test:local`) seeds a synthetic host across every owner/property table, deletes, and asserts zero remaining rows, nulled audit actors, one `account_deleted` row, and a failing `getUser`. Unit tests cover the guards (wrong email, missing/wrong TOTP, AAL1, missing key). A pgTAP test in CI asserts every FK to `auth.users` is `cascade` or `set null`, so new owner tables (e.g. `app.host_settings`) cannot silently survive deletion.
 - The `/privacy` notice drops "No account-deletion screen" and describes immediate deletion, the null-actor audit row, and the retained items above; README (privacy paragraph, env table) changes in the same PR.

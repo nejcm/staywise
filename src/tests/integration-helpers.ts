@@ -15,7 +15,7 @@ export const GUIDE_FNS = '/src/features/guide/guide-fns.ts?tss-serverfn-split';
 export const SETTINGS_FNS = '/src/features/host/settings-fns.ts?tss-serverfn-split';
 export const SYNTHETIC_PASSWORD = 'synthetic-integration-pw-1';
 
-export type LocalStack = { apiUrl: string; serviceKey: string; anonKey: string; mailpitUrl: string };
+export type LocalStack = { apiUrl: string; serviceKey: string; secretKey: string; anonKey: string; mailpitUrl: string };
 
 export function detectLocalStack(): LocalStack | null {
   try {
@@ -29,6 +29,7 @@ export function detectLocalStack(): LocalStack | null {
     return {
       apiUrl: status.API_URL,
       serviceKey: status.SERVICE_ROLE_KEY,
+      secretKey: status.SECRET_KEY ?? '',
       anonKey: status.ANON_KEY,
       mailpitUrl: status.MAILPIT_URL ?? 'http://127.0.0.1:54324',
     };

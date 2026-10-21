@@ -127,6 +127,7 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
           locale: 'en',
           locales: ['en'],
           theme: 'staywise',
+          hero: null,
           sections: [],
         },
         guidePublished: false,
@@ -168,6 +169,7 @@ describeLocal('guide authoring trust boundaries against the local stack', () => 
           locale: 'en',
           locales: ['en'],
           theme: 'staywise',
+          hero: null,
           sections: [
             { category: 'wifi', title: 'Synthetic Wi-Fi', body: 'SYNTHETIC-DRAFT-BODY', provenance: 'source' },
           ],

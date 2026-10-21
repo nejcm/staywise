@@ -8,9 +8,11 @@ export type ReadinessItem = {
   // Editor pane to open ('basics', a section id, or 'new'), then the element id to focus.
   pane: string | null;
   anchor: string | null;
+  // Suggestions are listed but never counted toward "ready for guests".
+  optional?: boolean;
 };
 
-export function readiness(editor: GuideEditorData, linkIssued: boolean): ReadinessItem[] {
+export function readiness(editor: GuideEditorData, linkIssued: boolean, heroAvailable = false): ReadinessItem[] {
   const { property, sections } = editor;
   const live = (category: SectionCategory) =>
     sections.some((section) => section.category === category && section.visibility === 'guest' && section.published);
@@ -27,6 +29,14 @@ export function readiness(editor: GuideEditorData, linkIssued: boolean): Readine
     pane: 'basics',
     anchor: `essentials-${key}`,
   });
+  const hero: ReadinessItem = {
+    key: 'hero',
+    label: 'Add a cover photo (optional)',
+    done: Boolean(editor.hero),
+    pane: null,
+    anchor: 'cover-photo-heading',
+    optional: true,
+  };
   return [
     field('checkinTime', 'Check-in time', Boolean(property.checkinTime)),
     field('checkoutTime', 'Checkout time', Boolean(property.checkoutTime)),
@@ -41,5 +51,6 @@ export function readiness(editor: GuideEditorData, linkIssued: boolean): Readine
     sectionItem('emergency', 'Published Emergency section'),
     { key: 'published', label: 'Guide published', done: property.published, pane: null, anchor: 'guide-publish' },
     { key: 'link', label: 'Guest link issued', done: linkIssued, pane: null, anchor: 'guest-link-heading' },
+    ...(heroAvailable ? [hero] : []),
   ];
 }

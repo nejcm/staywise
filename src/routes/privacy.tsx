@@ -87,6 +87,11 @@ function PrivacyNotice() {
               The reply email is guest-supplied and unverified.
             </li>
             <li>
+              A host can add one cover photo per property. The browser re-encodes it as JPEG, which drops location and
+              camera metadata. It is stored with the hosting provider&apos;s file storage and served only to the host
+              and to guests with a live guest session, never cached by shared caches (<code>private, no-store</code>).
+            </li>
+            <li>
               Per-property daily counters store only link exchanges, guide opens, and submissions. They contain no guest
               identity or content. The app does not use third-party analytics.
             </li>
@@ -104,6 +109,12 @@ function PrivacyNotice() {
               links, guest sessions, messages, rate-limit fingerprints, counters, reservations, setup events, and
               property-scoped API-token rows. A minimal <code>delete</code> audit row remains for the 90-day audit
               window.
+            </li>
+            <li>
+              When the host replaces or removes a cover photo, deletes the property, or deletes the account, access to
+              the photo ends immediately. The stored file is queued for deletion and removed by the next drain (after
+              uploads and deletions, or the operator&apos;s <code>storage:drain</code> command); failed removals stay
+              queued for a later drain.
             </li>
             <li>
               Audit and setup events are deleted after 90 days. Disabled-link metadata is deleted after 30 days; expired

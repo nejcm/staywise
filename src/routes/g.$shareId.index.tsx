@@ -1,8 +1,11 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { MessageCircle, Phone } from 'lucide-react';
+import { Icon } from '../components/icons';
 import { avatarInitial, guestLink, guestUiText } from '../features/guest/guest-ui';
 import styles from '../features/guest/guest.module.css';
 import { buttonClass } from '../components/button';
 import { AddressLine, AnswerHours, ArrivalCard, hasEssentials } from '../features/guest/guest-essentials';
+import { GuestHero } from '../features/guest/guest-hero';
 import { SectionRows } from '../features/guest/guest-sections';
 
 export const Route = createFileRoute('/g/$shareId/')({
@@ -19,6 +22,7 @@ function GuestHome() {
   const home = `/g/${shareId}`;
   return (
     <>
+      <GuestHero hero={guest.guest.hero} src={`${home}/hero`} testId="guest-home-hero" />
       <div className={styles.intro}>
         <h1>{guest.guest.displayName}</h1>
         {address ? <AddressLine address={address} locale={locale} testId="guest-home-address" /> : null}
@@ -54,10 +58,12 @@ function GuestHome() {
         <div className={styles.actions}>
           {contactPhone ? (
             <a className={buttonClass('primary')} href={`tel:${contactPhone}`} data-testid="guest-home-call">
+              <Icon icon={Phone} />
               {guestUiText(locale, 'contact.call')}
             </a>
           ) : null}
           <a className={buttonClass('secondary')} href={guestLink(`${home}/help`, lang)}>
+            <Icon icon={MessageCircle} />
             {guestUiText(locale, 'home.ask')}
           </a>
         </div>

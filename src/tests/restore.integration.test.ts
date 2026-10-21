@@ -191,7 +191,7 @@ describeLocal('phase 7a restore rehearsal (scratch databases)', () => {
             select count(*)::integer as n from pg_class
             where relnamespace = 'app'::regnamespace and relkind = 'r'
               and relrowsecurity and relforcerowsecurity`;
-          expect(rls).toEqual({ n: 15 });
+          expect(rls).toEqual({ n: 17 });
           expect(
             await restored<{ n: number }[]>`
               select count(*)::integer as n from pg_policies where schemaname = 'app' and policyname like '%\\_retention\\_%'`,

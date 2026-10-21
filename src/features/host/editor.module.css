@@ -12,9 +12,9 @@
 
 .sectionNav {
   display: grid;
-  flex: 1 1 220px;
+  flex: 1 1 225px;
   gap: 2px;
-  max-width: 280px;
+  max-width: 285px;
   padding: 12px 8px;
 }
 
@@ -32,7 +32,7 @@
 
 .sectionNav ol {
   display: grid;
-  gap: 2px;
+  gap: var(--space-1);
   padding: 0;
   list-style: none;
 }
@@ -42,18 +42,37 @@
   flex-wrap: wrap;
   align-items: center;
   gap: 2px;
-  border-radius: 10px;
+  padding-right: var(--space-1);
+  background: var(--surface);
+  border: 1px solid var(--rule);
+  border-radius: var(--radius-control);
 }
 
 .navRow:has(> [aria-current]) {
   background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.navMoves {
+  display: grid;
+  grid-template-columns: repeat(2, 30px);
+  gap: 2px;
+}
+
+.navMoves > button {
+  width: 30px;
+  padding: 0;
+}
+
+.moveDown {
+  grid-column: 2;
 }
 
 .navItem {
   flex: 1;
   min-width: 0;
   min-height: 44px;
-  padding: 8px 10px;
+  padding: 6px 10px;
   font: inherit;
   font-size: 14px;
   line-height: 1.3;
@@ -63,7 +82,7 @@
   cursor: pointer;
   background: none;
   border: 0;
-  border-radius: 10px;
+  border-radius: var(--radius-control);
 }
 
 .navItem:hover {
@@ -78,7 +97,7 @@
 
 .navItem small {
   display: block;
-  font-size: var(--fs-small);
+  font-size: var(--fs-xsmall);
   font-weight: 400;
   color: var(--muted);
 }
@@ -98,22 +117,6 @@
   padding: 0 10px 6px;
   font-size: var(--fs-small);
   color: var(--danger-ink);
-}
-
-.iconButton {
-  width: 26px;
-  padding: 0;
-}
-
-.icon {
-  width: 16px;
-  height: 16px;
-  flex: none;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
 }
 
 .addButton {
@@ -346,6 +349,9 @@
 }
 
 .linkButton {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   padding: 0;
   font: inherit;
   color: var(--accent-ink);
@@ -401,4 +407,26 @@
   align-items: center;
   justify-content: space-between;
   gap: var(--space-2) var(--space-3);
+}
+
+.cover {
+  display: grid;
+  gap: var(--space-4);
+}
+
+@media (min-width: 701px) {
+  .cover:has(> img) {
+    grid-template-columns: minmax(0, 360px) minmax(0, 1fr);
+    align-items: start;
+  }
+}
+
+.coverPreview {
+  display: block;
+  width: 100%;
+  max-width: 360px;
+  height: auto;
+  aspect-ratio: 3 / 2;
+  object-fit: cover;
+  border-radius: var(--radius-card);
 }

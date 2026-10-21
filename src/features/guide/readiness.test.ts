@@ -3,6 +3,7 @@ import type { GuideEditorData } from './guide.server';
 import { readiness } from './readiness';
 
 const empty: GuideEditorData = {
+  hero: null,
   property: {
     id: 'p1',
     displayName: 'Synthetic villa',
@@ -74,5 +75,12 @@ describe('readiness', () => {
       pane: 's-arrival',
       anchor: 'section-title-s-arrival',
     });
+  });
+
+  it('suggests a cover photo only when uploads are available, as an optional item', () => {
+    expect(readiness(empty, false).some((item) => item.key === 'hero')).toBe(false);
+    expect(readiness(empty, false, true).at(-1)).toMatchObject({ key: 'hero', done: false, optional: true });
+    const hero = { alt: 'Lake', width: 1600, height: 1067, version: '1' };
+    expect(readiness({ ...empty, hero }, false, true).at(-1)?.done).toBe(true);
   });
 });

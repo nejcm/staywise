@@ -1,9 +1,10 @@
 import { Outlet, createFileRoute, useParams, useRouterState } from '@tanstack/react-router';
+import { ChevronLeft, Globe, Menu } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { z } from 'zod';
 import { bearerSecretFromFragment } from '../features/guest/guest-fragment';
-import { ChevronIcon } from '../features/guest/guest-essentials';
 import { getGuestPage } from '../features/guest/guest-fns';
+import { Icon } from '../components/icons';
 import { GUEST_OPEN_SLOW_MS, GuestOpening } from '../features/guest/guest-opening';
 import { guestLink, guestLocaleName, guestUiText, isGuestLocale, languageNames } from '../features/guest/guest-ui';
 import { guestLocales } from '../features/guide/guide-validation';
@@ -145,7 +146,7 @@ function GuestHeaderStart({
     return (
       // Full document loads keep the /g-scoped cookie on every request and re-check the link.
       <a className={styles.control} href={guestLink(home, lang)}>
-        <ChevronIcon direction="back" />
+        <Icon icon={ChevronLeft} />
         {guestUiText(locale, 'nav.home')}
       </a>
     );
@@ -153,9 +154,7 @@ function GuestHeaderStart({
   return (
     <>
       <a className={styles.control} href={guestLink(`${home}/guide`, lang)}>
-        <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true">
-          <path d="M4 6h16M4 12h16M4 18h16" />
-        </svg>
+        <Icon icon={Menu} />
         {guestUiText(locale, 'nav.contents')}
       </a>
       {Number(index) >= 1 && Number(index) <= total ? (
@@ -188,10 +187,7 @@ function LocaleSwitch({
           locale.toUpperCase()
         ) : (
           <>
-            <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true">
-              <circle cx="12" cy="12" r="9" />
-              <path d="M3 12h18M12 3a14 14 0 0 1 0 18a14 14 0 0 1 0-18" />
-            </svg>
+            <Icon icon={Globe} />
             {name(locale)}
           </>
         )}

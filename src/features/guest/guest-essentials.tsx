@@ -1,4 +1,6 @@
+import { Clock, KeyRound, MapPin, Phone, Wifi, type LucideIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
+import { Icon } from '../../components/icons';
 import { QrSvg } from '../../components/qr-svg';
 import { Toast } from '../../components/toast';
 import { buttonClass } from '../../components/button';
@@ -14,25 +16,31 @@ const essentialKeys: (keyof PropertyEssentials)[] = [
   'keyboxCode',
 ];
 
-type EssentialItem = { key: keyof PropertyEssentials; label: GuestUiKey; value: string | null; copy?: boolean };
+type EssentialItem = {
+  key: keyof PropertyEssentials;
+  label: GuestUiKey;
+  value: string | null;
+  icon?: LucideIcon;
+  copy?: boolean;
+};
 
 function essentialItems(essentials: PropertyEssentials): EssentialItem[] {
   const { checkinTime: checkin, checkoutTime: checkout } = essentials;
   return [
     { key: 'wifiPassword', label: 'essentials.wifiPassword', value: essentials.wifiPassword, copy: true },
-    { key: 'keyboxCode', label: 'essentials.keyboxCode', value: essentials.keyboxCode },
+    { key: 'keyboxCode', label: 'essentials.keyboxCode', value: essentials.keyboxCode, icon: KeyRound },
     checkin && checkout
-      ? { key: 'checkinTime', label: 'essentials.stay', value: `${checkin} · ${checkout}` }
+      ? { key: 'checkinTime', label: 'essentials.stay', value: `${checkin} · ${checkout}`, icon: Clock }
       : checkin
-        ? { key: 'checkinTime', label: 'essentials.checkin', value: checkin }
-        : { key: 'checkoutTime', label: 'essentials.checkout', value: checkout },
+        ? { key: 'checkinTime', label: 'essentials.checkin', value: checkin, icon: Clock }
+        : { key: 'checkoutTime', label: 'essentials.checkout', value: checkout, icon: Clock },
   ];
 }
 
 export function AddressLine({ address, locale, testId }: { address: string; locale: string; testId: string }) {
   return (
     <p className={styles.address} data-testid={testId}>
-      {address} ·{' '}
+      <Icon icon={MapPin} /> {address} ·{' '}
       <a href={mapSearchUrl(address)} target="_blank" rel="noopener noreferrer" data-testid={`${testId}-map`}>
         {guestUiText(locale, 'home.openMap')}
       </a>
@@ -74,6 +82,7 @@ export function CallStrip({
       </span>
       {phone ? (
         <a className={buttonClass(variant)} href={`tel:${phone}`} data-testid={`${testId}-call`}>
+          <Icon icon={Phone} />
           {guestUiText(locale, 'contact.call')}
         </a>
       ) : null}
@@ -105,7 +114,14 @@ export function ArrivalCard({
   return (
     <section className={styles.arrival} aria-labelledby={`${testId}-title`} data-testid={testId}>
       <h2 id={`${testId}-title`}>
-        {wifiName ? `${guestCategoryLabel(locale, 'wifi')} · ${wifiName}` : guestUiText(locale, 'essentials.title')}
+        {wifiName ? (
+          <>
+            <Icon icon={Wifi} />
+            {`${guestCategoryLabel(locale, 'wifi')} · ${wifiName}`}
+          </>
+        ) : (
+          guestUiText(locale, 'essentials.title')
+        )}
       </h2>
       <EssentialsList essentials={essentials} locale={locale} />
     </section>
@@ -141,11 +157,14 @@ export function EssentialsList({ essentials, locale }: { essentials: PropertyEss
   return (
     <>
       <dl className={styles.essentials} data-testid="guest-essentials">
-        {essentialItems(essentials).map(({ key, label, value, copy: copyable }) => {
+        {essentialItems(essentials).map(({ key, label, value, icon, copy: copyable }) => {
           if (!value) return null;
           return (
             <div key={key} className={styles[key]}>
-              <dt>{guestUiText(locale, label)}</dt>
+              <dt>
+                {icon ? <Icon icon={icon} /> : null}
+                {guestUiText(locale, label)}
+              </dt>
               <dd>
                 <span
                   ref={(node) => {
@@ -200,13 +219,5 @@ export function EssentialsList({ essentials, locale }: { essentials: PropertyEss
       ) : null}
       <Toast testId="guest-essentials-toast">{message}</Toast>
     </>
-  );
-}
-
-export function ChevronIcon({ direction }: { direction: 'back' | 'forward' }) {
-  return (
-    <svg className={styles.icon} viewBox="0 0 24 24" aria-hidden="true">
-      <path d={direction === 'back' ? 'm15 6-6 6 6 6' : 'm9 6 6 6-6 6'} />
-    </svg>
   );
 }

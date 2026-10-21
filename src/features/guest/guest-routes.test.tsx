@@ -1,8 +1,10 @@
 import { readFileSync } from 'node:fs';
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
+import { Window } from 'happy-dom';
 import { renderToString } from 'react-dom/server';
 import { describe, expect, it, vi } from 'vitest';
 import { routeTree } from '../../routeTree.gen';
+import { expectNamedControlsAndHiddenIcons } from '../../tests/a11y';
 import { getGuestPage } from './guest-fns';
 import { firstLine, guestUiText, messageRetentionDays } from './guest-ui';
 
@@ -23,6 +25,7 @@ const guide = {
     locale: 'de',
     locales: ['de', 'en'],
     theme: 'coast',
+    hero: null,
     sections: [
       { category: 'wifi', title: 'WLAN', body: '\n  Netz: Villa\nPasswort am Router', provenance: 'reviewed' },
       { category: 'parking', title: 'Parking', body: 'Behind the house', provenance: 'fallback' },
@@ -77,15 +80,17 @@ describe('guest routes', () => {
     const html = await render('/g/synthetic/guide?lang=de', guide);
     expect(html.match(/data-testid="guest-section"/g)).toHaveLength(2);
     expect(html).toMatch(
-      /href="\/g\/synthetic\/guide\/1\?lang=de"[^>]*><span><strong>WLAN<\/strong><small>Netz: Villa<\/small>/,
+      /href="\/g\/synthetic\/guide\/1\?lang=de"[^>]*><svg[^>]*lucide-wifi.*?<\/svg><span><strong>WLAN<\/strong><small>Netz: Villa<\/small>/,
     );
-    expect(html).toMatch(/href="\/g\/synthetic\/guide\/2\?lang=de"[^>]*><span lang="en"><strong>Parking</);
+    expect(html).toMatch(
+      /href="\/g\/synthetic\/guide\/2\?lang=de"[^>]*><svg[^>]*lucide-square-parking.*?<\/svg><span lang="en"><strong>Parking</,
+    );
   });
 
   it('renders one section per page with position, pager and fallback lang', async () => {
     const html = await render('/g/synthetic/guide/2?lang=de', guide);
     expect(html).toContain('2 von 2');
-    expect(html).toMatch(/<h1[^>]*lang="en">Parking<\/h1>/);
+    expect(html).toMatch(/<h1[^>]*lang="en"><svg[^>]*lucide-square-parking.*?<\/svg>Parking<\/h1>/);
     expect(html).toMatch(/<p[^>]*lang="en">Behind the house<\/p>/);
     expect(html).toContain('data-testid="guest-fallback"');
     expect(html).toMatch(/href="\/g\/synthetic\/guide\/1\?lang=de" rel="prev"/);
@@ -95,6 +100,18 @@ describe('guest routes', () => {
       expect(missing).toContain('data-testid="guest-section-missing"');
       expect(missing).not.toMatch(/von 2/);
     }
+  });
+
+  it('shows the hero above the heading on Home only, sized and described, and nothing without one', async () => {
+    const hero = { alt: 'Lake view from the terrace', width: 1600, height: 1067, version: '42' };
+    const withHero = { ...guide, guest: { ...guide.guest, hero } };
+    const html = await render('/g/synthetic?lang=de', withHero);
+    expect(html).toMatch(
+      /<img[^>]*src="\/g\/synthetic\/hero\?v=42"[^>]*alt="Lake view from the terrace"[^>]*width="1600"[^>]*height="1067"[^>]*decoding="async"[^>]*>.*<h1/s,
+    );
+    expect(html).not.toContain('loading="lazy"');
+    expect(await render('/g/synthetic/guide?lang=de', withHero)).not.toContain('guest-home-hero');
+    expect(await render('/g/synthetic?lang=de', guide)).not.toContain('guest-home-hero');
   });
 
   it('server-renders essentials as selectable text with no Copy button before hydration', async () => {
@@ -121,6 +138,14 @@ describe('guest routes', () => {
     });
     expect(bare).not.toContain('guest-home-address');
     expect(bare).not.toContain('openstreetmap');
+  });
+
+  it('names every control on Home in text and hides every icon', async () => {
+    const { document } = new Window();
+    document.body.innerHTML = await render('/g/synthetic?lang=de', guide);
+    expect(document.querySelectorAll('svg.lucide').length).toBeGreaterThan(0);
+    expect(document.querySelector('[data-testid="guest-home-essentials"] h2 svg.lucide-wifi')).not.toBeNull();
+    expectNamedControlsAndHiddenIcons(document.body as unknown as ParentNode);
   });
 
   it('shows a decorative host initial from the property name', async () => {

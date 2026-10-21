@@ -9,10 +9,13 @@ import {
   createSection,
   deleteProperty,
   getPropertyEditor,
+  removeHero,
   resyncAlertEmail,
+  saveHeroAlt,
   saveProperty,
   setGuidePublished,
 } from '../features/guide/guide-fns';
+import { HERO_MAX_BYTES } from '../features/guide/image-validation';
 import { createStayGuestLink, getGuestLink, revokeStayGuestLink, rotateGuestLink } from '../features/share/share-fns';
 import { getInbox } from '../features/messages/messages-fns';
 import {
@@ -21,6 +24,7 @@ import {
   rejectGuideTranslation,
 } from '../features/translation/translation-fns';
 import type { GuideEditorData } from '../features/guide/guide.server';
+import { expectNamedControlsAndHiddenIcons } from '../tests/a11y';
 
 vi.mock('../features/host/host-fns', () => ({ getHostAuthState: vi.fn() }));
 vi.mock('../features/guide/guide-fns', () => ({
@@ -28,7 +32,9 @@ vi.mock('../features/guide/guide-fns', () => ({
   deleteProperty: vi.fn(),
   getPropertyEditor: vi.fn(),
   moveSectionOrder: vi.fn(),
+  removeHero: vi.fn(),
   resyncAlertEmail: vi.fn(),
+  saveHeroAlt: vi.fn(),
   saveProperty: vi.fn(),
   saveSection: vi.fn(),
   setGuidePublished: vi.fn(),
@@ -59,6 +65,7 @@ const translationId = '33333333-3333-4333-8333-333333333333';
 const generic = 'Something went wrong. Try again.';
 
 const editor: GuideEditorData = {
+  hero: null,
   property: {
     id: propertyId,
     displayName: 'Synthetic villa',
@@ -153,6 +160,20 @@ beforeEach(() => {
   vi.mocked(getInbox).mockResolvedValue({ messages: [] } as never);
 });
 afterEach(cleanup);
+
+describe('PropertyEditor', () => {
+  it('names every control in text and hides every icon', async () => {
+    const second = { ...editor.sections[0]!, id: '44444444-4444-4444-8444-444444444444', category: 'parking' as const };
+    vi.mocked(getPropertyEditor).mockResolvedValue({
+      editor: { ...editor, sections: [...editor.sections, second] },
+      gaps: [],
+    } as never);
+    await renderEditor();
+    expect(screen.getAllByTestId('section-move-up')).toHaveLength(1);
+    expect(document.querySelectorAll('svg.lucide').length).toBeGreaterThan(0);
+    expectNamedControlsAndHiddenIcons(document.body);
+  });
+});
 
 describe('GuidePublish', () => {
   it('disables the button while publishing and refreshes on success', async () => {
@@ -525,5 +546,95 @@ describe('PropertyForm and AlertPanel', () => {
     await userEvent.click(screen.getByTestId('alert-email-resync'));
     await expectToast('alert-email-message', generic, true);
     expect(getHostAuthState).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe('CoverPhotoPanel', () => {
+  const hero = { alt: 'Lake view', width: 1600, height: 1067, version: '7' };
+  const photo = new File([new Uint8Array([1, 2, 3])], 'lake.heic', { type: 'image/heic' });
+
+  function encodesTo(size: number) {
+    vi.stubGlobal('createImageBitmap', vi.fn().mockResolvedValue({ width: 4000, height: 3000, close: vi.fn() }));
+    vi.spyOn(HTMLCanvasElement.prototype, 'getContext').mockReturnValue({ drawImage: vi.fn() } as never);
+    vi.spyOn(HTMLCanvasElement.prototype, 'toBlob').mockImplementation((done) =>
+      done(new Blob([new Uint8Array(size)], { type: 'image/jpeg' })),
+    );
+  }
+
+  async function renderWithUploads(withHero: typeof hero | null = null) {
+    vi.mocked(getPropertyEditor).mockResolvedValue({
+      editor: { ...editor, hero: withHero },
+      gaps: [],
+      heroUpload: true,
+    } as never);
+    await renderEditor();
+  }
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    vi.restoreAllMocks();
+  });
+
+  it('explains that cover photos are off without the secret key', async () => {
+    await renderEditor();
+    expect(screen.getByTestId('cover-photo-unavailable')).toBeTruthy();
+    expect(screen.queryByTestId('cover-photo-file')).toBeNull();
+    expect(screen.queryByTestId('readiness-hero')).toBeNull();
+  });
+
+  it('asks for an export when the browser cannot decode the photo', async () => {
+    vi.stubGlobal('createImageBitmap', vi.fn().mockRejectedValue(new Error('unsupported')));
+    await renderWithUploads();
+    await userEvent.upload(screen.getByTestId('cover-photo-file'), photo);
+    await expectToast('cover-photo-message', 'This photo could not be read. Export it as JPEG and try again.', true);
+    expect(screen.queryByTestId('cover-photo-upload')).toBeNull();
+  });
+
+  it('rejects a photo that stays over 1 MB after re-encoding', async () => {
+    encodesTo(HERO_MAX_BYTES + 1);
+    await renderWithUploads();
+    await userEvent.upload(screen.getByTestId('cover-photo-file'), photo);
+    await expectToast(
+      'cover-photo-message',
+      'This photo is still over 1 MB after resizing. Try a smaller photo.',
+      true,
+    );
+    expect(screen.queryByTestId('cover-photo-upload')).toBeNull();
+  });
+
+  it('requires a description before uploading, then uploads the re-encoded JPEG', async () => {
+    encodesTo(1000);
+    const upload = vi.fn().mockResolvedValue(new Response(JSON.stringify({ state: 'ok', hero })));
+    vi.stubGlobal('fetch', upload);
+    await renderWithUploads();
+    await userEvent.upload(screen.getByTestId('cover-photo-file'), photo);
+    await userEvent.click(await screen.findByTestId('cover-photo-upload'));
+    expect(screen.getByTestId('cover-photo-alt-error').textContent).toBe(
+      'Describe the photo for guests who cannot see it',
+    );
+    expect(upload).not.toHaveBeenCalled();
+    await userEvent.type(screen.getByTestId('cover-photo-alt'), 'Lake view');
+    await userEvent.click(screen.getByTestId('cover-photo-upload'));
+    await expectToast('cover-photo-message', 'Cover photo saved.', false);
+    const [url, init] = upload.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe(`/host/properties/${propertyId}/hero`);
+    expect(init.headers).toEqual({ 'content-type': 'image/jpeg', 'x-hero-alt': 'Lake%20view' });
+    expect((init.body as Blob).size).toBe(1000);
+  });
+
+  it('edits the description and removes the photo after confirmation', async () => {
+    vi.mocked(saveHeroAlt).mockResolvedValue({ ok: true } as never);
+    vi.mocked(removeHero).mockResolvedValue({ ok: true } as never);
+    await renderWithUploads(hero);
+    expect(screen.getByTestId('cover-photo-preview').getAttribute('src')).toBe(
+      `/host/properties/${propertyId}/hero?v=7`,
+    );
+    await userEvent.type(screen.getByTestId('cover-photo-alt'), ' at dusk');
+    await userEvent.click(screen.getByTestId('cover-photo-alt-save'));
+    expect(saveHeroAlt).toHaveBeenCalledWith({ data: { propertyId, alt: 'Lake view at dusk' } });
+    await userEvent.click(screen.getByTestId('cover-photo-remove'));
+    await acceptConfirm();
+    await expectToast('cover-photo-message', 'Cover photo removed.', false);
+    expect(removeHero).toHaveBeenCalledWith({ data: { propertyId } });
   });
 });

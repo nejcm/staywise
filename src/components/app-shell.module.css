@@ -51,17 +51,6 @@
   background: var(--accent-soft);
 }
 
-.nav svg {
-  flex: none;
-  width: 16px;
-  height: 16px;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.6;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
 .foot {
   display: flex;
   flex-direction: column;

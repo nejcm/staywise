@@ -1,5 +1,7 @@
+import { CircleQuestionMark, Wrench } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { Button } from '../../components/button';
+import { Icon } from '../../components/icons';
 import { CallStrip } from './guest-essentials';
 import { Field } from '../../components/field';
 import { sectionCategories, type SectionCategory } from '../guide/guide-validation';
@@ -238,7 +240,8 @@ export function GuestMessageForm({
                       checked={kind === 'question'}
                       onChange={() => setKind('question')}
                       data-testid="guest-message-kind-question"
-                    />{' '}
+                    />
+                    <Icon icon={CircleQuestionMark} />
                     {guestUiText(locale, 'form.kind.question')}
                   </label>
                   <label>
@@ -248,7 +251,8 @@ export function GuestMessageForm({
                       checked={kind === 'issue'}
                       onChange={() => setKind('issue')}
                       data-testid="guest-message-kind-issue"
-                    />{' '}
+                    />
+                    <Icon icon={Wrench} />
                     {guestUiText(locale, 'form.kind.issue')}
                   </label>
                 </div>

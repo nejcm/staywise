@@ -1,4 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { MessageCircle, Phone } from 'lucide-react';
+import { Icon } from '../components/icons';
 import { buttonClass } from '../components/button';
 import { SectionRows } from '../features/guest/guest-sections';
 import { guestLink, guestUiText } from '../features/guest/guest-ui';
@@ -28,10 +30,12 @@ function GuestGuide() {
         <h2 id="guest-guide-ask">{guestUiText(locale, 'guide.cantFind')}</h2>
         <div className={styles.actions}>
           <a className={buttonClass('primary')} href={guestLink(`${home}/help`, lang)}>
+            <Icon icon={MessageCircle} />
             {guestUiText(locale, 'home.ask')}
           </a>
           {essentials.contactPhone ? (
             <a className={buttonClass('secondary')} href={`tel:${essentials.contactPhone}`}>
+              <Icon icon={Phone} />
               {guestUiText(locale, 'contact.call')}
             </a>
           ) : null}
