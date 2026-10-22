@@ -66,7 +66,7 @@ It creates three hosts (`maria-host@example.test`, `tomaz-host@example.test`, `j
 | `APP_ENV` | when `NODE_ENV=production` or on Netlify | `local` \| `preview` \| `production`; outside `local` every variable marked "outside local" must be set |
 | `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` | outside local | Supabase API URL and publishable key |
 | `SUPABASE_SECRET_KEY` | outside local | Server-only service-role key; lets Auth rate-limit magic links per end-user IP, deletes host accounts, and reads and writes cover photos. Unset locally, account deletion and cover photos are unavailable; the local value is the `sb_secret_` key printed by `bunx supabase@2.121.0 status` |
-| `APP_DB_URL` | outside local | `app_runtime` Postgres URL; must use `sslmode=verify-full` and `sslrootcert` outside local |
+| `APP_DB_URL` | outside local | `app_runtime` Postgres URL; must use `sslmode=verify-full` and `sslrootcert` outside local; on Netlify use `sslrootcert=certs/supabase-db-root-ca.pem` (bundled via `netlify.toml` `included_files`) |
 | `SMTP_URL`, `SMTP_FROM` | outside local | Reviewed SMTP provider and sender for Auth and host alerts; TLS required outside local |
 | `APP_ORIGIN` | outside local | Public origin, used for same-origin checks and links |
 | `SHARE_HMAC_KEY` | outside local | At least 32 characters; keys guest link hashes and rate-limit windows |
