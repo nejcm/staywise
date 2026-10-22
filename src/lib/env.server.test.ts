@@ -203,4 +203,13 @@ describe('SUPPORT_EMAIL env', () => {
     );
     expect(() => parseServerEnv({ APP_ENV: 'local', SUPPORT_EMAIL: 'nope' })).toThrow(/SUPPORT_EMAIL/);
   });
+
+  it('sends help desk mail from SUPPORT_FROM, else SMTP_FROM', () => {
+    const base = parseServerEnv({ APP_ENV: 'local' });
+    expect(base.supportFrom).toBe(base.smtpFrom);
+    expect(parseServerEnv({ APP_ENV: 'local', SUPPORT_FROM: 'support@example.test' }).supportFrom).toBe(
+      'support@example.test',
+    );
+    expect(() => parseServerEnv({ APP_ENV: 'local', SUPPORT_FROM: 'nope' })).toThrow(/SUPPORT_FROM/);
+  });
 });

@@ -50,6 +50,8 @@ export type ServerEnv = {
   posthog: PostHogConfig | null;
   // Absent hides the Help page support form; set it to the help desk's inbound address.
   supportEmail: string | null;
+  // Sender of help desk mail; falls back to smtpFrom.
+  supportFrom: string;
 };
 
 // Outside APP_ENV=local the connection must declare verify-full TLS against the project root CA;
@@ -107,6 +109,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
   const supabaseUrl = parseValue(env, 'SUPABASE_URL', appEnv, supabaseUrlSchema);
   const supabasePublishableKey = parseValue(env, 'SUPABASE_PUBLISHABLE_KEY', appEnv, z.string().min(1));
   const appDbUrl = parseValue(env, 'APP_DB_URL', appEnv, postgresUrlSchema);
+  const smtpFrom = parseValue(env, 'SMTP_FROM', appEnv, z.email());
   return {
     appEnv,
     supabaseUrl,
@@ -115,7 +118,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     appDbUrl,
     appDbCaPath: parseDbCaPath(appDbUrl, appEnv),
     smtpUrl: parseSmtpUrl(parseValue(env, 'SMTP_URL', appEnv, z.url()), appEnv),
-    smtpFrom: parseValue(env, 'SMTP_FROM', appEnv, z.email()),
+    smtpFrom,
     appOrigin: parseValue(env, 'APP_ORIGIN', appEnv, z.url()),
     // Key for share-secret digests and guest rate-limit fingerprints; never leaves the server.
     shareHmacKey: parseValue(env, 'SHARE_HMAC_KEY', appEnv, z.string().min(32)),
@@ -127,6 +130,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     googleTranslateServiceAccount: parseGoogleTranslateServiceAccount(env.GOOGLE_TRANSLATE_SERVICE_ACCOUNT),
     posthog: parsePostHog(env.VITE_POSTHOG_PROJECT_TOKEN, env.VITE_POSTHOG_HOST),
     supportEmail: parseSupportEmail(env.SUPPORT_EMAIL),
+    supportFrom: parseSupportEmail(env.SUPPORT_FROM, 'SUPPORT_FROM') ?? smtpFrom,
   };
 }
 
@@ -197,10 +201,10 @@ function parsePostHog(apiKey: string | undefined, host: string | undefined): Pos
   return { apiKey, host: new URL(parsedHost.data).origin };
 }
 
-function parseSupportEmail(raw: string | undefined): string | null {
+function parseSupportEmail(raw: string | undefined, name = 'SUPPORT_EMAIL'): string | null {
   if (raw === undefined || raw.trim() === '') return null;
   const parsed = z.email().safeParse(raw.trim());
-  if (!parsed.success) throw new Error('SUPPORT_EMAIL must be an email address');
+  if (!parsed.success) throw new Error(`${name} must be an email address`);
   return parsed.data;
 }
 

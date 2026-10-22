@@ -44,7 +44,7 @@ The local app serves a synthetic-data notice at `/privacy`, linked from the home
 
 ## Support requests
 
-`SUPPORT_EMAIL` turns on the form at the bottom of `/host/help`. A submit emails the text, the host's sign-in address and the kind to that inbox (the help desk, e.g. Featurebase) through the normal SMTP transport; nothing is stored in the app database. The sender is `SMTP_FROM` with the host as Reply-To, so confirm with a real test send that the help desk threads the ticket to the host rather than to the sender. Each host can send 5 requests an hour (an HMAC window in `app.auth_rate_limits`); a failed send is shown to the host so the text is not lost silently.
+`SUPPORT_EMAIL` turns on the form at the bottom of `/host/help`. A submit emails the text, the host's sign-in address and the kind to that inbox (the help desk, e.g. Featurebase) through the normal SMTP transport; nothing is stored in the app database. The sender is `SUPPORT_FROM` (default `SMTP_FROM`, which sign-in codes use) with the host as Reply-To, so confirm with a real test send that the help desk threads the ticket to the host rather than to the sender. Each host can send 5 requests an hour (an HMAC window in `app.auth_rate_limits`); a failed send is shown to the host so the text is not lost silently.
 
 ## Retention cleanup
 

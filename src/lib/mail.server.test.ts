@@ -5,7 +5,10 @@ vi.mock('nodemailer', () => ({ createTransport: () => ({ sendMail }) }));
 
 vi.mock('./env.server', async (importOriginal) => {
   const original = await importOriginal<typeof import('./env.server')>();
-  return { ...original, serverEnv: { ...original.serverEnv, supportEmail: 'help@desk.test' } };
+  return {
+    ...original,
+    serverEnv: { ...original.serverEnv, supportEmail: 'help@desk.test', supportFrom: 'support@example.test' },
+  };
 });
 
 import { renderBrandedMail } from './mail-layout';
@@ -58,7 +61,7 @@ describe('guest message alert mail', () => {
       sendSupportRequest({ hostEmail: 'host@example.test', kind: 'issue', message: 'Photo fails' }),
     ).resolves.toBe(true);
     const mail = sendMail.mock.calls[0]?.[0];
-    expect(mail).toMatchObject({ to: 'help@desk.test', replyTo: 'host@example.test' });
+    expect(mail).toMatchObject({ from: 'support@example.test', to: 'help@desk.test', replyTo: 'host@example.test' });
     expect(mail.subject).not.toContain('Photo fails');
     expect(mail.text).toContain('host@example.test');
     expect(mail.text).toContain('Photo fails');

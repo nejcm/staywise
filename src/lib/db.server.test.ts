@@ -24,6 +24,7 @@ const localEnv: ServerEnv = {
   googleTranslateServiceAccount: null,
   posthog: null,
   supportEmail: null,
+  supportFrom: 'staywise@example.test',
 };
 
 describe('dbClientOptions', () => {

@@ -68,7 +68,7 @@ export async function sendSupportRequest(input: {
   if (!serverEnv.supportEmail) return false;
   try {
     await transport.sendMail({
-      from: serverEnv.smtpFrom,
+      from: serverEnv.supportFrom,
       to: serverEnv.supportEmail,
       replyTo: input.hostEmail,
       subject: input.kind === 'issue' ? 'Staywise host: something is broken' : 'Staywise host: needs help',
