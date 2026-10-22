@@ -161,6 +161,11 @@ function PrivacyNotice() {
               sends nothing.
             </li>
             <li>
+              When support requests are configured, a host who submits the Help form sends the text they typed and their
+              sign-in email address to the help desk provider, which keeps it under its own retention. The app stores
+              nothing, and hosts are asked not to include guest details.
+            </li>
+            <li>
               Only a host&apos;s explicit &quot;Generate translations&quot; action can send eligible guide prose to the
               configured translation provider. Guest messages, host notes, secrets, and contact details are not part of
               that payload; the local configuration has translation egress off and makes no Google call. Provider terms,

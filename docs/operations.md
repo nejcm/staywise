@@ -42,6 +42,10 @@ The local app serves a synthetic-data notice at `/privacy`, linked from the home
 
 `VITE_POSTHOG_PROJECT_TOKEN` (a `phc_` project key) and `VITE_POSTHOG_HOST` (an `https` origin) together turn on server error reporting; setting only one fails the boot, and unset sends nothing. Every unhandled server error and failed server function still writes the `server_error` stdout line; with PostHog configured it also sends an exception event with the error type, code locations, and the allowlisted log fields. `src/lib/error-reporting.server.ts` strips the message and source lines in `before_send`, events carry no person profile, and a send waits at most two seconds and never fails the request. Retention of the events is the PostHog project's setting (set it to at least 30 days there). Use the response's `X-Request-Id` to find the matching event.
 
+## Support requests
+
+`SUPPORT_EMAIL` turns on the form at the bottom of `/host/help`. A submit emails the text, the host's sign-in address and the kind to that inbox (the help desk, e.g. Featurebase) through the normal SMTP transport; nothing is stored in the app database. The sender is `SMTP_FROM` with the host as Reply-To, so confirm with a real test send that the help desk threads the ticket to the host rather than to the sender. Each host can send 5 requests an hour (an HMAC window in `app.auth_rate_limits`); a failed send is shown to the host so the text is not lost silently.
+
 ## Retention cleanup
 
 `supabase/migrations/20261018000000_initial_schema.sql` defines `app.retention_cleanup()` and, when the migration runs in the database named by `cron.database_name` (default `postgres`), creates `pg_cron` and schedules the job `staywise-retention-cleanup` at 03:17 UTC. Only `scratch_`-prefixed databases (migration or restore scratch databases) skip the schedule; any other database fails the migration. Run it by hand with an owner-privileged connection — `app_runtime` deliberately cannot execute it:

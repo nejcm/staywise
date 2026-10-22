@@ -194,3 +194,13 @@ describe('PostHog error reporting env', () => {
     ).toThrow(/POSTHOG/);
   });
 });
+
+describe('SUPPORT_EMAIL env', () => {
+  it('is off unless configured and must be an email', () => {
+    expect(parseServerEnv({ APP_ENV: 'local' }).supportEmail).toBeNull();
+    expect(parseServerEnv({ APP_ENV: 'local', SUPPORT_EMAIL: ' help@example.test ' }).supportEmail).toBe(
+      'help@example.test',
+    );
+    expect(() => parseServerEnv({ APP_ENV: 'local', SUPPORT_EMAIL: 'nope' })).toThrow(/SUPPORT_EMAIL/);
+  });
+});

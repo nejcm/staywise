@@ -17,6 +17,7 @@ export const getHostSettings = createServerFn({ method: 'GET' }).handler(async (
       saved: settings !== null,
       timeZones,
       accountDeletion: serverEnv.supabaseSecretKey !== null,
+      supportEnabled: serverEnv.supportEmail !== null,
     };
   }),
 );

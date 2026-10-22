@@ -48,6 +48,8 @@ export type ServerEnv = {
   googleTranslateServiceAccount: GoogleTranslateCredentials | null;
   // Absent means server errors are not sent to PostHog.
   posthog: PostHogConfig | null;
+  // Absent hides the Help page support form; set it to the help desk's inbound address.
+  supportEmail: string | null;
 };
 
 // Outside APP_ENV=local the connection must declare verify-full TLS against the project root CA;
@@ -124,6 +126,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     trustNetlifyGeo: appEnv !== 'local' && Boolean(env.SITE_ID) && !env.NETLIFY_DEV,
     googleTranslateServiceAccount: parseGoogleTranslateServiceAccount(env.GOOGLE_TRANSLATE_SERVICE_ACCOUNT),
     posthog: parsePostHog(env.VITE_POSTHOG_PROJECT_TOKEN, env.VITE_POSTHOG_HOST),
+    supportEmail: parseSupportEmail(env.SUPPORT_EMAIL),
   };
 }
 
@@ -192,6 +195,13 @@ function parsePostHog(apiKey: string | undefined, host: string | undefined): Pos
     throw new Error('VITE_POSTHOG_PROJECT_TOKEN (phc_) and an https VITE_POSTHOG_HOST must be set together');
   }
   return { apiKey, host: new URL(parsedHost.data).origin };
+}
+
+function parseSupportEmail(raw: string | undefined): string | null {
+  if (raw === undefined || raw.trim() === '') return null;
+  const parsed = z.email().safeParse(raw.trim());
+  if (!parsed.success) throw new Error('SUPPORT_EMAIL must be an email address');
+  return parsed.data;
 }
 
 export const serverEnv: ServerEnv = parseServerEnv(process.env);

@@ -23,6 +23,7 @@ const localEnv: ServerEnv = {
   trustNetlifyGeo: false,
   googleTranslateServiceAccount: null,
   posthog: null,
+  supportEmail: null,
 };
 
 describe('dbClientOptions', () => {

@@ -80,6 +80,7 @@ It creates three hosts (`maria-host@example.test`, `tomaz-host@example.test`, `j
 | `MFA_REQUIRED` | no | `true` forces every host to enroll TOTP; default lets hosts opt in from `/host/settings` |
 | `GOOGLE_TRANSLATE_SERVICE_ACCOUNT` | no | Enables guide translation egress; unset means nothing is sent |
 | `VITE_POSTHOG_PROJECT_TOKEN`, `VITE_POSTHOG_HOST` | no | Together enable server error reporting to PostHog (`phc_` project key, `https` host such as the EU or US ingest origin); unset means nothing is sent |
+| `SUPPORT_EMAIL` | no | Help desk inbound address (for example the Featurebase support inbox); shows a support form on `/host/help` that emails it through `SMTP_URL`, with the host's sign-in address as Reply-To. Unset hides the form |
 
 ## Documentation
 
