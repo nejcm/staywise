@@ -117,9 +117,25 @@ describe('baseline request middleware', () => {
       const deployed = await baselineOf((await import('./start')).startInstance);
       const response = await runRequest(async () => ({ response: new Response('ok') }), '/sample', deployed);
       expect(response.headers.get('Content-Security-Policy')).not.toContain('unsafe-inline');
-      expect(response.headers.get('Strict-Transport-Security')).toBe('max-age=63072000; includeSubDomains');
+      expect(response.headers.get('Strict-Transport-Security')).toBe('max-age=63072000');
     } finally {
       vi.doUnmock('./lib/env.server');
+      vi.resetModules();
+    }
+  });
+
+  it('drops the CSP dev allowances for the local production preview without pinning HSTS', async () => {
+    vi.resetModules();
+    // As in playwright.config.ts: a production build served with APP_ENV=local.
+    vi.stubEnv('NODE_ENV', 'production');
+    vi.stubEnv('APP_ENV', 'local');
+    try {
+      const preview = await baselineOf((await import('./start')).startInstance);
+      const response = await runRequest(async () => ({ response: new Response('ok') }), '/sample', preview);
+      expect(response.headers.get('Content-Security-Policy')).not.toContain('unsafe-inline');
+      expect(response.headers.get('Strict-Transport-Security')).toBeNull();
+    } finally {
+      vi.unstubAllEnvs();
       vi.resetModules();
     }
   });

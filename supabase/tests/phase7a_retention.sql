@@ -78,7 +78,7 @@ select ok((select proconfig = array['search_path=""'] from pg_proc where oid = '
 select is((select r.rolname from pg_proc p join pg_roles r on r.oid = p.proowner where p.oid = 'app.retention_cleanup(timestamptz)'::regprocedure), 'app_migrator', 'the cleanup function is owned by the migration role');
 select is(has_function_privilege('app_runtime', 'app.retention_cleanup(timestamptz)', 'execute'), false, 'the runtime role cannot execute the cross-tenant cleanup');
 select is(has_function_privilege('app_migrator', 'app.retention_cleanup(timestamptz)', 'execute'), true, 'the migration role can execute the cleanup');
-select is((select count(*)::integer from pg_policies where schemaname = 'app' and policyname like '%\_retention\_%'), 22, 'the migration role gets read and delete retention policies on the eleven tables (7d adds auth windows, then counters, then agent access)');
+select is((select count(*)::integer from pg_policies where schemaname = 'app' and policyname like '%\_retention\_%'), 24, 'the migration role gets read and delete retention policies on the twelve tables (7d adds auth windows, then counters, then agent access, then rate windows)');
 
 -- The nightly job is scheduled, active, on this database, and calls the cleanup boundary.
 select is((select count(*)::integer from cron.job where jobname = 'staywise-retention-cleanup'), 1, 'one nightly retention job is scheduled');

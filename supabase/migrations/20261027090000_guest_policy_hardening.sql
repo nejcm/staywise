@@ -11,7 +11,7 @@ create function app.current_link_live(p_property_id uuid) returns boolean
   security definer
   set search_path = ''
 as $$
-  select exists (
+  select app.current_link_id() is not null and exists (
     select 1 from app.share_links l
     where l.id = app.current_link_id()
       and l.enabled
@@ -25,10 +25,15 @@ revoke all on function app.current_link_live(uuid) from public, anon, authentica
 grant execute on function app.current_link_live(uuid) to app_runtime;
 
 -- The link row is rechecked, as in property_credentials_guest_read, so a disabled, rotated, or expired link reads
--- nothing even with a stale property context.
+-- nothing even with a stale property context. The link id test comes first so owner-context scans skip the definer.
 drop policy properties_guest_read on app.properties;
 create policy properties_guest_read on app.properties for select
-  using (id = app.current_link_property_id() and published and app.current_link_live(id));
+  using (
+    app.current_link_id() is not null
+    and id = app.current_link_property_id()
+    and published
+    and app.current_link_live(id)
+  );
 
 drop policy guide_sections_guest_read on app.guide_sections;
 create policy guide_sections_guest_read on app.guide_sections for select

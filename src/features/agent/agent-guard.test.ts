@@ -38,6 +38,8 @@ describe('addedContact', () => {
     ['payment', 'Pay on arrival.', 'Pay the deposit to SI56-1910-0000-0123-438.'],
     ['link', 'Ask us.', 'Pay at evil-pay\u3002com'],
     ['link', 'Ask us.', 'Pay at evil-pay\uff61com'],
+    ['phone', 'Ask us.', 'Call +386 \u201340\u2013123 456 now.'],
+    ['phone', 'Ask us.', 'Call 041.234.567 now.'],
   ])('rejects an added %s', (kind, before, after) => {
     expect(addedContact(before, after)).toBe(kind);
   });
@@ -57,6 +59,10 @@ describe('addedContact', () => {
     ['allows en-dash dates', 'Stay.', 'Open 2026\u201311\u201301 to 2026\u201311\u201303.'],
     ['allows an en-dash date range', 'Stay.', 'Booked 2026-11-01\u20132026-11-03.'],
     ['allows an en-dash time range', 'Rules.', 'Reception 08:00\u201320:00, check-out 10:00.'],
+    ['allows a spaced en-dash range of dotted dates', 'Stay.', 'Booked 10.11.2026 \u2013 15.11.2026.'],
+    ['allows dotted day ranges', 'Stay.', 'Open 10.\u201312. 11. 2026 and 24.\u201326. 12. 2026.'],
+    ['allows dotted prices with spaced en dashes', 'Prices.', 'Rates 1.200 \u2013 1.500 \u2013 1.800 EUR per week.'],
+    ['allows a dotted date range', 'Stay.', 'Booked 10.11.\u201315.11.2026.'],
   ])('allows text that %s', (_label, before, after) => {
     expect(addedContact(before, after)).toBeNull();
   });

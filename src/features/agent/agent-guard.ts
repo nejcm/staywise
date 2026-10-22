@@ -34,12 +34,12 @@ function foldCommaRun(match: string, plus: string, run: string): string {
 
 // NFKC folds full-width @ and dots, dropping format characters stops zero-width splits; (dot)/(at) spellings fold too.
 // Dashes, minus and middle dots fold to `-` and ideographic full stops to `.`, so Unicode separators cannot split a
-// phone number, IBAN or domain.
+// phone number, IBAN or domain. A Unicode dash with whitespace on both sides is prose (`1.200 – 1.500 EUR`) and stays.
 function normalize(text: string): string {
   return text
     .normalize('NFKC')
     .replace(/\p{Cf}/gu, '')
-    .replace(/[\p{Pd}\u2212\u00b7\u2027\u30fb]/gu, '-')
+    .replace(/(?<!\s)[\p{Pd}\u2212\u00b7\u2027\u30fb]|[\p{Pd}\u2212\u00b7\u2027\u30fb](?!\s)/gu, '-')
     .replace(/[\u3002\uff0e\uff61]/gu, '.')
     .replace(commaRun, foldCommaRun)
     .replace(/\s*[([{]\s*(?:dot|\.)\s*[)\]}]\s*/giu, '.')
@@ -49,8 +49,12 @@ function normalize(text: string): string {
 
 // An ISO date, or a hyphenated range of two (dashes fold to `-`, so `2026-11-01–2026-11-03` must stay one date range).
 const isoDate = String.raw`(?:19|20)\d{2}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])`;
+// A dotted date (`10.11.2026`, `10. 11. 2026`), optionally after a range start (`10.-12. 11. 2026`, `10.11.-15.11.2026`).
+const day = String.raw`(?:0?[1-9]|[12]\d|3[01])\.`;
+const month = String.raw`(?:0?[1-9]|1[0-2])\.`;
+const dottedDate = String.raw`(?<![\d.])(?:${day}\s?(?:${month}\s?)?-\s?)?${day}\s?${month}\s?(?:19|20)\d{2}(?!\d)`;
 const datesAndTimes = new RegExp(
-  String.raw`(?<!\d-)\b${isoDate}(?:-${isoDate})?\b(?!-\d)|\b(?:[01]?\d|2[0-3]):[0-5]\d\b`,
+  String.raw`(?<!\d-)\b${isoDate}(?:-${isoDate})?\b(?!-\d)|${dottedDate}|\b(?:[01]?\d|2[0-3]):[0-5]\d\b`,
   'g',
 );
 

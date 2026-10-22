@@ -5,11 +5,13 @@ import { logEvent } from './lib/log.server';
 import { buildSecurityHeaders } from './lib/security-headers.server';
 
 const csrfMiddleware = createCsrfMiddleware({ filter: (ctx) => ctx.handlerType === 'serverFn' });
-// The inline CSP allowances follow APP_ENV, not the runtime NODE_ENV, so a deploy can never serve them.
-const dev = appEnv === 'local';
+// The inline CSP allowances need both the Vite dev server and APP_ENV=local, so neither a deploy with a stray NODE_ENV
+// nor the local production preview (e2e) serves them. HSTS goes with every deployed environment.
+const dev = appEnv === 'local' && process.env.NODE_ENV !== 'production';
+const hsts = appEnv !== 'local';
 
 function applyBaselineHeaders(response: Response, requestId: string, noStore: boolean, nonce: string) {
-  for (const [name, value] of Object.entries(buildSecurityHeaders({ nonce, dev }))) {
+  for (const [name, value] of Object.entries(buildSecurityHeaders({ nonce, dev, hsts }))) {
     response.headers.set(name, value);
   }
   response.headers.set('X-Request-Id', requestId);

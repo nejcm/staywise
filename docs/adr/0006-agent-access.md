@@ -37,13 +37,17 @@ Clients differ in what they can send. Claude Code, Cursor and VS Code take a sta
 
 ### Injection guard
 
-Every agent write to guest-visible text (`update_property` name and address, `upsert_section`, `review_translation`) is refused if it adds a link, email, phone number or IBAN that the text did not already contain (Q21). Text is NFKC-folded first; zero-width characters are dropped; Unicode dashes, the minus sign and middle dots fold to `-` and ideographic full stops to `.`; comma-separated digit runs fold when `+`-prefixed or grouped in 2–4 digits; `(dot)` and `(at)` spellings fold; dotted quads count as links; IBANs may be grouped with spaces or dashes. Only plausible ISO dates and `HH:MM` times are blanked before counting phone digits. Section writes also keep a revision with one-click revert and an agent-edited marker.
+Every agent write to guest-visible text (`update_property` name and address, `upsert_section`, `review_translation`) is refused if it adds a link, email, phone number or IBAN that the text did not already contain (Q21). Text is NFKC-folded first; zero-width characters are dropped; Unicode dashes, the minus sign and middle dots fold to `-` unless spaced on both sides and ideographic full stops to `.`; comma-separated digit runs fold when `+`-prefixed or grouped in 2–4 digits; `(dot)` and `(at)` spellings fold; dotted quads count as links; IBANs may be grouped with spaces or dashes. Only plausible ISO and dotted dates (including `10.–12. 11. 2026` ranges) and `HH:MM` times are blanked before counting phone digits. Section writes also keep a revision with one-click revert and an agent-edited marker.
 
 Accepted residuals, all needing text a guest would have to reassemble:
 - a capital or a one-sided space after a spaced dot (`evil . Example`, `evil .example`), or `evil dot example`;
-- a phone whose first digits are written as a valid ISO date (`Call 2026-11-01 234 567`);
+- a phone whose first digits are written as a valid ISO or dotted date (`Call 2026-11-01 234 567`, `Call 01.04.2026 234 567`);
 - phone-like strings of 8 digits or fewer;
 - a phone without `+` written with commas as thousands grouping (`041,234,567`), kept so prices such as `1,500, 2,300` and `1,250,000` are never read as phones;
+- a phone or IBAN split by Unicode dashes with spaces on both sides (`+386 – 40 – 123 – 456`), kept so prose ranges such as `1.200 – 1.500 EUR` and `10.11.2026 – 15.11.2026` are never read as phones (the ASCII ` - ` still joins);
+- separators outside the phone class: `041*234*567`, `041#234#567`, `041~234~567`;
+- letters for digits, such as `o41 234 567`;
+- a `+` number whose later groups read as thousands grouping (`+386 40,123,456`);
 - false-positive links on bare quads such as `1.2.3.4`.
 
 The guard is a speed bump against laundering a scam contact into a guide, not a content filter; content writes carry a `requiresUserInteraction` hint and destructive annotations, which clients may or may not honour.
