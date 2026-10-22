@@ -1,5 +1,12 @@
 import { createServerFn } from '@tanstack/react-start';
-import { aal2Host, isGuardedMutation, runGuarded, type FnError } from '../../lib/fn-guards.server';
+import {
+  aal2Host,
+  isGuardedMutation,
+  reportedOrNull,
+  runGuarded,
+  workspaceHost,
+  type FnError,
+} from '../../lib/fn-guards.server';
 import { insertAudit } from '../../lib/audit.server';
 import { withOwnerContext } from '../../lib/db.server';
 import { serverEnv } from '../../lib/env.server';
@@ -36,7 +43,8 @@ import {
   updateProperty,
   updateSection,
 } from './guide.server';
-import { readGuideGaps } from '../messages/messages.server';
+import { readGuideGaps, readInbox } from '../messages/messages.server';
+import { readShareLinkState, readStays } from '../share/share.server';
 
 export const createProperty = createServerFn({ method: 'POST' })
   .validator((value: unknown) => value as { displayName: string })
@@ -323,6 +331,42 @@ export const getGuestPreview = createServerFn({ method: 'POST' })
       });
       if (!preview) return { error: 'invalid_input' } satisfies FnError;
       return preview;
+    }),
+  );
+
+// Whole editor page in one server function: gating once avoids repeating the Auth checks per read,
+// and the share and inbox reads stay optional sections as before.
+export const getEditorPage = createServerFn({ method: 'POST' })
+  .validator((value: unknown) => value as { propertyId: string })
+  .handler(async ({ data }) =>
+    runGuarded(async () => {
+      const input = propertyIdInput.safeParse(data);
+      if (!input.success) return { redirect: '/host' } as const;
+      const host = await workspaceHost();
+      if ('redirect' in host) return host;
+      const { propertyId } = input.data;
+      const [read, share, inbox] = await Promise.all([
+        withOwnerContext(host.userId, async (tx) => {
+          const editor = await readGuideEditor(tx, propertyId);
+          return editor && { editor, gaps: await readGuideGaps(tx, propertyId) };
+        }),
+        reportedOrNull(
+          withOwnerContext(host.userId, async (tx) => {
+            const state = await readShareLinkState(tx, propertyId);
+            return state && { share: state, stays: await readStays(tx, propertyId) };
+          }),
+        ),
+        reportedOrNull(withOwnerContext(host.userId, (tx) => readInbox(tx, propertyId))),
+      ]);
+      if (!read) return { redirect: '/host' } as const;
+      const page = {
+        ...read,
+        heroUpload: serverEnv.supabaseSecretKey !== null,
+        share: share?.share ?? null,
+        stays: share?.stays ?? null,
+        inbox,
+      };
+      return page;
     }),
   );
 

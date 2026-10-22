@@ -1,0 +1,26 @@
+name: Lighthouse
+
+on:
+  schedule:
+    - cron: '41 5 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  lighthouse:
+    runs-on: ubuntu-latest
+    timeout-minutes: 12
+    steps:
+      - uses: actions/checkout@v7
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - run: bunx @lhci/cli@0.15.1 autorun
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: lighthouse
+          include-hidden-files: true
+          path: .lighthouseci/

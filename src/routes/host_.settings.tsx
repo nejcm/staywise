@@ -12,8 +12,8 @@ import { Toast } from '../components/toast';
 import { ThemePicker } from '../features/guide/theme-picker';
 import { collectFieldErrors, guestLocales, hostSettingsInput } from '../features/guide/guide-validation';
 import { languageNames } from '../features/guest/guest-ui';
-import { deleteAccount, getHostAuthState, mfaUnenroll, restartEnrollment } from '../features/host/host-fns';
-import { getHostSettings, getSecurityActivity, saveHostSettings } from '../features/host/settings-fns';
+import { deleteAccount, mfaUnenroll, restartEnrollment } from '../features/host/host-fns';
+import { getSettingsPage, saveHostSettings } from '../features/host/settings-fns';
 import { createAgentToken, getAgentAccess, revokeAgentToken, revokeAllAgentTokens } from '../features/agent/agent-fns';
 import { agentScopes, createGrantInput, grantLifetimes, scopeLabels } from '../features/agent/agent-validation';
 import type { HostSettings, SecurityEvent } from '../features/host/settings.server';
@@ -23,25 +23,10 @@ import editorStyles from '../features/host/editor.module.css';
 
 export const Route = createFileRoute('/host_/settings')({
   loader: async () => {
-    const state = await getHostAuthState();
-    if ('error' in state || state.state === 'signed_out') throw redirect({ to: '/auth/sign-in' });
-    if (state.state !== 'workspace') throw redirect({ to: '/host' });
-    const result = await getHostSettings();
-    if ('error' in result) throw redirect({ to: '/host' });
-    const agent = await getAgentAccess();
-    if ('error' in agent) throw redirect({ to: '/host' });
-    const activity = await getSecurityActivity();
-    if ('error' in activity && activity.error === 'auth_required') throw redirect({ to: '/host' });
-    return {
-      agent,
-      securityEvents: 'error' in activity ? null : activity.events,
-      totpFactorIds: state.totpFactorIds,
-      email: result.email,
-      settings: result.settings,
-      saved: result.saved,
-      timeZones: result.timeZones,
-      accountDeletion: result.accountDeletion,
-    };
+    const page = await getSettingsPage();
+    if ('error' in page) throw redirect({ to: '/host' });
+    if ('redirect' in page) throw redirect({ to: page.redirect });
+    return page;
   },
   component: SettingsPage,
 });

@@ -4,11 +4,12 @@ import { cleanup, render, screen } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routeTree } from '../routeTree.gen';
-import { getHostAuthState, listOwnProperties } from '../features/host/host-fns';
+import { getHostAuthState, getHostPage, listOwnProperties } from '../features/host/host-fns';
 import { createProperty } from '../features/guide/guide-fns';
 
 vi.mock('../features/host/host-fns', () => ({
   getHostAuthState: vi.fn(),
+  getHostPage: vi.fn(),
   listOwnProperties: vi.fn(),
   mfaEnroll: vi.fn(),
 }));
@@ -25,7 +26,19 @@ async function renderHost() {
   return screen.findByTestId('host-create-form');
 }
 
+// The server function gates and reads in one call; the test composes it from the per-read mocks.
+async function composeHostPage() {
+  const state = await getHostAuthState();
+  if ('error' in state) return state;
+  if (state.state !== 'workspace') return { state, workspace: null };
+  const list = await listOwnProperties();
+  return { state, workspace: 'error' in list ? null : list };
+}
+
 beforeEach(() => {
+  vi.mocked(getHostPage)
+    .mockReset()
+    .mockImplementation(composeHostPage as never);
   vi.mocked(getHostAuthState)
     .mockReset()
     .mockResolvedValue({ state: 'workspace', totpFactorIds: ['f1'] });

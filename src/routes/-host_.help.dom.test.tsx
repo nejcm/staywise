@@ -3,26 +3,16 @@ import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/rea
 import { cleanup, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routeTree } from '../routeTree.gen';
-import { getHostAuthState } from '../features/host/host-fns';
-import { getHostSettings } from '../features/host/settings-fns';
+import { getHelpPage } from '../features/host/settings-fns';
 import { submitSupportRequest } from '../features/host/support-fns';
-import { builtInHostSettings } from '../features/host/settings.server';
 import { sectionCategories } from '../features/guide/guide-validation';
 
-vi.mock('../features/host/host-fns', () => ({ getHostAuthState: vi.fn(), signOut: vi.fn() }));
-vi.mock('../features/host/settings-fns', () => ({ getHostSettings: vi.fn() }));
+vi.mock('../features/host/host-fns', () => ({ signOut: vi.fn() }));
+vi.mock('../features/host/settings-fns', () => ({ getHelpPage: vi.fn() }));
 vi.mock('../features/host/support-fns', () => ({ submitSupportRequest: vi.fn() }));
 
 beforeEach(() => {
-  vi.mocked(getHostAuthState).mockResolvedValue({ state: 'workspace', totpFactorIds: [] });
-  vi.mocked(getHostSettings).mockResolvedValue({
-    email: 'host@example.test',
-    settings: builtInHostSettings,
-    saved: false,
-    timeZones: ['UTC'],
-    accountDeletion: true,
-    supportEnabled: true,
-  });
+  vi.mocked(getHelpPage).mockResolvedValue({ email: 'host@example.test', supportEnabled: true });
 });
 afterEach(cleanup);
 
@@ -36,7 +26,7 @@ describe('host guide page', () => {
   });
 
   it('sends signed-out visitors to sign in', async () => {
-    vi.mocked(getHostAuthState).mockResolvedValue({ state: 'signed_out' });
+    vi.mocked(getHelpPage).mockResolvedValue({ redirect: '/auth/sign-in' });
     const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: ['/host/help'] }) });
     await router.load();
     expect(router.state.location.pathname).toBe('/auth/sign-in');
@@ -58,14 +48,7 @@ describe('host guide page', () => {
   });
 
   it('hides the form when support email is not configured', async () => {
-    vi.mocked(getHostSettings).mockResolvedValue({
-      email: 'host@example.test',
-      settings: builtInHostSettings,
-      saved: false,
-      timeZones: ['UTC'],
-      accountDeletion: true,
-      supportEnabled: false,
-    });
+    vi.mocked(getHelpPage).mockResolvedValue({ email: 'host@example.test', supportEnabled: false });
     const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: ['/host/help'] }) });
     await router.load();
     render(<RouterProvider router={router} />);

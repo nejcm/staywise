@@ -10,3 +10,9 @@ SECRETS_SCAN_OMIT_KEYS = "APP_ENV,AWS_LAMBDA_JS_RUNTIME,APP_ORIGIN"
 
 [functions]
 included_files = ["certs/**"]
+
+# Vite fingerprints everything under /assets; Netlify's default (max-age=0, must-revalidate) re-validates each chunk on every page load.
+[[headers]]
+for = "/assets/*"
+[headers.values]
+Cache-Control = "public, max-age=31536000, immutable"

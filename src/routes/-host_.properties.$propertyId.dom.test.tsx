@@ -8,6 +8,7 @@ import { getHostAuthState } from '../features/host/host-fns';
 import {
   createSection,
   deleteProperty,
+  getEditorPage,
   getPropertyEditor,
   removeHero,
   resyncAlertEmail,
@@ -37,6 +38,7 @@ vi.mock('../features/host/host-fns', () => ({ getHostAuthState: vi.fn() }));
 vi.mock('../features/guide/guide-fns', () => ({
   createSection: vi.fn(),
   deleteProperty: vi.fn(),
+  getEditorPage: vi.fn(),
   getPropertyEditor: vi.fn(),
   moveSectionOrder: vi.fn(),
   removeHero: vi.fn(),
@@ -160,8 +162,26 @@ async function acceptConfirm() {
   await userEvent.click(within(dialog).getByTestId('confirm-accept'));
 }
 
+// The server function folds the gate and three reads into one call; the test composes it from the per-read mocks.
+async function composeEditorPage({ data }: { data: { propertyId: string } }) {
+  const state = await getHostAuthState();
+  if ('error' in state || state.state === 'signed_out') return { redirect: '/auth/sign-in' } as const;
+  if (state.state !== 'workspace') return { redirect: '/host' } as const;
+  const result = await getPropertyEditor({ data });
+  if ('error' in result) return { redirect: '/host' } as const;
+  const share = await getGuestLink({ data });
+  const inbox = await getInbox({ data });
+  return {
+    ...result,
+    share: 'error' in share ? null : share.share,
+    stays: 'error' in share ? null : share.stays,
+    inbox: 'error' in inbox ? null : inbox.messages,
+  };
+}
+
 beforeEach(() => {
   vi.clearAllMocks();
+  vi.mocked(getEditorPage).mockImplementation(composeEditorPage as never);
   vi.mocked(getHostAuthState).mockResolvedValue({ state: 'workspace', totpFactorIds: [] });
   vi.mocked(getPropertyEditor).mockResolvedValue({ editor, gaps: [] } as never);
   vi.mocked(getGuestLink).mockResolvedValue({

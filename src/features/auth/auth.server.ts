@@ -43,22 +43,29 @@ export type HostAuthState =
   | { state: 'verify'; factorId: string }
   | { state: 'workspace'; totpFactorIds: string[] };
 
+export type HostGate = { state: HostAuthState; session: VerifiedSession | null };
+
 // A verified authenticator always gates the workspace at AAL2; without one, enrollment is forced
 // only by MFA_REQUIRED (optional enrollment lives on the settings page).
-export async function getHostAuthState(client: SupabaseClient): Promise<HostAuthState> {
+export async function hostAuthGate(client: SupabaseClient): Promise<HostGate> {
   const session = await verifiedSession(client);
-  if (!session) return { state: 'signed_out' };
+  if (!session) return { state: { state: 'signed_out' }, session: null };
   const { data: factors, error: factorsError } = await client.auth.mfa.listFactors();
-  if (factorsError || !factors) return { state: 'signed_out' };
+  if (factorsError || !factors) return { state: { state: 'signed_out' }, session: null };
   const totp = factors.all.filter((factor) => factor.factor_type === 'totp');
   const verified = totp.filter((factor) => factor.status === 'verified');
   if (verified.length) {
     const { data: aal } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
-    if (aal?.currentLevel === 'aal2') return { state: 'workspace', totpFactorIds: verified.map((f) => f.id) };
-    return { state: 'verify', factorId: verified[0]!.id };
+    if (aal?.currentLevel === 'aal2')
+      return { state: { state: 'workspace', totpFactorIds: verified.map((f) => f.id) }, session };
+    return { state: { state: 'verify', factorId: verified[0]!.id }, session };
   }
-  if (!serverEnv.mfaRequired) return { state: 'workspace', totpFactorIds: [] };
-  return { state: 'enroll', factorId: totp.find((f) => f.status === 'unverified')?.id ?? null };
+  if (!serverEnv.mfaRequired) return { state: { state: 'workspace', totpFactorIds: [] }, session };
+  return { state: { state: 'enroll', factorId: totp.find((f) => f.status === 'unverified')?.id ?? null }, session };
+}
+
+export async function getHostAuthState(client: SupabaseClient): Promise<HostAuthState> {
+  return (await hostAuthGate(client)).state;
 }
 
 export type VerifiedSession = { userId: string; email: string | null };

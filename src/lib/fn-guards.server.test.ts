@@ -30,6 +30,7 @@ describe('runGuarded', () => {
     expect(result).toEqual({ error: 'unexpected' });
     expect(logEvent).toHaveBeenCalledWith('server_error', {
       appEnv: serverEnv.appEnv,
+      errorType: 'Error',
       status: 500,
       outcome: 'thrown',
       method: 'POST',

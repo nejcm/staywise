@@ -45,3 +45,26 @@ export async function readOwnProperties(tx: postgres.TransactionSql) {
     waiting: row.waiting as number,
   }));
 }
+
+export async function readHostHome(tx: postgres.TransactionSql) {
+  const properties = await readOwnProperties(tx);
+  const waiting = await tx`
+    select m.id, m.property_id, p.display_name, m.kind, m.locale, left(m.body, 160) as excerpt, m.created_at
+    from app.guest_messages m join app.properties p on p.id = m.property_id
+    where m.state = 'new'
+    order by m.created_at desc
+    limit 3
+  `;
+  return {
+    properties,
+    waiting: waiting.map((row) => ({
+      id: row.id as string,
+      propertyId: row.property_id as string,
+      propertyName: row.display_name as string,
+      kind: row.kind as 'issue' | 'question',
+      locale: row.locale as string,
+      excerpt: row.excerpt as string,
+      createdAt: (row.created_at as Date).toISOString(),
+    })),
+  };
+}

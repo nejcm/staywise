@@ -6,8 +6,7 @@ import { Field } from '../components/field';
 import { useHostAction } from '../components/host-action';
 import { Toast } from '../components/toast';
 import { categoryIcon, Icon } from '../components/icons';
-import { getHostAuthState } from '../features/host/host-fns';
-import { getHostSettings } from '../features/host/settings-fns';
+import { getHelpPage } from '../features/host/settings-fns';
 import { submitSupportRequest } from '../features/host/support-fns';
 import { categoryIdeas, helpSteps } from '../features/host/host-guidance';
 import { sectionCategories, sectionCategoryLabels, supportRequestInput } from '../features/guide/guide-validation';
@@ -15,12 +14,10 @@ import styles from '../features/host/host.module.css';
 
 export const Route = createFileRoute('/host_/help')({
   loader: async () => {
-    const state = await getHostAuthState();
-    if ('error' in state || state.state === 'signed_out') throw redirect({ to: '/auth/sign-in' });
-    if (state.state !== 'workspace') throw redirect({ to: '/host' });
-    const result = await getHostSettings();
-    if ('error' in result) throw redirect({ to: '/host' });
-    return { email: result.email, supportEnabled: result.supportEnabled };
+    const page = await getHelpPage();
+    if ('error' in page) throw redirect({ to: '/auth/sign-in' });
+    if ('redirect' in page) throw redirect({ to: page.redirect });
+    return page;
   },
   component: HelpPage,
 });

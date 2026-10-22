@@ -2,11 +2,10 @@ import { Link, createFileRoute, redirect, useBlocker, useNavigate, useRouter } f
 import { ArrowDown, ArrowUp, Bot, ChevronLeft, Circle, ImageUp, Plus, Trash } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { QrSvg } from '../components/qr-svg';
-import { getHostAuthState } from '../features/host/host-fns';
 import {
   createSection,
   deleteProperty,
-  getPropertyEditor,
+  getEditorPage,
   moveSectionOrder,
   revertAgentChange,
   removeHero,
@@ -20,12 +19,10 @@ import {
   createGuestLink,
   createStayGuestLink,
   disableGuestLink,
-  getGuestLink,
   reissueStayGuestLink,
   revokeStayGuestLink,
   rotateGuestLink,
 } from '../features/share/share-fns';
-import { getInbox } from '../features/messages/messages-fns';
 import { InboxPanel } from '../features/host/host-inbox';
 import { ThemePicker } from '../features/guide/theme-picker';
 import { HostShell } from '../components/app-shell';
@@ -70,28 +67,11 @@ import editorStyles from '../features/host/editor.module.css';
 
 export const Route = createFileRoute('/host_/properties/$propertyId')({
   loader: async ({ params }) => {
-    const state = await getHostAuthState();
-    if ('error' in state || state.state === 'signed_out') {
-      throw redirect({ to: '/auth/sign-in' });
-    }
-    if (state.state !== 'workspace') {
-      throw redirect({ to: '/host' });
-    }
-    const result = await getPropertyEditor({ data: { propertyId: params.propertyId } });
-    if ('error' in result) {
-      throw redirect({ to: '/host' });
-    }
-    // Sequential on purpose: parallel auth-backed calls race the near-expiry session refresh.
-    const share = await getGuestLink({ data: { propertyId: params.propertyId } });
-    const inbox = await getInbox({ data: { propertyId: params.propertyId } });
-    return {
-      editor: result.editor,
-      gaps: result.gaps,
-      heroUpload: result.heroUpload,
-      share: 'error' in share ? null : share.share,
-      stays: 'error' in share ? null : share.stays,
-      inbox: 'error' in inbox ? null : inbox.messages,
-    };
+    const page = await getEditorPage({ data: { propertyId: params.propertyId } });
+    // A thrown read lands on /host, whose own gate sends a dead session on to sign-in.
+    if ('error' in page) throw redirect({ to: '/host' });
+    if ('redirect' in page) throw redirect({ to: page.redirect });
+    return page;
   },
   component: PropertyEditorPage,
 });
