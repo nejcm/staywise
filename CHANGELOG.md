@@ -1,3 +1,9 @@
+## [1.1.0](https://github.com/nejcm/staywise/compare/v1.0.0...v1.1.0) (2026-10-22)
+
+### Features
+
+* **ui:** show the large white logo in the hero panel on sign-in and not-found ([#24](https://github.com/nejcm/staywise/issues/24)) ([5d3224a](https://github.com/nejcm/staywise/commit/5d3224ac82547f529bfcfff99e76a32e07e925f7))
+
 ## 1.0.0 (2026-10-22)
 
 ### Features

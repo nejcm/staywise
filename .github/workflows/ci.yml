@@ -30,7 +30,33 @@ jobs:
       - run: bun run test:coverage
       - run: bun run knip
 
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      e2e: ${{ steps.diff.outputs.e2e }}
+      db: ${{ steps.diff.outputs.db }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if ! files=$(git diff --name-only "$BASE" HEAD 2>/dev/null); then
+            echo "e2e=true" >> "$GITHUB_OUTPUT"
+            echo "db=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          shared='package\.json|\.github/workflows/ci\.yml'
+          grep -qE "^(src|e2e|public)/|^($shared|bun\.lock|bunfig\.toml|vite\.config\.ts|playwright\.config\.ts|tsconfig\.json|netlify\.toml|\.node-version)$" <<< "$files" \
+            && echo "e2e=true" >> "$GITHUB_OUTPUT" || echo "e2e=false" >> "$GITHUB_OUTPUT"
+          grep -qE "^supabase/|^($shared)$" <<< "$files" \
+            && echo "db=true" >> "$GITHUB_OUTPUT" || echo "db=false" >> "$GITHUB_OUTPUT"
+
   e2e:
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
@@ -41,7 +67,17 @@ jobs:
         with:
           node-version-file: .node-version
       - run: bun install --frozen-lockfile
-      - run: bunx playwright install --with-deps chromium
+      - id: playwright
+        run: echo "version=$(bunx playwright --version | cut -d' ' -f2)" >> "$GITHUB_OUTPUT"
+      - id: playwright-cache
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+      - if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: bunx playwright install --with-deps chromium
+      - if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: bunx playwright install-deps chromium
       - run: bun run test:e2e
       - uses: actions/upload-artifact@v7
         if: failure()
@@ -52,6 +88,8 @@ jobs:
             test-results/
 
   database:
+    needs: changes
+    if: needs.changes.outputs.db == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
