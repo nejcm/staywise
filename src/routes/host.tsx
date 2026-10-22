@@ -1,10 +1,11 @@
 import { Link, createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
-import { useState, type FormEvent } from 'react';
+import { useRef, useState, type FormEvent } from 'react';
 import { getHostPage, mfaEnroll } from '../features/host/host-fns';
 import { TotpEnrollment } from '../features/host/totp-enrollment';
 import { HostShell, SignOutButton } from '../components/app-shell';
 import { Button, buttonClass } from '../components/button';
+import dialogStyles from '../components/confirm-dialog.module.css';
 import { Field } from '../components/field';
 import { Icon } from '../components/icons';
 import { Mark } from '../components/mark';
@@ -42,6 +43,7 @@ function HostPage() {
   const properties = workspace?.properties ?? [];
   const router = useRouter();
   const navigate = useNavigate();
+  const createDialog = useRef<HTMLDialogElement>(null);
   const [busy, setBusy] = useState(false);
   const [createErrors, setCreateErrors] = useState<Record<string, string>>({});
   const [createMessage, setCreateMessage] = useState('');
@@ -71,7 +73,10 @@ function HostPage() {
         setCreateMessageFailed(true);
         return;
       }
-      await navigate({ to: '/host/properties/$propertyId', params: { propertyId: result.propertyId } });
+      await navigate({
+        to: '/host/properties/$propertyId',
+        params: { propertyId: result.propertyId },
+      });
     } catch {
       setCreateMessage('Something went wrong. Try again.');
       setCreateMessageFailed(true);
@@ -91,7 +96,10 @@ function HostPage() {
         setCopyMessageFailed(true);
         return;
       }
-      await navigate({ to: '/host/properties/$propertyId', params: { propertyId: result.propertyId } });
+      await navigate({
+        to: '/host/properties/$propertyId',
+        params: { propertyId: result.propertyId },
+      });
     } catch {
       setCopyMessage('Something went wrong. Try again.');
       setCopyMessageFailed(true);
@@ -160,10 +168,15 @@ function HostPage() {
           <h1>Properties</h1>
           <p className={styles.sub}>{workspaceSummary(properties)}</p>
         </div>
-        <a href="#create-heading" className={buttonClass('primary')} data-testid="host-add-property">
+        <Button
+          type="button"
+          variant="primary"
+          onClick={() => createDialog.current?.showModal()}
+          data-testid="host-add-property"
+        >
           <Icon icon={Plus} />
           Add property
-        </a>
+        </Button>
       </div>
       <AlertDrift properties={properties} email={workspace?.email} />
       {!workspace ? (
@@ -206,10 +219,10 @@ function HostPage() {
               </div>
             </li>
           </ol>
-          <a href="#create-heading" className={buttonClass('primary')}>
+          <Button type="button" variant="primary" onClick={() => createDialog.current?.showModal()}>
             <Icon icon={Plus} />
             Add your first property
-          </a>
+          </Button>
         </section>
       ) : (
         <>
@@ -253,63 +266,6 @@ function HostPage() {
         </>
       )}
       <div className={styles.columns}>
-        <section className={`${styles.panel} ${styles.wide}`} aria-labelledby="create-heading">
-          <header className={styles.panelHead}>
-            <h2 id="create-heading">New property</h2>
-          </header>
-          <form onSubmit={create} noValidate className="stack" data-testid="host-create-form">
-            <Field
-              label="Property name"
-              error={createErrors.displayName}
-              errorId="create-name-error"
-              errorTestId="host-create-name-error"
-            >
-              <input
-                name="displayName"
-                maxLength={120}
-                required
-                aria-invalid={Boolean(createErrors.displayName)}
-                aria-describedby={createErrors.displayName ? 'create-name-error' : undefined}
-                data-testid="host-create-name"
-              />
-            </Field>
-            <div className="actions">
-              <Button type="submit" variant="primary" disabled={busy} data-testid="host-create-submit">
-                Create property
-              </Button>
-              <Toast testId="host-create-message" tone={createMessageFailed ? 'error' : undefined}>
-                {createMessage}
-              </Toast>
-            </div>
-          </form>
-          {properties.length ? (
-            <form
-              onSubmit={(event) => {
-                event.preventDefault();
-                void duplicate(String(new FormData(event.currentTarget).get('source')));
-              }}
-              className={`stack ${styles.copyForm}`}
-            >
-              <Field label="Or start from a copy of">
-                <select name="source" data-testid="host-copy-source">
-                  {properties.map((property) => (
-                    <option key={property.id} value={property.id}>
-                      {property.displayName}
-                    </option>
-                  ))}
-                </select>
-              </Field>
-              <div className="actions">
-                <Button type="submit" disabled={busy} data-testid="host-property-copy">
-                  Make a copy
-                </Button>
-                <Toast testId="host-copy-message" tone={copyMessageFailed ? 'error' : undefined}>
-                  {copyMessage}
-                </Toast>
-              </div>
-            </form>
-          ) : null}
-        </section>
         <section className={`${styles.panel} ${styles.side} stack`} aria-labelledby="account-heading">
           <h2 id="account-heading">Setup support</h2>
           <p className="muted">Need a hand with the first guide? The pilot team can set it up with you.</p>
@@ -323,6 +279,64 @@ function HostPage() {
           </div>
         </section>
       </div>
+      <dialog ref={createDialog} className={dialogStyles.dialog} aria-labelledby="create-heading">
+        <h2 id="create-heading">New property</h2>
+        <form onSubmit={create} noValidate className="stack" data-testid="host-create-form">
+          <Field
+            label="Property name"
+            error={createErrors.displayName}
+            errorId="create-name-error"
+            errorTestId="host-create-name-error"
+          >
+            <input
+              name="displayName"
+              maxLength={120}
+              required
+              aria-invalid={Boolean(createErrors.displayName)}
+              aria-describedby={createErrors.displayName ? 'create-name-error' : undefined}
+              data-testid="host-create-name"
+            />
+          </Field>
+          <div className="actions">
+            <Button type="button" onClick={() => createDialog.current?.close()}>
+              Cancel
+            </Button>
+            <Button type="submit" variant="primary" disabled={busy} data-testid="host-create-submit">
+              Create property
+            </Button>
+            <Toast testId="host-create-message" tone={createMessageFailed ? 'error' : undefined}>
+              {createMessage}
+            </Toast>
+          </div>
+        </form>
+        {properties.length ? (
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              void duplicate(String(new FormData(event.currentTarget).get('source')));
+            }}
+            className={`stack ${styles.copyForm}`}
+          >
+            <Field label="Or start from a copy of">
+              <select name="source" data-testid="host-copy-source">
+                {properties.map((property) => (
+                  <option key={property.id} value={property.id}>
+                    {property.displayName}
+                  </option>
+                ))}
+              </select>
+            </Field>
+            <div className="actions">
+              <Button type="submit" disabled={busy} data-testid="host-property-copy">
+                Make a copy
+              </Button>
+              <Toast testId="host-copy-message" tone={copyMessageFailed ? 'error' : undefined}>
+                {copyMessage}
+              </Toast>
+            </div>
+          </form>
+        ) : null}
+      </dialog>
     </HostShell>
   );
 }
@@ -342,8 +356,14 @@ function languageState(property: PropertySummary, locale: string): LanguageState
   return property.reviewedLocales.includes(locale) ? 'reviewed' : 'review';
 }
 
-const monthFormat = new Intl.DateTimeFormat('en-US', { month: 'short', timeZone: 'UTC' });
-const weekdayFormat = new Intl.DateTimeFormat('en-US', { weekday: 'short', timeZone: 'UTC' });
+const monthFormat = new Intl.DateTimeFormat('en-US', {
+  month: 'short',
+  timeZone: 'UTC',
+});
+const weekdayFormat = new Intl.DateTimeFormat('en-US', {
+  weekday: 'short',
+  timeZone: 'UTC',
+});
 const dayMs = 24 * 60 * 60_000;
 
 function dayLabel(iso: string): string {

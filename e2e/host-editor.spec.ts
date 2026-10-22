@@ -59,6 +59,7 @@ test('signed-in host editor with an issued guest link has no axe violations and 
   await expect(page.getByTestId('host-mfa-status')).toContainText('On.');
 
   await page.goto('/host');
+  await page.getByTestId('host-add-property').click();
   await page.getByTestId('host-create-name').fill('Synthetic Cabin');
   await page.getByTestId('host-create-submit').click();
   await expect(page).toHaveURL(/\/host\/properties\/[^/]+$/);
