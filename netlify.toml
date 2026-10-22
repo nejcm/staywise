@@ -5,6 +5,8 @@ publish = "dist/client"
 [build.environment]
 BUN_VERSION = "1.4.3"
 # AWS_LAMBDA_JS_RUNTIME=nodejs24.x and the fra function region are site settings, not netlify.toml.
+# APP_ENV and AWS_LAMBDA_JS_RUNTIME hold plain words (e.g. "production"), not secrets; the scan matches them in source.
+SECRETS_SCAN_OMIT_KEYS = "APP_ENV,AWS_LAMBDA_JS_RUNTIME"
 
 [functions]
 included_files = ["certs/**"]
