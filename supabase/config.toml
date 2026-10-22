@@ -251,10 +251,14 @@ otp_expiry = 3600
 subject = "Your Staywise sign-in link"
 content_path = "./supabase/templates/magic_link.html"
 
-# Uncomment to customize email template
-# [auth.email.template.invite]
-# subject = "You have been invited"
-# content_path = "./supabase/templates/invite.html"
+# Invited hosts are unconfirmed until they use the link, so they receive these instead of magic_link.
+[auth.email.template.confirmation]
+subject = "Your Staywise sign-in link"
+content_path = "./supabase/templates/magic_link.html"
+
+[auth.email.template.invite]
+subject = "You are invited to Staywise"
+content_path = "./supabase/templates/invite.html"
 
 # Uncomment to customize notification email template
 # [auth.email.notification.password_changed]
@@ -420,3 +424,31 @@ enabled = true
 # formatted with uppercase keywords, indent 2, max width 180, trailing commas,
 # and column/key alignment. Set to "null" to emit raw, unformatted SQL.
 # format_options = "{\"keywordCase\":\"upper\",\"indent\":2,\"maxWidth\":180,\"commaStyle\":\"trailing\"}"
+
+# Hosted project: `supabase config push --project-ref <ref>` applies these over the local-stack values above.
+[remotes.production]
+project_id = "cnaqvnuwtubjthuxcrcq"
+
+[remotes.production.auth]
+site_url = "https://staywise.nejcm.dev"
+additional_redirect_urls = ["https://staywise.nejcm.dev/auth/callback"]
+
+[remotes.production.auth.email]
+enable_confirmations = true
+max_frequency = "1m"
+otp_length = 8
+
+[remotes.production.api]
+enabled = true
+
+[remotes.production.db.pooler]
+default_pool_size = 15
+max_client_conn = 200
+
+[remotes.production.storage.vector]
+enabled = false
+
+# Session limits need the Pro plan; keep the remote values so the push is accepted.
+[remotes.production.auth.sessions]
+inactivity_timeout = "0s"
+timebox = "0s"
