@@ -55,13 +55,11 @@ function SignInPage() {
 
   return (
     <div className={styles.page}>
-      <header className={styles.top}>
-        <Link to="/">
-          <Mark />
-        </Link>
-      </header>
       <main className={styles.split}>
         <section className={styles.hero}>
+          <Link to="/" className={styles.heroMark}>
+            <Mark />
+          </Link>
           <h1>A calm guest guide for your rental</h1>
           <p>Write it once, share one link or QR code, and answer guest questions from one inbox.</p>
           <ul className={styles.heroChips}>

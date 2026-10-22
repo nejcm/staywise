@@ -28,13 +28,11 @@ export const Route = createRootRoute({
 function NotFound() {
   return (
     <div className={styles.page}>
-      <header className={styles.top}>
-        <Link to="/">
-          <Mark />
-        </Link>
-      </header>
       <main className={styles.split}>
         <section className={styles.hero}>
+          <Link to="/" className={styles.heroMark}>
+            <Mark />
+          </Link>
           <h1>Page not found</h1>
           <p>This address does not exist. Guest links only work with the full link your host sent.</p>
         </section>

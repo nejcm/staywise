@@ -46,16 +46,17 @@
   border-radius: 20px;
 }
 
-.hero h1.heroMark {
+.hero .heroMark {
   max-width: none;
+  text-decoration: none;
 }
 
-.heroMark > span,
-.heroMark > span svg {
+.heroMark span,
+.heroMark svg {
   color: #fff;
 }
 
-.heroMark > span {
+.heroMark span {
   font-size: clamp(44px, 6vw, 72px);
 }
 
