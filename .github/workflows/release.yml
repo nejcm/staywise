@@ -23,7 +23,8 @@ jobs:
     steps:
       - uses: actions/checkout@v7
         with:
-          ref: master
+          # The verified SHA, not master's tip; semantic-release skips if master has since moved.
+          ref: ${{ github.event.workflow_run.head_sha }}
           fetch-depth: 0
       - uses: oven-sh/setup-bun@v2
         with:
