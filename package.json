@@ -25,6 +25,7 @@
     "db:stop": "bunx supabase@2.121.0 stop",
     "db:reset": "bunx supabase@2.121.0 db reset",
     "db:test": "bunx supabase@2.121.0 test db --local",
+    "db:push": "bunx supabase@2.121.0 db push --db-url \"$SUPABASE_DB_URL\"",
     "storage:drain": "bun src/lib/storage-drain.ts",
     "prepare": "simple-git-hooks"
   },
