@@ -41,7 +41,7 @@ const devServerUp = await detectDevServer();
 const describeLocal = localStack && localDbUp && devServerUp ? describe : describe.skip;
 
 // The dev server's log file is an orchestration artifact; the forced-failure log assertions skip
-// when it is absent (for example when the server logs to a terminal).
+// when it is absent or not being written (for example when the server logs to a terminal).
 function devServerLogBytes(): string | null {
   const path =
     process.env.DEV_SERVER_LOG ?? fileURLToPath(new URL('../../.git/orchestration/dev-server.log', import.meta.url));
@@ -56,7 +56,8 @@ async function waitForLogSlice(before: number, needle: string): Promise<string |
     if (slice.includes(needle)) return slice;
     await new Promise((resolve) => setTimeout(resolve, 200));
   }
-  return devServerLogBytes()?.slice(before) ?? null;
+  const slice = devServerLogBytes()?.slice(before);
+  return slice ? slice : null;
 }
 
 afterAll(async () => {
