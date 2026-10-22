@@ -181,13 +181,23 @@ export function sessionExpiry(sessionEnd: number, linkExpiresAt: Date | null): D
 }
 
 const isoDate = z.iso.date();
-export const stayLinkInput = z
-  .object({ propertyId: z.uuid(), stayStart: isoDate, stayEnd: isoDate })
-  .refine((value) => value.stayEnd >= value.stayStart, {
-    path: ['stayEnd'],
-    message: 'Check-out must be after check-in',
-  });
-const stayLinkInsert = z.object({ ...stayLinkInput.shape, id: shareIdSchema, hmac: digestSchema });
+const nightsBetween = (start: string, end: string) => (Date.parse(end) - Date.parse(start)) / 86_400_000;
+// One cap for every stay, typed in Staywise or imported: a link can never outlive a year-long stay.
+const maxStayNights = 366;
+const stayLength = <T extends { stayStart: string; stayEnd: string }>(schema: z.ZodType<T>) =>
+  schema
+    .refine((value) => value.stayEnd >= value.stayStart, {
+      path: ['stayEnd'],
+      message: 'Check-out must be after check-in',
+    })
+    .refine((value) => nightsBetween(value.stayStart, value.stayEnd) <= maxStayNights, {
+      path: ['stayEnd'],
+      message: 'A stay is at most a year',
+    });
+
+const stayLinkFields = { propertyId: z.uuid(), stayStart: isoDate, stayEnd: isoDate };
+export const stayLinkInput = stayLength(z.object(stayLinkFields));
+const stayLinkInsert = stayLength(z.object({ ...stayLinkFields, id: shareIdSchema, hmac: digestSchema }));
 export const revokeStayLinkInput = z.object({ propertyId: z.uuid(), reservationId: z.uuid() });
 
 export type Stay = { reservationId: string; stayStart: string; stayEnd: string; linkOn: boolean; expiresAt: string };
@@ -265,7 +275,6 @@ export async function reissueStayLink(
   return true;
 }
 
-const nightsBetween = (start: string, end: string) => (Date.parse(end) - Date.parse(start)) / 86_400_000;
 const importedReservation = z
   .strictObject({
     source: z
@@ -282,7 +291,7 @@ const importedReservation = z
     stayEnd: isoDate,
   })
   .refine((value) => nightsBetween(value.stayStart, value.stayEnd) >= 0, 'Check-out must be after check-in')
-  .refine((value) => nightsBetween(value.stayStart, value.stayEnd) <= 366, 'A stay is at most a year');
+  .refine((value) => nightsBetween(value.stayStart, value.stayEnd) <= maxStayNights, 'A stay is at most a year');
 export const reservationBatchInput = z.object({
   propertyId: z.uuid(),
   reservations: z

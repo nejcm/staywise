@@ -209,6 +209,13 @@ describeLocal('host auth trust boundaries against the local stack', () => {
       ).toBe(false);
       expect(jar.sessionCount()).toBeGreaterThan(0);
 
+      // A magic-link session alone cannot add or restart an authenticator once one is verified.
+      for (const fn of ['mfaEnroll', 'restartEnrollment'] as const) {
+        const enrollDenied = await hostFn(fn, { jar, data: {} });
+        expect(decode<{ error?: string }>(enrollDenied)?.result?.error).toBe('auth_required');
+      }
+      expect(jar.sessionCount()).toBeGreaterThan(0);
+
       const steppedUp = decode<{ ok?: boolean }>(
         await hostFn('mfaVerify', { jar, data: { factorId: enrolled?.factorId, code: totp(enrolled?.secret ?? '') } }),
       )?.result;

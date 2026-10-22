@@ -77,6 +77,8 @@ describe('allowedClientId', () => {
     'https://CLAUDE.ai/client',
     'https://claude.ai/a/../client',
     'https://claude.ai/client#frag',
+    'https://claude.ai/any/path?x=1',
+    'https://chatgpt.com/oauth/client?redirect=https://attacker.example/cb',
     `https://claude.ai/${'x'.repeat(500)}`,
     'not a url',
   ])('refuses %s', (id) => {

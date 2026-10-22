@@ -50,7 +50,7 @@ select is((select pass from probe_owner), 'pass-a', 'the owner reads the stored 
 select is((select keybox_code from app.property_credentials where property_id = '4a4a0000-0000-4000-8000-0000000000a2'), '2222', 'the owner can change the code');
 select is((select n from probe_foreign), 0, 'another host reads no credentials');
 select is((select updated from probe_foreign), 0, 'another host cannot change the code');
-select is((select properties from probe_guest), 1, 'the guest link context sees its published property');
+select is((select properties from probe_guest), 0, 'a property context without a live link sees no property either');
 select is((select n from probe_guest), 0, 'a guest context without a live link reads no credentials');
 
 select * from finish();

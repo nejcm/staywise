@@ -14,6 +14,15 @@ describe('parseAppEnv', () => {
     expect(parseAppEnv({ APP_ENV: 'preview', NODE_ENV: 'production' })).toBe('preview');
   });
 
+  it('requires APP_ENV explicitly on a Netlify runtime', () => {
+    expect(() => parseAppEnv({ SITE_ID: 'synthetic-site', NODE_ENV: 'development' })).toThrow(/APP_ENV/);
+    expect(parseAppEnv({ SITE_ID: 'synthetic-site', APP_ENV: 'preview' })).toBe('preview');
+  });
+
+  it('still defaults to local under netlify dev', () => {
+    expect(parseAppEnv({ SITE_ID: 'synthetic-site', NETLIFY_DEV: 'true' })).toBe('local');
+  });
+
   it('rejects unknown APP_ENV values', () => {
     expect(() => parseAppEnv({ APP_ENV: 'prod' })).toThrow(/APP_ENV/);
   });
