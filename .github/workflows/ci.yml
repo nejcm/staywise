@@ -30,7 +30,29 @@ jobs:
       - run: bun run test:coverage
       - run: bun run knip
 
+  changes:
+    runs-on: ubuntu-latest
+    outputs:
+      e2e: ${{ steps.diff.outputs.e2e }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: diff
+        env:
+          BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+        run: |
+          if git diff --name-only "$BASE" HEAD 2>/dev/null | grep -qE '^(src|e2e|public)/|^(package\.json|bun\.lock|bunfig\.toml|vite\.config\.ts|playwright\.config\.ts|tsconfig\.json|netlify\.toml|\.node-version|\.github/workflows/ci\.yml)$'; then
+            echo "e2e=true" >> "$GITHUB_OUTPUT"
+          elif git cat-file -e "$BASE" 2>/dev/null; then
+            echo "e2e=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "e2e=true" >> "$GITHUB_OUTPUT"
+          fi
+
   e2e:
+    needs: changes
+    if: needs.changes.outputs.e2e == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
