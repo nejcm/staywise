@@ -5,3 +5,6 @@ publish = "dist/client"
 [build.environment]
 BUN_VERSION = "1.4.3"
 # AWS_LAMBDA_JS_RUNTIME=nodejs24.x and the fra function region are site settings, not netlify.toml.
+
+[functions]
+included_files = ["certs/**"]
