@@ -58,6 +58,12 @@
   margin-top: auto;
 }
 
+.foot button {
+  justify-content: flex-start;
+  padding-inline: 9px;
+  text-align: left;
+}
+
 .account {
   display: flex;
   min-width: 0;
