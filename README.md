@@ -22,7 +22,7 @@ No app, no guest account, no booking-system integration.
 - **Host workspace.** In-app Host guide (`/host/help`) and inline tips, property list, guide editor with phone and tablet preview, link and QR sharing, cover photo ([ADR 0005](docs/adr/0005-property-hero-image.md)), inbox with one alert per message ([ADR 0001](docs/adr/0001-one-alert-per-message.md)).
 - **Sign-in and security.** Magic link with optional TOTP, device-labelled security activity, immediate account deletion ([ADR 0002](docs/adr/0002-host-account-deletion.md)).
 - **Agent access.** Hosts can connect their own AI agent over MCP with scoped tokens or OAuth ([ADR 0006](docs/adr/0006-agent-access.md)).
-- **Privacy by default.** No message bodies, reply addresses or link secrets in logs; translation egress off unless configured; 90-day retention for messages, audit rows and host reports.
+- **Privacy by default.** No message bodies, reply addresses or link secrets in logs; translation egress off unless configured; 90-day retention for messages and audit rows.
 
 External gates still open: deployment, real SMTP, provider backup/PITR, hosted Auth session policy, Netlify overwriting a client-sent `x-nf-geo`, physical-device checks, the legal privacy policy, and the five-host pilot.
 
@@ -55,6 +55,7 @@ It creates three hosts (`maria-host@example.test`, `tomaz-host@example.test`, `j
 | `bun run db:test` | pgTAP database tests |
 | `bun run test:e2e` | Playwright + axe on public pages (builds, serves on :3100) |
 | `bun run db:reset` | apply `supabase/migrations` to a clean local database |
+| `doppler run -c prd -- bun run db:push` | apply pending migrations to the hosted database (`SUPABASE_DB_URL`: owner role, direct or session-pooler URL; add `--dry-run` to preview) |
 | `bun run storage:drain` | delete queued cover-photo objects |
 
 ## Releases

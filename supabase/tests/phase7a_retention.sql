@@ -78,7 +78,7 @@ select ok((select proconfig = array['search_path=""'] from pg_proc where oid = '
 select is((select r.rolname from pg_proc p join pg_roles r on r.oid = p.proowner where p.oid = 'app.retention_cleanup(timestamptz)'::regprocedure), 'app_migrator', 'the cleanup function is owned by the migration role');
 select is(has_function_privilege('app_runtime', 'app.retention_cleanup(timestamptz)', 'execute'), false, 'the runtime role cannot execute the cross-tenant cleanup');
 select is(has_function_privilege('app_migrator', 'app.retention_cleanup(timestamptz)', 'execute'), true, 'the migration role can execute the cleanup');
-select is((select count(*)::integer from pg_policies where schemaname = 'app' and policyname like '%\_retention\_%'), 26, 'the migration role gets read and delete retention policies on the thirteen tables (7d adds auth windows, then counters, then agent access, then rate windows, then support reports)');
+select is((select count(*)::integer from pg_policies where schemaname = 'app' and policyname like '%\_retention\_%'), 24, 'the migration role gets read and delete retention policies on the twelve tables (7d adds auth windows, then counters, then agent access, then rate windows)');
 
 -- The nightly job is scheduled, active, on this database, and calls the cleanup boundary.
 select is((select count(*)::integer from cron.job where jobname = 'staywise-retention-cleanup'), 1, 'one nightly retention job is scheduled');
@@ -101,7 +101,7 @@ select is((select (result->>'reservations')::integer from probe_retention_first)
 select is((select (result->>'share_links')::integer from probe_retention_first), 1, 'disabled-link metadata past 30 days is deleted');
 select is((select (result->>'guest_sessions')::integer from probe_retention_first), 2, 'expired guest sessions are deleted');
 select is((select (result->>'rate_limits')::integer from probe_retention_first), 1, 'rate windows before the boundary UTC day are deleted');
-select is((select result - 'boundary' from probe_retention_second), '{"guest_messages": 0, "audit_events": 0, "setup_events": 0, "reservations": 0, "share_links": 0, "guest_sessions": 0, "rate_limits": 0, "auth_rate_limits": 0, "guest_counters": 0, "guide_section_revisions": 0, "agent_grant_tokens": 0, "agent_grants": 0, "support_reports": 0}'::jsonb, 'a second run with the same boundary deletes nothing');
+select is((select result - 'boundary' from probe_retention_second), '{"guest_messages": 0, "audit_events": 0, "setup_events": 0, "reservations": 0, "share_links": 0, "guest_sessions": 0, "rate_limits": 0, "auth_rate_limits": 0, "guest_counters": 0, "guide_section_revisions": 0, "agent_grant_tokens": 0, "agent_grants": 0}'::jsonb, 'a second run with the same boundary deletes nothing');
 
 select is((select count(*)::integer from app.guest_messages where property_id in ('7a7a0000-0000-4000-8000-0000000000a2', '7a7a0000-0000-4000-8000-0000000000a3', '7a7a0000-0000-4000-8000-0000000000b2')), 3, 'messages at the cutoff and fresher survive in both hosts properties');
 select is((select count(*)::integer from app.guest_messages where id = '7a7a0000-0000-4000-8000-0000000000a9'), 0, 'the 91-day-old message is gone');

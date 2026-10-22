@@ -229,12 +229,3 @@ export function collectFieldErrors(error: z.ZodError): Record<string, string> {
   }
   return errors;
 }
-
-export const supportReportInput = z.object({
-  kind: z.enum(['issue', 'help']),
-  message: z
-    .string()
-    .trim()
-    .min(1, 'Describe what happened or what you need')
-    .max(2000, 'Keep it under 2000 characters'),
-});

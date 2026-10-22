@@ -157,9 +157,8 @@ function PrivacyNotice() {
             <li>
               When error reporting is configured, a server error also sends its type, the code locations of the failing
               call, and the same operational fields (request id, method, path, status) to PostHog. The error message and
-              source lines are removed before sending, and nothing identifies a host or guest. Reports a host sends from
-              the Help page (a type and up to 2000 characters of text) are stored with the account and deleted after 90
-              days or with the account. The local configuration sends nothing.
+              source lines are removed before sending, and nothing identifies a host or guest. The local configuration
+              sends nothing.
             </li>
             <li>
               Only a host&apos;s explicit &quot;Generate translations&quot; action can send eligible guide prose to the

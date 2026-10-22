@@ -38,15 +38,9 @@ A host can connect their own AI agent to `https://<host>/mcp`. The design and it
 ## Privacy and data handling
 
 The local app serves a synthetic-data notice at `/privacy`, linked from the home page, sign-in, host workspace, and guest Help. It describes stored fields, the sign-in device and place kept on audit rows (no IP or raw User-Agent), 90-day message/audit/setup retention with earlier host deletion, the property-deletion cascade, cover photos, the bearer-link capability, log/counter minimization, conditional translation egress, and immediate host account deletion from `/host/settings` (ADR 0002) with what it does not erase. The guest Help page also shows a localized summary in English, German, Slovenian, French, or Spanish. This is implemented local behavior, not a completed legal policy: a named controller/contact, processor/DPA and transfer review, production regions, and real-data approval remain unexecuted external gates.
-## Error reporting and host reports
+## Error reporting
 
 `VITE_POSTHOG_PROJECT_TOKEN` (a `phc_` project key) and `VITE_POSTHOG_HOST` (an `https` origin) together turn on server error reporting; setting only one fails the boot, and unset sends nothing. Every unhandled server error and failed server function still writes the `server_error` stdout line; with PostHog configured it also sends an exception event with the error type, code locations, and the allowlisted log fields. `src/lib/error-reporting.server.ts` strips the message and source lines in `before_send`, events carry no person profile, and a send waits at most two seconds and never fails the request. Retention of the events is the PostHog project's setting (set it to at least 30 days there). Use the response's `X-Request-Id` to find the matching event.
-
-Hosts send reports from the Help page (`/host/help`) into `app.support_reports` (type, text up to 2000 characters, owner, time; 90-day retention, removed with the account). Read them with an owner connection:
-
-```sh
-psql "postgresql://<owner role>:<password>@<host>:5432/postgres" -c "select r.created_at, u.email, r.kind, r.message from app.support_reports r join auth.users u on u.id = r.owner_id order by r.created_at desc limit 50;"
-```
 
 ## Retention cleanup
 
