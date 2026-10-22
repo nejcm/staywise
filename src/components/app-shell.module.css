@@ -102,6 +102,7 @@
   flex-direction: column;
   gap: var(--space-6);
   min-width: 0;
+  max-width: 1200px;
   padding: var(--space-8) clamp(16px, 3vw, 36px) var(--space-12);
 }
 
