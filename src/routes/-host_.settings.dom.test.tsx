@@ -5,7 +5,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routeTree } from '../routeTree.gen';
 import { deleteAccount, getHostAuthState, mfaUnenroll, mfaVerify, restartEnrollment } from '../features/host/host-fns';
-import { getHostSettings, getSecurityActivity, saveHostSettings } from '../features/host/settings-fns';
+import { getHostSettings, getSecurityActivity, getSettingsPage, saveHostSettings } from '../features/host/settings-fns';
 import { builtInHostSettings, type HostSettings, type SecurityEvent } from '../features/host/settings.server';
 import { createAgentToken, getAgentAccess, revokeAgentToken, revokeAllAgentTokens } from '../features/agent/agent-fns';
 
@@ -20,6 +20,7 @@ vi.mock('../features/host/host-fns', () => ({
 vi.mock('../features/host/settings-fns', () => ({
   getHostSettings: vi.fn(),
   getSecurityActivity: vi.fn(),
+  getSettingsPage: vi.fn(),
   saveHostSettings: vi.fn(),
 }));
 vi.mock('../features/agent/agent-fns', () => ({
@@ -58,7 +59,31 @@ function browserZone(timeZone: string) {
   });
 }
 
+// The server function folds the four reads into one round trip; the component test composes it from the per-read mocks.
+async function composeSettingsPage() {
+  const state = await getHostAuthState();
+  if ('error' in state || state.state === 'signed_out') return { redirect: '/auth/sign-in' } as const;
+  if (state.state !== 'workspace') return { redirect: '/host' } as const;
+  const result = await getHostSettings();
+  const agent = await getAgentAccess();
+  const activity = await getSecurityActivity();
+  if ('error' in result || 'error' in agent) return { redirect: '/host' } as const;
+  return {
+    agent,
+    securityEvents: 'error' in activity ? null : activity.events,
+    totpFactorIds: state.totpFactorIds,
+    email: result.email,
+    settings: result.settings,
+    saved: result.saved,
+    timeZones: result.timeZones,
+    accountDeletion: result.accountDeletion,
+  };
+}
+
 beforeEach(() => {
+  vi.mocked(getSettingsPage)
+    .mockReset()
+    .mockImplementation(composeSettingsPage as never);
   vi.mocked(getHostAuthState)
     .mockReset()
     .mockResolvedValue({ state: 'workspace', totpFactorIds: ['f1'] });

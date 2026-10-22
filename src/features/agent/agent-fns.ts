@@ -4,7 +4,7 @@ import { aal2Host, isGuardedMutation, runGuarded, type FnError } from '../../lib
 import { withOwnerContext } from '../../lib/db.server';
 import { serverEnv } from '../../lib/env.server';
 import { sendSecurityNotice } from '../../lib/mail.server';
-import { createPersonalGrant, readActiveGrants, revokeAllGrants, revokeGrant } from './agent-auth.server';
+import { createPersonalGrant, readAgentAccess, revokeAllGrants, revokeGrant } from './agent-auth.server';
 import { createGrantInput, grantIdInput } from './agent-validation';
 
 const disabled = { error: 'invalid_input' } satisfies FnError;
@@ -14,18 +14,7 @@ export const getAgentAccess = createServerFn({ method: 'GET' }).handler(async ()
     if (serverEnv.agentAccessDisabled) return { enabled: false as const };
     const host = await aal2Host();
     if ('error' in host) return host;
-    return withOwnerContext(host.userId, async (tx) => {
-      const grants = await readActiveGrants(tx);
-      const properties = await tx<{ id: string; name: string }[]>`
-        select id, display_name as name from app.properties order by display_name, id
-      `;
-      return {
-        enabled: true as const,
-        endpoint: `${serverEnv.appOrigin}/mcp`,
-        grants,
-        properties: properties.map(({ id, name }) => ({ id, name })),
-      };
-    });
+    return withOwnerContext(host.userId, readAgentAccess);
   }),
 );
 

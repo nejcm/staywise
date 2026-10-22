@@ -7,7 +7,6 @@ import { Icon, categoryIcon } from '../components/icons';
 import { Pill } from '../components/pill';
 import { AddressLine, AnswerHours, ArrivalCard, CallStrip } from '../features/guest/guest-essentials';
 import { GuestHero } from '../features/guest/guest-hero';
-import { getHostAuthState } from '../features/host/host-fns';
 import { getGuestPreview, recordPreviewOpened } from '../features/guide/guide-fns';
 import { guestCategoryLabel, guestLocaleName, guestUiText, languageNames } from '../features/guest/guest-ui';
 import type { GuestLocale } from '../features/guide/guide-validation';
@@ -26,24 +25,10 @@ export const Route = createFileRoute('/host_/preview/$propertyId')({
   validateSearch: (search) => previewSearchSchema.parse(search),
   loaderDeps: ({ search }) => ({ lang: search.lang }),
   loader: async ({ params, deps }) => {
-    const state = await getHostAuthState();
-    if ('error' in state || state.state === 'signed_out') {
-      throw redirect({ to: '/auth/sign-in' });
-    }
-    if (state.state !== 'workspace') {
-      throw redirect({ to: '/host' });
-    }
-    const result = await getGuestPreview({
-      data: { propertyId: params.propertyId, locale: deps.lang },
-    });
-    if ('error' in result) {
-      throw redirect({ to: '/host' });
-    }
-    return {
-      guest: result.guest,
-      guidePublished: result.guidePublished,
-      essentials: result.essentials,
-    };
+    // One gated read; /host sorts a failed gate into sign-in or the second-factor step.
+    const result = await getGuestPreview({ data: { propertyId: params.propertyId, locale: deps.lang } });
+    if ('error' in result) throw redirect({ to: '/host' });
+    return { guest: result.guest, guidePublished: result.guidePublished, essentials: result.essentials };
   },
   component: PreviewPage,
 });

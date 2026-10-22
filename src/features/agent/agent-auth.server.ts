@@ -138,6 +138,19 @@ export type AgentGrantSummary = {
   clientLabel: string | null;
 };
 
+export async function readAgentAccess(tx: postgres.TransactionSql) {
+  const grants = await readActiveGrants(tx);
+  const properties = await tx<{ id: string; name: string }[]>`
+    select id, display_name as name from app.properties order by display_name, id
+  `;
+  return {
+    enabled: true as const,
+    endpoint: mcpResource,
+    grants,
+    properties: properties.map(({ id, name }) => ({ id, name })),
+  };
+}
+
 export async function readActiveGrants(tx: postgres.TransactionSql): Promise<AgentGrantSummary[]> {
   const rows = await tx<
     {

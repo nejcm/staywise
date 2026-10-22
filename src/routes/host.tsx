@@ -1,7 +1,7 @@
 import { Link, createFileRoute, redirect, useNavigate, useRouter } from '@tanstack/react-router';
 import { Plus } from 'lucide-react';
 import { useState, type FormEvent } from 'react';
-import { getHostAuthState, listOwnProperties, mfaEnroll } from '../features/host/host-fns';
+import { getHostPage, mfaEnroll } from '../features/host/host-fns';
 import { TotpEnrollment } from '../features/host/totp-enrollment';
 import { HostShell, SignOutButton } from '../components/app-shell';
 import { Button, buttonClass } from '../components/button';
@@ -23,23 +23,16 @@ import styles from '../features/host/host.module.css';
 import publicStyles from '../features/host/public.module.css';
 import { guestLocaleName } from '../features/guest/guest-ui';
 
-type Workspace = Extract<Awaited<ReturnType<typeof listOwnProperties>>, { properties: unknown }>;
+type Workspace = NonNullable<Extract<Awaited<ReturnType<typeof getHostPage>>, { state: unknown }>['workspace']>;
 type PropertySummary = Workspace['properties'][number];
 
 export const Route = createFileRoute('/host')({
   loader: async () => {
-    const state = await getHostAuthState();
-    if ('error' in state || state.state === 'signed_out') {
-      throw redirect({ to: '/auth/sign-in' });
-    }
-    if (state.state !== 'workspace') {
-      return { state, workspace: null };
-    }
-    const list = await listOwnProperties();
-    if ('error' in list && list.error === 'auth_required') {
-      throw redirect({ to: '/auth/sign-in' });
-    }
-    return { state, workspace: 'error' in list ? null : list };
+    const page = await getHostPage();
+    if ('error' in page) throw redirect({ to: '/auth/sign-in' });
+    const { state, workspace } = page;
+    if (state.state === 'signed_out') throw redirect({ to: '/auth/sign-in' });
+    return { state, workspace };
   },
   component: HostPage,
 });

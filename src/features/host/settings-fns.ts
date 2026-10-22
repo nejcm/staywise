@@ -1,6 +1,14 @@
 import { createServerFn } from '@tanstack/react-start';
 import type { z } from 'zod';
-import { aal2Host, isGuardedMutation, runGuarded, type FnError } from '../../lib/fn-guards.server';
+import {
+  aal2Host,
+  isGuardedMutation,
+  reportedOrNull,
+  runGuarded,
+  workspaceHost,
+  type FnError,
+} from '../../lib/fn-guards.server';
+import { readAgentAccess } from '../agent/agent-auth.server';
 import { withOwnerContext } from '../../lib/db.server';
 import { serverEnv } from '../../lib/env.server';
 import { hostSettingsInput, timeZones } from '../guide/guide-validation';
@@ -41,5 +49,39 @@ export const getSecurityActivity = createServerFn({ method: 'GET' }).handler(asy
     const host = await aal2Host();
     if ('error' in host) return host;
     return { events: await withOwnerContext(host.userId, readSecurityActivity) };
+  }),
+);
+
+// The whole settings page in one round trip: the loader used to chain four server functions, each
+// repeating the Auth-server checks and a Netlify function invocation.
+export const getSettingsPage = createServerFn({ method: 'GET' }).handler(async () =>
+  runGuarded(async () => {
+    const host = await workspaceHost();
+    if ('redirect' in host) return host;
+    const [page, events] = await Promise.all([
+      withOwnerContext(host.userId, async (tx) => ({
+        settings: await readHostSettings(tx),
+        agent: serverEnv.agentAccessDisabled ? ({ enabled: false } as const) : await readAgentAccess(tx),
+      })),
+      reportedOrNull(withOwnerContext(host.userId, readSecurityActivity)),
+    ]);
+    return {
+      agent: page.agent,
+      securityEvents: events,
+      totpFactorIds: host.totpFactorIds,
+      email: host.email,
+      settings: page.settings ?? builtInHostSettings,
+      saved: page.settings !== null,
+      timeZones,
+      accountDeletion: serverEnv.supabaseSecretKey !== null,
+    };
+  }),
+);
+
+export const getHelpPage = createServerFn({ method: 'GET' }).handler(async () =>
+  runGuarded(async () => {
+    const host = await workspaceHost();
+    if ('redirect' in host) return host;
+    return { email: host.email, supportEnabled: serverEnv.supportEmail !== null };
   }),
 );

@@ -1,6 +1,13 @@
 import { getRequest, setResponseHeaders } from '@tanstack/react-start/server';
 import { appEnv, serverEnv } from './env.server';
-import { aal2Session, createRequestAuth, type RequestAuth, type VerifiedSession } from '../features/auth/auth.server';
+import {
+  aal2Session,
+  createRequestAuth,
+  hostAuthGate,
+  type HostGate,
+  type RequestAuth,
+  type VerifiedSession,
+} from '../features/auth/auth.server';
 import { authCookieHeaders, clearSessionCookies } from '../features/auth/auth-cookies.server';
 import { reportServerError } from './error-reporting.server';
 
@@ -58,4 +65,32 @@ export async function aal2Host(): Promise<VerifiedSession | FnError> {
   applyAuthCookies(auth, gate.outcome === 'invalid');
   if (gate.outcome !== 'ok') return { error: 'auth_required' };
   return gate.session;
+}
+
+// Page loaders gate once and read in the same server function: every extra call repeats the Auth
+// round trips (and, on client navigation, a function invocation).
+export async function hostGate(): Promise<HostGate> {
+  const auth = requestAuth();
+  const gate = await hostAuthGate(auth.client);
+  applyAuthCookies(auth, gate.state.state === 'signed_out');
+  return gate;
+}
+
+export type PageRedirect = { redirect: '/auth/sign-in' | '/host' };
+
+export async function workspaceHost(): Promise<(VerifiedSession & { totpFactorIds: string[] }) | PageRedirect> {
+  const { state, session } = await hostGate();
+  if (!session || state.state === 'signed_out') return { redirect: '/auth/sign-in' };
+  if (state.state !== 'workspace') return { redirect: '/host' };
+  return { ...session, totpFactorIds: state.totpFactorIds };
+}
+
+// An optional page section that fails renders as missing instead of failing the whole page.
+export async function reportedOrNull<T>(work: Promise<T>): Promise<T | null> {
+  try {
+    return await work;
+  } catch (error) {
+    await reportServerError(error, { appEnv, status: 500, outcome: 'thrown' });
+    return null;
+  }
 }

@@ -6,6 +6,7 @@ import {
   enrollmentSession,
   freshTotpPassed,
   getHostAuthState,
+  hostAuthGate,
   restartTotpEnrollment,
   verifiedSession,
 } from './auth.server';
@@ -122,6 +123,18 @@ describe('getHostAuthState', () => {
   it('reaches the workspace only at AAL2', async () => {
     const { client } = stubClient({ user, factors: [verifiedFactor], currentLevel: 'aal2' });
     expect(await getHostAuthState(client)).toEqual({ state: 'workspace', totpFactorIds: [verifiedFactor.id] });
+  });
+});
+
+describe('hostAuthGate', () => {
+  it('returns the verified identity with the state and none when signed out', async () => {
+    const { client } = stubClient({ user, factors: [verifiedFactor], currentLevel: 'aal2' });
+    expect(await hostAuthGate(client)).toEqual({
+      state: { state: 'workspace', totpFactorIds: [verifiedFactor.id] },
+      session: { userId: user.id, email: user.email },
+    });
+    const { client: revoked } = stubClient({ user, factorsError: new Error('403 revoked') });
+    expect(await hostAuthGate(revoked)).toEqual({ state: { state: 'signed_out' }, session: null });
   });
 });
 

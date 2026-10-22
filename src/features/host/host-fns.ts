@@ -7,12 +7,19 @@ import {
   deleteAuthUser,
   enrollmentSession,
   freshTotpPassed,
-  getHostAuthState as readHostAuthState,
   restartTotpEnrollment,
   verifiedSession,
   type HostAuthState,
 } from '../auth/auth.server';
-import { applyAuthCookies, isGuardedMutation, requestAuth, runGuarded, type FnError } from '../../lib/fn-guards.server';
+import {
+  applyAuthCookies,
+  hostGate,
+  isGuardedMutation,
+  reportedOrNull,
+  requestAuth,
+  runGuarded,
+  type FnError,
+} from '../../lib/fn-guards.server';
 import { recordAudit } from '../../lib/audit.server';
 import { recordSignIn, signInContext } from '../../lib/sign-in-context.server';
 import { otpSendAllowed } from '../auth/auth-limits.server';
@@ -20,7 +27,7 @@ import { sendSecurityNotice } from '../../lib/mail.server';
 import { withOwnerContext } from '../../lib/db.server';
 import { drainAllStorageDeletions } from '../../lib/storage.server';
 import { revokeAllGrants } from '../agent/agent-auth.server';
-import { readOwnProperties } from './host.server';
+import { readHostHome } from './host.server';
 import { logEvent } from '../../lib/log.server';
 
 const emailInput = z.object({ email: z.email() });
@@ -62,12 +69,7 @@ export const requestMagicLink = createServerFn({ method: 'POST' })
   );
 
 export const getHostAuthState = createServerFn({ method: 'GET' }).handler(async () =>
-  runGuarded(async () => {
-    const auth = requestAuth();
-    const state = await readHostAuthState(auth.client);
-    applyAuthCookies(auth, state.state === 'signed_out');
-    return state satisfies HostAuthState;
-  }),
+  runGuarded(async () => (await hostGate()).state satisfies HostAuthState),
 );
 
 export const mfaEnroll = createServerFn({ method: 'POST' })
@@ -229,28 +231,15 @@ export const listOwnProperties = createServerFn({ method: 'GET' }).handler(async
     if (gate.outcome !== 'ok') {
       return { error: 'auth_required' } satisfies FnError;
     }
-    const { properties, waiting } = await withOwnerContext(gate.session.userId, async (tx) => ({
-      properties: await readOwnProperties(tx),
-      waiting: await tx`
-        select m.id, m.property_id, p.display_name, m.kind, m.locale, left(m.body, 160) as excerpt, m.created_at
-        from app.guest_messages m join app.properties p on p.id = m.property_id
-        where m.state = 'new'
-        order by m.created_at desc
-        limit 3
-      `,
-    }));
-    return {
-      email: gate.session.email,
-      properties,
-      waiting: waiting.map((row) => ({
-        id: row.id as string,
-        propertyId: row.property_id as string,
-        propertyName: row.display_name as string,
-        kind: row.kind as 'issue' | 'question',
-        locale: row.locale as string,
-        excerpt: row.excerpt as string,
-        createdAt: (row.created_at as Date).toISOString(),
-      })),
-    };
+    return { email: gate.session.email, ...(await withOwnerContext(gate.session.userId, readHostHome)) };
+  }),
+);
+
+export const getHostPage = createServerFn({ method: 'GET' }).handler(async () =>
+  runGuarded(async () => {
+    const { state, session } = await hostGate();
+    if (!session || state.state !== 'workspace') return { state, workspace: null };
+    const home = await reportedOrNull(withOwnerContext(session.userId, readHostHome));
+    return { state, workspace: home && { email: session.email, ...home } };
   }),
 );
