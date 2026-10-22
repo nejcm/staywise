@@ -57,3 +57,26 @@ export async function sendSecurityNotice(to: string, notice: SecurityNotice): Pr
     logEvent('mail_send_failed', { appEnv, status: 500 });
   }
 }
+
+// Plain text to the help desk inbound address. The host's address goes in Reply-To and the body because the
+// SMTP sender is ours; the caller reports a failure to the host, since nothing else keeps the text.
+export async function sendSupportRequest(input: {
+  hostEmail: string;
+  kind: 'issue' | 'help';
+  message: string;
+}): Promise<boolean> {
+  if (!serverEnv.supportEmail) return false;
+  try {
+    await transport.sendMail({
+      from: serverEnv.supportFrom,
+      to: serverEnv.supportEmail,
+      replyTo: input.hostEmail,
+      subject: input.kind === 'issue' ? 'Staywise host: something is broken' : 'Staywise host: needs help',
+      text: `From host: ${input.hostEmail}\n\n${input.message}\n`,
+    });
+    return true;
+  } catch {
+    logEvent('mail_send_failed', { appEnv, status: 500 });
+    return false;
+  }
+}

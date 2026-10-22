@@ -55,6 +55,7 @@ It creates three hosts (`maria-host@example.test`, `tomaz-host@example.test`, `j
 | `bun run db:test` | pgTAP database tests |
 | `bun run test:e2e` | Playwright + axe on public pages (builds, serves on :3100) |
 | `bun run db:reset` | apply `supabase/migrations` to a clean local database |
+| `doppler run -c prd -- bun run db:push` | apply pending migrations to the hosted database (`SUPABASE_DB_URL`: owner role, direct or session-pooler URL; add `--dry-run` to preview) |
 | `bun run storage:drain` | delete queued cover-photo objects |
 
 ## Releases
@@ -78,6 +79,9 @@ It creates three hosts (`maria-host@example.test`, `tomaz-host@example.test`, `j
 | `AGENT_ACCESS_DISABLED` | no | Agent kill switch: `true` denies every token at `/mcp`, turns off the OAuth endpoints (`/oauth/*` and the `/.well-known` metadata) and hides the settings tokens section; defaults to `true` outside `local` |
 | `MFA_REQUIRED` | no | `true` forces every host to enroll TOTP; default lets hosts opt in from `/host/settings` |
 | `GOOGLE_TRANSLATE_SERVICE_ACCOUNT` | no | Enables guide translation egress; unset means nothing is sent |
+| `VITE_POSTHOG_PROJECT_TOKEN`, `VITE_POSTHOG_HOST` | no | Together enable server error reporting to PostHog (`phc_` project key, `https` host such as the EU or US ingest origin); unset means nothing is sent |
+| `SUPPORT_EMAIL` | no | Help desk inbound address (for example the Featurebase support inbox); shows a support form on `/host/help` that emails it through `SMTP_URL`, with the host's sign-in address as Reply-To. Unset hides the form |
+| `SUPPORT_FROM` | no | Sender address for support mail only; defaults to `SMTP_FROM` (used for sign-in codes and alerts). Must be allowed by the SMTP provider |
 
 ## Documentation
 

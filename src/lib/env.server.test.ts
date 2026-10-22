@@ -168,3 +168,48 @@ describe('parseServerEnv', () => {
     expect(() => parseServerEnv({ APP_ENV: 'local', AGENT_ACCESS_DISABLED: '1' })).toThrow(/AGENT_ACCESS_DISABLED/);
   });
 });
+
+describe('PostHog error reporting env', () => {
+  const key = 'phc_synthetic';
+  const host = 'https://eu.i.posthog.com';
+
+  it('is off unless configured', () => {
+    expect(parseServerEnv({ APP_ENV: 'local' }).posthog).toBeNull();
+  });
+
+  it('needs the key and an https host together', () => {
+    expect(
+      parseServerEnv({ APP_ENV: 'local', VITE_POSTHOG_PROJECT_TOKEN: key, VITE_POSTHOG_HOST: `${host}/` }).posthog,
+    ).toEqual({
+      apiKey: key,
+      host,
+    });
+    expect(() => parseServerEnv({ APP_ENV: 'local', VITE_POSTHOG_PROJECT_TOKEN: key })).toThrow(/POSTHOG/);
+    expect(() => parseServerEnv({ APP_ENV: 'local', VITE_POSTHOG_HOST: host })).toThrow(/POSTHOG/);
+    expect(() =>
+      parseServerEnv({ APP_ENV: 'local', VITE_POSTHOG_PROJECT_TOKEN: key, VITE_POSTHOG_HOST: 'http://x.test' }),
+    ).toThrow(/POSTHOG/);
+    expect(() =>
+      parseServerEnv({ APP_ENV: 'local', VITE_POSTHOG_PROJECT_TOKEN: 'bad', VITE_POSTHOG_HOST: host }),
+    ).toThrow(/POSTHOG/);
+  });
+});
+
+describe('SUPPORT_EMAIL env', () => {
+  it('is off unless configured and must be an email', () => {
+    expect(parseServerEnv({ APP_ENV: 'local' }).supportEmail).toBeNull();
+    expect(parseServerEnv({ APP_ENV: 'local', SUPPORT_EMAIL: ' help@example.test ' }).supportEmail).toBe(
+      'help@example.test',
+    );
+    expect(() => parseServerEnv({ APP_ENV: 'local', SUPPORT_EMAIL: 'nope' })).toThrow(/SUPPORT_EMAIL/);
+  });
+
+  it('sends help desk mail from SUPPORT_FROM, else SMTP_FROM', () => {
+    const base = parseServerEnv({ APP_ENV: 'local' });
+    expect(base.supportFrom).toBe(base.smtpFrom);
+    expect(parseServerEnv({ APP_ENV: 'local', SUPPORT_FROM: 'support@example.test' }).supportFrom).toBe(
+      'support@example.test',
+    );
+    expect(() => parseServerEnv({ APP_ENV: 'local', SUPPORT_FROM: 'nope' })).toThrow(/SUPPORT_FROM/);
+  });
+});

@@ -3,6 +3,8 @@ import { defineConfig } from 'vitest/config';
 export default defineConfig({
   test: {
     environment: 'node',
+    // A developer's .env must never make the suite send errors to PostHog.
+    env: { VITE_POSTHOG_PROJECT_TOKEN: '', VITE_POSTHOG_HOST: '' },
     include: ['src/**/*.test.{ts,tsx}'],
     // One file at a time: the security suite rotates the shared app_runtime password, which would
     // fail new pool connections that other local suites open while that window is open.

@@ -7,6 +7,7 @@ const eventNames = [
   'setup_event_write_failed',
   'translation_provider_failed',
   'counter_write_failed',
+  'error_report_failed',
 ] as const;
 const fieldNames = ['requestId', 'appEnv', 'method', 'path', 'status', 'outcome'] as const;
 
@@ -17,12 +18,18 @@ export type LogFields = Partial<Record<(typeof fieldNames)[number], string | num
 export function logEvent(event: LogEvent, fields: LogFields = {}) {
   const safe: Record<string, string | number> = {
     event: (eventNames as readonly string[]).includes(event) ? event : 'invalid_event',
+    ...safeFields(fields),
   };
+  console.log(JSON.stringify(safe));
+}
+
+export function safeFields(fields: LogFields): Record<string, string | number> {
+  const safe: Record<string, string | number> = {};
   for (const name of fieldNames) {
     const value = fields[name];
     if (typeof value === 'string' || typeof value === 'number') {
       safe[name] = value;
     }
   }
-  console.log(JSON.stringify(safe));
+  return safe;
 }

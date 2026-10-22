@@ -155,6 +155,17 @@ function PrivacyNotice() {
               outside this local review.
             </li>
             <li>
+              When error reporting is configured, a server error also sends its type, the code locations of the failing
+              call, and the same operational fields (request id, method, path, status) to PostHog. The error message and
+              source lines are removed before sending, and nothing identifies a host or guest. The local configuration
+              sends nothing.
+            </li>
+            <li>
+              When support requests are configured, a host who submits the Help form sends the text they typed and their
+              sign-in email address to the help desk provider, which keeps it under its own retention. The app stores
+              nothing, and hosts are asked not to include guest details.
+            </li>
+            <li>
               Only a host&apos;s explicit &quot;Generate translations&quot; action can send eligible guide prose to the
               configured translation provider. Guest messages, host notes, secrets, and contact details are not part of
               that payload; the local configuration has translation egress off and makes no Google call. Provider terms,

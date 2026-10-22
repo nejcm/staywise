@@ -1,10 +1,16 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router';
+import { useState, type FormEvent } from 'react';
 import { HostShell } from '../components/app-shell';
+import { Button } from '../components/button';
+import { Field } from '../components/field';
+import { useHostAction } from '../components/host-action';
+import { Toast } from '../components/toast';
 import { categoryIcon, Icon } from '../components/icons';
 import { getHostAuthState } from '../features/host/host-fns';
 import { getHostSettings } from '../features/host/settings-fns';
+import { submitSupportRequest } from '../features/host/support-fns';
 import { categoryIdeas, helpSteps } from '../features/host/host-guidance';
-import { sectionCategories, sectionCategoryLabels } from '../features/guide/guide-validation';
+import { sectionCategories, sectionCategoryLabels, supportRequestInput } from '../features/guide/guide-validation';
 import styles from '../features/host/host.module.css';
 
 export const Route = createFileRoute('/host_/help')({
@@ -14,13 +20,13 @@ export const Route = createFileRoute('/host_/help')({
     if (state.state !== 'workspace') throw redirect({ to: '/host' });
     const result = await getHostSettings();
     if ('error' in result) throw redirect({ to: '/host' });
-    return { email: result.email };
+    return { email: result.email, supportEnabled: result.supportEnabled };
   },
   component: HelpPage,
 });
 
 function HelpPage() {
-  const { email } = Route.useLoaderData();
+  const { email, supportEnabled } = Route.useLoaderData();
   return (
     <HostShell email={email}>
       <div className={styles.head}>
@@ -73,6 +79,69 @@ function HelpPage() {
           <Link to="/privacy">privacy notice</Link>.
         </p>
       </section>
+      {supportEnabled && (
+        <section className={`${styles.panel} stack`} aria-labelledby="help-report-heading">
+          <h2 id="help-report-heading">Report an issue or ask for help</h2>
+          <ReportForm />
+        </section>
+      )}
     </HostShell>
+  );
+}
+
+function ReportForm() {
+  const { busy, notice, setNotice, run } = useHostAction();
+  const [error, setError] = useState('');
+
+  async function submit(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    const form = event.currentTarget;
+    const formData = new FormData(form);
+    const parsed = supportRequestInput.safeParse({ kind: formData.get('kind'), message: formData.get('message') });
+    if (!parsed.success) {
+      setError(parsed.error.issues[0]?.message ?? '');
+      setNotice({ text: '', failed: false });
+      return;
+    }
+    setError('');
+    await run(
+      () => submitSupportRequest({ data: parsed.data }),
+      () => {
+        form.reset();
+        return 'Sent. Thank you.';
+      },
+    );
+  }
+
+  return (
+    <form onSubmit={submit} noValidate className="stack" data-testid="report-form">
+      <p className="small muted">
+        Do not include guest names, messages, or access links. Replies go to your sign-in address.
+      </p>
+      <Field label="Type">
+        <select name="kind" defaultValue="issue" data-testid="report-kind">
+          <option value="issue">Something is broken</option>
+          <option value="help">I need help</option>
+        </select>
+      </Field>
+      <Field label="What happened?" error={error} errorId="report-message-error" errorTestId="report-message-error">
+        <textarea
+          name="message"
+          maxLength={2000}
+          rows={5}
+          aria-invalid={Boolean(error)}
+          aria-describedby={error ? 'report-message-error' : undefined}
+          data-testid="report-message"
+        />
+      </Field>
+      <div className="actions">
+        <Button type="submit" variant="primary" disabled={busy} data-testid="report-send">
+          Send
+        </Button>
+        <Toast testId="report-status" tone={notice.failed ? 'error' : undefined}>
+          {notice.text}
+        </Toast>
+      </div>
+    </form>
   );
 }

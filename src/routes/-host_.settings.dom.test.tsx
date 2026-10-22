@@ -38,6 +38,7 @@ function loadSettings(settings: HostSettings | null, accountDeletion = true) {
     saved: settings !== null,
     timeZones,
     accountDeletion,
+    supportEnabled: false,
   });
 }
 

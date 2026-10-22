@@ -25,6 +25,7 @@
     "db:stop": "bunx supabase@2.121.0 stop",
     "db:reset": "bunx supabase@2.121.0 db reset",
     "db:test": "bunx supabase@2.121.0 test db --local",
+    "db:push": "bunx supabase@2.121.0 db push --db-url \"$SUPABASE_DB_URL\"",
     "storage:drain": "bun src/lib/storage-drain.ts",
     "prepare": "simple-git-hooks"
   },
@@ -40,6 +41,7 @@
     "lucide-react": "1.59.0",
     "nodemailer": "10.1.7",
     "postgres": "3.4.9",
+    "posthog-node": "^5.56.2",
     "react": "19.3.1",
     "react-dom": "19.3.1",
     "uqr": "0.1.3",
