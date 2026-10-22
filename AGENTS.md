@@ -4,8 +4,8 @@ Staywise: guest portal for independent vacation-rental owners. TanStack Start (R
 
 ## Start here
 
-- Read [README.md](README.md) (setup, env table, retention, kill switch) and [CONTEXT.md](CONTEXT.md) before changing domain behavior.
-- `plans/` (local, gitignored) holds the product and implementation plans; `docs/adr/` holds durable decisions.
+- Read [README.md](README.md) (setup, env table), [docs/operations.md](docs/operations.md) (kill switches, retention, agent access) and [CONTEXT.md](CONTEXT.md) before changing domain behavior.
+- `plans/` (local, gitignored) holds the product and implementation plans; `docs/adr/` holds durable decisions (index in `docs/adr/README.md`); update `docs/` and the README when behavior changes.
 - Layout: `src/features/<area>` (server code in `*.server.ts`, server functions in `*-fns.ts`), `src/routes` (file routes), `src/lib` (env, db, mail, logging), `supabase/migrations` and `supabase/tests` (pgTAP), `e2e/` (Playwright).
 - Route test files live beside routes with a `-` prefix (e.g. `-g.$shareId_.exchange.test.ts`) so the router ignores them.
 - Generated: `src/routeTree.gen.ts` (from `bun run routes:generate`). Do not edit by hand.
