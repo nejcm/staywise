@@ -51,7 +51,9 @@ const clientDocument = z.object({
   token_endpoint_auth_method: z.literal('none').optional(),
 });
 
-// Q26: hosted Claude and ChatGPT only; the URL must already be in canonical form so it compares exactly.
+// Q26: hosted Claude and ChatGPT only; the URL must already be in canonical form so it compares exactly. A query string
+// is refused so a parameter-reflecting endpoint on either origin cannot pose as a client document; exact client IDs
+// are pinned once the vendors publish theirs.
 export function allowedClientId(clientId: string): boolean {
   const url = clientId.length <= 500 ? URL.parse(clientId) : null;
   return (
@@ -63,6 +65,7 @@ export function allowedClientId(clientId: string): boolean {
     url.username === '' &&
     url.password === '' &&
     url.pathname !== '/' &&
+    url.search === '' &&
     url.hash === ''
   );
 }

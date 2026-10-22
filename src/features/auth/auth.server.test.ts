@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
   aal2Session,
   deleteAuthUser,
+  enrollmentSession,
   freshTotpPassed,
   getHostAuthState,
   restartTotpEnrollment,
@@ -141,6 +142,48 @@ describe('aal2Session', () => {
       outcome: 'ok',
       session: { userId: user.id, email: user.email },
     });
+  });
+});
+
+describe('enrollmentSession', () => {
+  afterEach(() => {
+    mfa.required = true;
+  });
+
+  it('reports a revoked session as invalid', async () => {
+    const { client } = stubClient({ userError: new Error('403 revoked') });
+    expect(await enrollmentSession(client)).toEqual({ outcome: 'invalid' });
+  });
+
+  it.each([true, false])(
+    'lets a host without a verified factor enroll at AAL1 (MFA required: %s)',
+    async (required) => {
+      mfa.required = required;
+      const { client } = stubClient({ user, factors: [unverifiedFactor], currentLevel: 'aal1' });
+      expect(await enrollmentSession(client)).toEqual({
+        outcome: 'ok',
+        session: { userId: user.id, email: user.email },
+      });
+    },
+  );
+
+  it.each([true, false])('requires AAL2 once a factor is verified (MFA required: %s)', async (required) => {
+    mfa.required = required;
+    const { client } = stubClient({ user, factors: [verifiedFactor, unverifiedFactor], currentLevel: 'aal1' });
+    expect(await enrollmentSession(client)).toEqual({ outcome: 'aal1' });
+  });
+
+  it('accepts a host with a verified factor at AAL2', async () => {
+    const { client } = stubClient({ user, factors: [verifiedFactor], currentLevel: 'aal2' });
+    expect(await enrollmentSession(client)).toEqual({
+      outcome: 'ok',
+      session: { userId: user.id, email: user.email },
+    });
+  });
+
+  it('fails closed when factors cannot be listed', async () => {
+    const { client } = stubClient({ user, factorsError: new Error('503'), currentLevel: 'aal2' });
+    expect(await enrollmentSession(client)).toEqual({ outcome: 'aal1' });
   });
 });
 

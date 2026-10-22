@@ -1,12 +1,16 @@
 import { createServerEntry } from '@tanstack/react-start/server';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { startInstance } from './start';
 
 type NextResult = { response: Response };
 type BaselineServerFn = (args: { request: Request; next: () => Promise<NextResult> }) => Promise<Response | NextResult>;
 
-const options = await startInstance.getOptions();
-const baseline = options.requestMiddleware![0]!.options.server as unknown as BaselineServerFn;
+async function baselineOf(instance: typeof startInstance): Promise<BaselineServerFn> {
+  const options = await instance.getOptions();
+  return options.requestMiddleware![0]!.options.server as unknown as BaselineServerFn;
+}
+
+const baseline = await baselineOf(startInstance);
 
 function captureConsole() {
   const lines: string[] = [];
@@ -34,9 +38,9 @@ function toResponse(result: Response | NextResult): Response {
 }
 
 // Runs the real middleware through the installed server entry, the same boundary Start uses in production.
-async function runRequest(next: () => Promise<NextResult>) {
-  const request = new Request('https://staywise.test/sample');
-  const entry = createServerEntry({ fetch: async () => toResponse(await baseline({ request, next })) });
+async function runRequest(next: () => Promise<NextResult>, path = '/sample', middleware = baseline) {
+  const request = new Request(`https://staywise.test${path}`);
+  const entry = createServerEntry({ fetch: async () => toResponse(await middleware({ request, next })) });
   return entry.fetch(request);
 }
 
@@ -70,6 +74,53 @@ describe('baseline request middleware', () => {
       expect(capture.errors).toEqual([]);
     } finally {
       capture.restore();
+    }
+  });
+
+  it('marks host, auth, server-function and guest paths no-store in any letter case', async () => {
+    const capture = captureConsole();
+    try {
+      for (const path of [
+        '/host',
+        '/HOST/settings',
+        '/Auth/callback',
+        '/_serverFn/x',
+        '/_SERVERFN/x',
+        '/G',
+        '/g/abc',
+      ]) {
+        const response = await runRequest(async () => ({ response: new Response('ok') }), path);
+        expect(response.headers.get('Cache-Control')).toBe('private, no-store');
+      }
+      const other = await runRequest(async () => ({ response: new Response('ok') }), '/hosting');
+      expect(other.headers.get('Cache-Control')).toBeNull();
+      expect(capture.lines).toEqual([]);
+    } finally {
+      capture.restore();
+    }
+  });
+
+  it('keeps the CSP dev allowances and omits HSTS for APP_ENV=local', async () => {
+    const response = await runRequest(async () => ({ response: new Response('ok') }));
+    expect(response.headers.get('Content-Security-Policy')).toContain("'unsafe-inline'");
+    expect(response.headers.get('Strict-Transport-Security')).toBeNull();
+  });
+
+  it('drops the CSP dev allowances and pins HSTS outside local even when NODE_ENV is not production', async () => {
+    expect(process.env.NODE_ENV).not.toBe('production');
+    vi.resetModules();
+    vi.doMock('./lib/env.server', async (importOriginal) => ({
+      ...(await importOriginal<typeof import('./lib/env.server')>()),
+      appEnv: 'preview',
+    }));
+    try {
+      const deployed = await baselineOf((await import('./start')).startInstance);
+      const response = await runRequest(async () => ({ response: new Response('ok') }), '/sample', deployed);
+      expect(response.headers.get('Content-Security-Policy')).not.toContain('unsafe-inline');
+      expect(response.headers.get('Strict-Transport-Security')).toBe('max-age=63072000; includeSubDomains');
+    } finally {
+      vi.doUnmock('./lib/env.server');
+      vi.resetModules();
     }
   });
 

@@ -59,11 +59,11 @@ It creates three hosts (`maria-host@example.test`, `tomaz-host@example.test`, `j
 
 ## Configuration
 
-`APP_ENV` defaults to `local` and must be set explicitly (`preview` or `production`) when `NODE_ENV=production`. Outside `local`, every variable marked "outside local" must be set.
+`APP_ENV` defaults to `local` and must be set explicitly (`preview` or `production`) when `NODE_ENV=production` or on a Netlify runtime (`SITE_ID` set without `NETLIFY_DEV`). Outside `local`, every variable marked "outside local" must be set.
 
 | Variable | Required | Purpose |
 |---|---|---|
-| `APP_ENV` | when `NODE_ENV=production` | `local` \| `preview` \| `production`; outside `local` every variable marked "outside local" must be set |
+| `APP_ENV` | when `NODE_ENV=production` or on Netlify | `local` \| `preview` \| `production`; outside `local` every variable marked "outside local" must be set |
 | `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` | outside local | Supabase API URL and publishable key |
 | `SUPABASE_SECRET_KEY` | outside local | Server-only service-role key; lets Auth rate-limit magic links per end-user IP, deletes host accounts, and reads and writes cover photos. Unset locally, account deletion and cover photos are unavailable; the local value is the `sb_secret_` key printed by `bunx supabase@2.121.0 status` |
 | `APP_DB_URL` | outside local | `app_runtime` Postgres URL; must use `sslmode=verify-full` and `sslrootcert` outside local |

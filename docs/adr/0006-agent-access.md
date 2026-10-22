@@ -11,7 +11,7 @@ Clients differ in what they can send. Claude Code, Cursor and VS Code take a sta
 ## Decision
 
 - **One remote MCP endpoint**, `POST /mcp`: `@modelcontextprotocol/server` v2, stateless, about 12 coarse tools. Tools are registered per granted scope. Every call runs under `app_runtime` with `withOwnerContext`; RLS is unchanged and no Supabase session or cookie is accepted at `/mcp`.
-- **Two credential kinds, one principal** (`app.agent_grants`): owner, scopes (`read`, `content:write`, `reservations:write`, `inbox:write`), an optional single property, an expiry, and revocation.
+- **Two credential kinds, one principal** (`app.agent_grants`): owner, scopes (`read`, `content:write`, `reservations:write`, `inbox:write`), an optional single property, an expiry, and revocation. Revocation is final: a trigger rejects clearing or moving `revoked_at`.
   - **Personal tokens** (`sw_pat_…`) for header clients. They are shown once, stored as a SHA-256 digest, expire in at most 90 days and are revocable. Creation needs AAL2 when TOTP is enrolled or required (Q7) and sends an email.
   - **OAuth 2.1** for claude.ai and ChatGPT, served by a small authorization server of our own. It uses platform `crypto` and no library (Q20, Q30):
     - Discovery uses protected-resource metadata (RFC 9728) and authorization-server metadata.
@@ -20,7 +20,7 @@ Clients differ in what they can send. Claude Code, Cursor and VS Code take a sta
     - `resource` is bound to `https://<host>/mcp` (RFC 8707), and `iss` is sent on authorization responses (RFC 9207).
     - Access tokens are opaque and last 1 hour. Refresh tokens last 30 days and rotate; reusing one revokes the whole grant. Codes last 60 seconds and work once. A grant ends 90 days after consent. All expiries are computed in SQL.
   - Lookups go through narrow `security definer` functions (`app.resolve_agent_token`, `app.resolve_agent_access_token`, `app.agent_grant_token_owner`) instead of widening RLS.
-- **Client allowlist (Q26):** client IDs only under `https://claude.ai/` or `https://chatgpt.com/`. The fetch is HTTPS only, follows no redirects, has a 3 s timeout and reads at most 5 KB. The cache follows the document's headers, capped at 24 h. The document's `client_id` must equal its URL, and the redirect must match a listed one exactly, except that a loopback redirect on `localhost`, `127.0.0.1` or `[::1]` may use any port.
+- **Client allowlist (Q26):** client IDs only under `https://claude.ai/` or `https://chatgpt.com/`, with no query string or fragment. Pinning the exact client IDs (and their redirects) is pending the vendors' published client metadata URLs; until then any path on those origins that serves a matching document is accepted. The fetch is HTTPS only, follows no redirects, has a 3 s timeout and reads at most 5 KB. The cache follows the document's headers, capped at 24 h. The document's `client_id` must equal its URL, and the redirect must match a listed one exactly, except that a loopback redirect on `localhost`, `127.0.0.1` or `[::1]` may use any port.
 - **Consent (Q29):** `/oauth/authorize` sits behind the same session gate as token creation, and the gate runs before any client document is fetched. The page shows the client name, the redirect host in bold, a warning for loopback redirects, scope checkboxes, an optional property, and the resource. Approval re-checks the request on the server.
 - **One live grant per (owner, client_id).** A new consent revokes the client's earlier grants, so a step-up never leaves old scopes alive. As a result, a host cannot hold two property-restricted grants for the same connector.
 - **Out of scope:** an OAuth token gets a 403 `insufficient_scope` with `scope` and `resource_metadata`, so the client can step up. The 401 carries `scope="read"` and `resource_metadata`.
@@ -37,12 +37,13 @@ Clients differ in what they can send. Claude Code, Cursor and VS Code take a sta
 
 ### Injection guard
 
-Every agent write to guest-visible text (`update_property` name and address, `upsert_section`, `review_translation`) is refused if it adds a link, email, phone number or IBAN that the text did not already contain (Q21). Text is NFKC-folded first; zero-width characters are dropped; `(dot)` and `(at)` spellings fold; dotted quads count as links. Only plausible ISO dates and `HH:MM` times are blanked before counting phone digits. Section writes also keep a revision with one-click revert and an agent-edited marker.
+Every agent write to guest-visible text (`update_property` name and address, `upsert_section`, `review_translation`) is refused if it adds a link, email, phone number or IBAN that the text did not already contain (Q21). Text is NFKC-folded first; zero-width characters are dropped; Unicode dashes, the minus sign and middle dots fold to `-` and ideographic full stops to `.`; comma-separated digit runs fold when `+`-prefixed or grouped in 2–4 digits; `(dot)` and `(at)` spellings fold; dotted quads count as links; IBANs may be grouped with spaces or dashes. Only plausible ISO dates and `HH:MM` times are blanked before counting phone digits. Section writes also keep a revision with one-click revert and an agent-edited marker.
 
 Accepted residuals, all needing text a guest would have to reassemble:
 - a capital or a one-sided space after a spaced dot (`evil . Example`, `evil .example`), or `evil dot example`;
 - a phone whose first digits are written as a valid ISO date (`Call 2026-11-01 234 567`);
 - phone-like strings of 8 digits or fewer;
+- a phone without `+` written with commas as thousands grouping (`041,234,567`), kept so prices such as `1,500, 2,300` and `1,250,000` are never read as phones;
 - false-positive links on bare quads such as `1.2.3.4`.
 
 The guard is a speed bump against laundering a scam contact into a guide, not a content filter; content writes carry a `requiresUserInteraction` hint and destructive annotations, which clients may or may not honour.

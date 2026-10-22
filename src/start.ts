@@ -5,7 +5,8 @@ import { logEvent } from './lib/log.server';
 import { buildSecurityHeaders } from './lib/security-headers.server';
 
 const csrfMiddleware = createCsrfMiddleware({ filter: (ctx) => ctx.handlerType === 'serverFn' });
-const dev = process.env.NODE_ENV !== 'production';
+// The inline CSP allowances follow APP_ENV, not the runtime NODE_ENV, so a deploy can never serve them.
+const dev = appEnv === 'local';
 
 function applyBaselineHeaders(response: Response, requestId: string, noStore: boolean, nonce: string) {
   for (const [name, value] of Object.entries(buildSecurityHeaders({ nonce, dev }))) {
@@ -21,14 +22,16 @@ const baselineMiddleware = createMiddleware().server(async ({ next, request }) =
   const requestId = request.headers.get('x-nf-request-id') ?? crypto.randomUUID();
   const nonce = randomBytes(18).toString('base64');
   const path = new URL(request.url).pathname;
-  // Signed-in host pages, auth endpoints, and guest pages must never be cached by shared caches.
+  // Signed-in host pages, auth endpoints, and guest pages must never be cached by shared caches,
+  // whatever case the path arrives in.
+  const lowerPath = path.toLowerCase();
   const noStore =
-    path === '/host' ||
-    path.startsWith('/host/') ||
-    path.startsWith('/auth/') ||
-    path.startsWith('/_serverFn/') ||
-    path === '/g' ||
-    path.startsWith('/g/');
+    lowerPath === '/host' ||
+    lowerPath.startsWith('/host/') ||
+    lowerPath.startsWith('/auth/') ||
+    lowerPath.startsWith('/_serverfn/') ||
+    lowerPath === '/g' ||
+    lowerPath.startsWith('/g/');
   let result: Awaited<ReturnType<typeof next>>;
   try {
     result = await next({ context: { nonce } });

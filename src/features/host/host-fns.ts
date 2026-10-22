@@ -5,6 +5,7 @@ import { appEnv, serverEnv } from '../../lib/env.server';
 import {
   aal2Session,
   deleteAuthUser,
+  enrollmentSession,
   freshTotpPassed,
   getHostAuthState as readHostAuthState,
   restartTotpEnrollment,
@@ -75,9 +76,10 @@ export const mfaEnroll = createServerFn({ method: 'POST' })
     runGuarded(async () => {
       if (!isGuardedMutation()) return { error: 'invalid_input' } satisfies FnError;
       const auth = requestAuth();
-      const session = await verifiedSession(auth.client);
-      if (!session) {
-        applyAuthCookies(auth, true);
+      // AAL1 suffices only until a factor is verified; after that, adding one needs AAL2.
+      const gate = await enrollmentSession(auth.client);
+      if (gate.outcome !== 'ok') {
+        applyAuthCookies(auth, gate.outcome === 'invalid');
         return { error: 'auth_required' } satisfies FnError;
       }
       const { data: factor, error } = await auth.client.auth.mfa.enroll({
@@ -93,16 +95,16 @@ export const mfaEnroll = createServerFn({ method: 'POST' })
   );
 
 // Recovery path for an interrupted enrollment: fresh secret for the authenticated host without
-// touching verified factors; the AAL2 workspace gate is unchanged.
+// touching verified factors; a host who already has a verified factor must be at AAL2.
 export const restartEnrollment = createServerFn({ method: 'POST' })
   .validator((value: unknown) => value as Record<string, never>)
   .handler(async () =>
     runGuarded(async () => {
       if (!isGuardedMutation()) return { error: 'invalid_input' } satisfies FnError;
       const auth = requestAuth();
-      const session = await verifiedSession(auth.client);
-      if (!session) {
-        applyAuthCookies(auth, true);
+      const gate = await enrollmentSession(auth.client);
+      if (gate.outcome !== 'ok') {
+        applyAuthCookies(auth, gate.outcome === 'invalid');
         return { error: 'auth_required' } satisfies FnError;
       }
       const restarted = await restartTotpEnrollment(auth.client);

@@ -87,6 +87,19 @@ export async function aal2Session(client: SupabaseClient): Promise<Aal2Session> 
   return aal?.currentLevel === 'aal2' ? { outcome: 'ok', session } : { outcome: 'aal1' };
 }
 
+// Gate for starting or restarting TOTP enrollment: a host without a verified authenticator may enroll at AAL1 (that is
+// how a first factor is set up), but once one is verified a new or replacement factor needs AAL2, so a magic-link
+// session alone cannot add an authenticator of its own.
+export async function enrollmentSession(client: SupabaseClient): Promise<Aal2Session> {
+  const session = await verifiedSession(client);
+  if (!session) return { outcome: 'invalid' };
+  const { data: factors, error: factorsError } = await client.auth.mfa.listFactors();
+  if (factorsError || !factors) return { outcome: 'aal1' };
+  if (!factors.totp.some((factor) => factor.status === 'verified')) return { outcome: 'ok', session };
+  const { data: aal } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
+  return aal?.currentLevel === 'aal2' ? { outcome: 'ok', session } : { outcome: 'aal1' };
+}
+
 // Step-up for irreversible actions: an existing AAL2 session is not enough, so a host with a verified
 // authenticator must present a fresh code; a host without one passes.
 export async function freshTotpPassed(client: SupabaseClient, code: string | undefined): Promise<boolean> {

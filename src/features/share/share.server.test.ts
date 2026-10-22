@@ -27,6 +27,8 @@ import {
   readShareLinkState,
   sessionExpiry,
   shareSecretMatches,
+  createStayLink,
+  stayLinkInput,
 } from './share.server';
 
 const token = 'a'.repeat(43);
@@ -133,6 +135,41 @@ describe('stay links', () => {
     const linkQueries = queries.filter((query) => query.includes('app.share_links') && query.includes('enabled'));
     expect(linkQueries.length).toBe(3);
     for (const query of linkQueries) expect(query).toContain("kind = 'property'");
+  });
+});
+
+describe('stay link length', () => {
+  const propertyId = '11111111-1111-4111-8111-111111111111';
+  const stay = (stayStart: string, stayEnd: string) =>
+    stayLinkInput.safeParse({ propertyId, stayStart, stayEnd }).success;
+
+  it('accepts a same-day stay and one of up to 366 nights, like imported reservations', () => {
+    expect(stay('2027-01-10', '2027-01-10')).toBe(true);
+    expect(stay('2027-01-10', '2028-01-11')).toBe(true);
+  });
+
+  it('refuses a stay longer than 366 nights or ending before it starts', () => {
+    expect(stay('2027-01-10', '2028-01-12')).toBe(false);
+    expect(stay('2027-01-10', '2037-01-10')).toBe(false);
+    expect(stay('2027-01-10', '2027-01-09')).toBe(false);
+  });
+
+  it('refuses an over-long stay in the canonical write before any query', async () => {
+    const queries: string[] = [];
+    const tx = ((strings: TemplateStringsArray) => {
+      queries.push(strings.join('?'));
+      return Promise.resolve([{ id: 'r' }]);
+    }) as never;
+    await expect(
+      createStayLink(tx, {
+        propertyId,
+        stayStart: '2027-01-10',
+        stayEnd: '2099-12-31',
+        id: 'a'.repeat(22),
+        hmac: Buffer.alloc(32),
+      }),
+    ).rejects.toThrow('invalid_input');
+    expect(queries).toEqual([]);
   });
 });
 

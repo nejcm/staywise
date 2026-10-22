@@ -15,5 +15,9 @@ export function parseAppEnv(env: Record<string, string | undefined>): AppEnv {
   if (env.NODE_ENV === 'production') {
     throw new Error('APP_ENV must be set explicitly when NODE_ENV=production');
   }
+  // SITE_ID is a read-only Netlify runtime variable (as for trustNetlifyGeo); a deploy never falls back to local.
+  if (env.SITE_ID && !env.NETLIFY_DEV) {
+    throw new Error('APP_ENV must be set explicitly on Netlify');
+  }
   return 'local';
 }

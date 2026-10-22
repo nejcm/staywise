@@ -1,5 +1,6 @@
 // Vite dev injects scripts/styles without a nonce; the generated production build uses nonces and
-// external CSS only, so the inline allowances are deliberately limited to development.
+// external CSS only, so the inline allowances are deliberately limited to development (`APP_ENV=local`).
+// Deployed environments are HTTPS only, so they also pin HSTS rather than relying on the platform default.
 export function buildSecurityHeaders(input: { nonce?: string; dev: boolean }): Record<string, string> {
   const script = [
     "'self'",
@@ -12,5 +13,6 @@ export function buildSecurityHeaders(input: { nonce?: string; dev: boolean }): R
     'Referrer-Policy': 'no-referrer',
     'X-Content-Type-Options': 'nosniff',
     'Permissions-Policy': 'camera=(), microphone=(), geolocation=(), payment=(), usb=()',
+    ...(input.dev ? {} : { 'Strict-Transport-Security': 'max-age=63072000; includeSubDomains' }),
   };
 }

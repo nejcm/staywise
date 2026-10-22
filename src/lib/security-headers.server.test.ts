@@ -13,12 +13,15 @@ describe('security headers', () => {
     expect(csp).toContain("img-src 'self' data: blob:;");
     expect(headers['Referrer-Policy']).toBe('no-referrer');
     expect(headers['X-Content-Type-Options']).toBe('nosniff');
+    expect(headers['Strict-Transport-Security']).toBe('max-age=63072000; includeSubDomains');
   });
 
   it('keeps the inline allowance only for the Vite dev server', () => {
-    const csp = buildSecurityHeaders({ nonce: 'synthetic-nonce', dev: true })['Content-Security-Policy'];
+    const headers = buildSecurityHeaders({ nonce: 'synthetic-nonce', dev: true });
+    const csp = headers['Content-Security-Policy'];
     expect(csp).toContain("script-src 'self' 'nonce-synthetic-nonce' 'unsafe-inline'");
     expect(csp).toContain("style-src 'self' 'unsafe-inline'");
+    expect(headers['Strict-Transport-Security']).toBeUndefined();
   });
 
   it('has no wildcard or remote script source', () => {
