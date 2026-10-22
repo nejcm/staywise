@@ -19,7 +19,7 @@ No app, no guest account, no booking-system integration.
 
 - **Guest guide.** Essentials, call actions, address and maps, answering hours and a privacy panel, in English, German, Slovenian, French and Spanish. Five preset themes ([ADR 0003](docs/adr/0003-guest-themes-are-presets.md)).
 - **Bearer-link access.** The secret lives in the URL fragment. One property link plus per-stay links that expire after check-out ([ADR 0004](docs/adr/0004-per-stay-guest-links.md)). An operator kill switch denies all guest access.
-- **Host workspace.** Property list, guide editor with phone and tablet preview, link and QR sharing, cover photo ([ADR 0005](docs/adr/0005-property-hero-image.md)), inbox with one alert per message ([ADR 0001](docs/adr/0001-one-alert-per-message.md)).
+- **Host workspace.** In-app Host guide (`/host/help`) and inline tips, property list, guide editor with phone and tablet preview, link and QR sharing, cover photo ([ADR 0005](docs/adr/0005-property-hero-image.md)), inbox with one alert per message ([ADR 0001](docs/adr/0001-one-alert-per-message.md)).
 - **Sign-in and security.** Magic link with optional TOTP, device-labelled security activity, immediate account deletion ([ADR 0002](docs/adr/0002-host-account-deletion.md)).
 - **Agent access.** Hosts can connect their own AI agent over MCP with scoped tokens or OAuth ([ADR 0006](docs/adr/0006-agent-access.md)).
 - **Privacy by default.** No message bodies, reply addresses or link secrets in logs; translation egress off unless configured; 90-day retention for messages and audit rows.

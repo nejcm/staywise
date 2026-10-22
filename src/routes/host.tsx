@@ -185,7 +185,10 @@ function HostPage() {
         <section className={styles.onboarding} aria-labelledby="onboarding-heading" data-testid="host-properties-empty">
           <div className={styles.onboardingHead}>
             <h2 id="onboarding-heading">Let's set up your first guide</h2>
-            <p>Three steps. Stop any time and come back.</p>
+            <p>
+              Three steps. Stop any time and come back. The <Link to="/host/help">Host guide</Link> has ideas for what
+              to write.
+            </p>
           </div>
           <ol className={styles.steps}>
             <li>

@@ -1,5 +1,5 @@
 import { Link, useRouter } from '@tanstack/react-router';
-import { House, Shield, SlidersHorizontal } from 'lucide-react';
+import { CircleHelp, House, Shield, SlidersHorizontal } from 'lucide-react';
 import { useState, type ReactNode } from 'react';
 import { signOut } from '../features/host/host-fns';
 import styles from './app-shell.module.css';
@@ -43,6 +43,10 @@ export function HostShell({ email, children }: { email?: string | null; children
           <Link to="/host/settings" data-testid="host-settings-link">
             <Icon icon={SlidersHorizontal} />
             Settings
+          </Link>
+          <Link to="/host/help" data-testid="host-help-link">
+            <Icon icon={CircleHelp} />
+            Host guide
           </Link>
           <Link to="/privacy">
             <Icon icon={Shield} />

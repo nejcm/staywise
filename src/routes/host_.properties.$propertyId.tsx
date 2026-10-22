@@ -43,6 +43,8 @@ import {
 } from '../features/translation/translation-fns';
 import type { ShareLinkState, Stay } from '../features/share/share.server';
 import type { GuideGap } from '../features/messages/messages.server';
+import { Tip } from '../components/tip';
+import { categoryIdeas } from '../features/host/host-guidance';
 import { readiness, type ReadinessItem } from '../features/guide/readiness';
 import {
   approveTranslationInput,
@@ -555,6 +557,12 @@ function GuestLinkPanel({ property, share }: { property: EditorProperty; share: 
         </h2>
         <Pill tone={share?.link ? 'positive' : 'neutral'}>{share?.link ? 'On' : 'Off'}</Pill>
       </header>
+      <Tip title="Sharing tips" testId="guest-link-tip">
+        <p>
+          Send the link before arrival, or print the QR card for the flat. Use a stay link per reservation so access
+          ends after checkout. Rotate the property link if it leaks.
+        </p>
+      </Tip>
       <p data-testid="guest-link-status">
         {share?.link ? `Active link issued ${share.link.createdAt.slice(0, 10)}.` : 'No active guest link.'}
       </p>
@@ -878,6 +886,13 @@ function PropertyForm({ property, timeZones }: { property: EditorProperty; timeZ
   return (
     <form onSubmit={submit} noValidate className="stack" data-testid="property-form">
       <h2>Basics</h2>
+      <Tip title="Why these fields matter" testId="basics-tip">
+        <p>
+          Check-in, checkout, address, phone and Wi-Fi are what guests open the guide for. Fill them first; the
+          checklist at the top shows what is still missing. Wi-Fi and key-box codes are stored apart from the guide text
+          and are never copied to a duplicated property.
+        </p>
+      </Tip>
       <div className={editorStyles.fieldGrid}>
         <Field
           label="Property name"
@@ -1059,6 +1074,9 @@ function AlertPanel({ property }: { property: EditorProperty }) {
   return (
     <section className={`${styles.panel} stack`} aria-labelledby="alert-email-heading">
       <h2 id="alert-email-heading">Message alerts</h2>
+      <Tip title="How alerts work" testId="alert-tip">
+        <p>You get one fixed email per new guest message, without its content. Open the inbox to read and answer it.</p>
+      </Tip>
       <p data-testid="alert-email">
         {alertEmail ? (
           <>
@@ -1296,6 +1314,13 @@ function SectionForm({
           </div>
         ) : null}
         <form ref={formRef} onSubmit={submit} noValidate className="stack" data-testid="section-form">
+          <Tip title="What to include" testId="section-tip">
+            <ul>
+              {categoryIdeas[section.category].map((idea) => (
+                <li key={idea}>{idea}</li>
+              ))}
+            </ul>
+          </Tip>
           <div className={editorStyles.fieldRow}>
             <Field label="Category">
               <select name="category" defaultValue={section.category} data-testid="section-category">

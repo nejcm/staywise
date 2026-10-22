@@ -17,6 +17,7 @@ import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './rout
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AuthSignInRouteImport } from './routes/auth.sign-in'
 import { Route as GShareIdRouteImport } from './routes/g.$shareId'
+import { Route as HostHelpRouteImport } from './routes/host_.help'
 import { Route as HostSettingsRouteImport } from './routes/host_.settings'
 import { Route as OauthAuthorizeRouteImport } from './routes/oauth.authorize'
 import { Route as OauthRevokeRouteImport } from './routes/oauth.revoke'
@@ -72,6 +73,11 @@ const AuthSignInRoute = AuthSignInRouteImport.update({
 const GShareIdRoute = GShareIdRouteImport.update({
   id: '/g/$shareId',
   path: '/g/$shareId',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const HostHelpRoute = HostHelpRouteImport.update({
+  id: '/host_/help',
+  path: '/host/help',
   getParentRoute: () => rootRouteImport,
 } as any)
 const HostSettingsRoute = HostSettingsRouteImport.update({
@@ -162,6 +168,7 @@ export interface FileRoutesByFullPath {
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/g/$shareId': typeof GShareIdRouteWithChildren
+  '/host/help': typeof HostHelpRoute
   '/host/settings': typeof HostSettingsRoute
   '/oauth/authorize': typeof OauthAuthorizeRoute
   '/oauth/revoke': typeof OauthRevokeRoute
@@ -186,6 +193,7 @@ export interface FileRoutesByTo {
   '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
+  '/host/help': typeof HostHelpRoute
   '/host/settings': typeof HostSettingsRoute
   '/oauth/authorize': typeof OauthAuthorizeRoute
   '/oauth/revoke': typeof OauthRevokeRoute
@@ -212,6 +220,7 @@ export interface FileRoutesById {
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/g/$shareId': typeof GShareIdRouteWithChildren
+  '/host_/help': typeof HostHelpRoute
   '/host_/settings': typeof HostSettingsRoute
   '/oauth/authorize': typeof OauthAuthorizeRoute
   '/oauth/revoke': typeof OauthRevokeRoute
@@ -239,6 +248,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/auth/sign-in'
     | '/g/$shareId'
+    | '/host/help'
     | '/host/settings'
     | '/oauth/authorize'
     | '/oauth/revoke'
@@ -263,6 +273,7 @@ export interface FileRouteTypes {
     | '/.well-known/oauth-authorization-server'
     | '/auth/callback'
     | '/auth/sign-in'
+    | '/host/help'
     | '/host/settings'
     | '/oauth/authorize'
     | '/oauth/revoke'
@@ -288,6 +299,7 @@ export interface FileRouteTypes {
     | '/auth/callback'
     | '/auth/sign-in'
     | '/g/$shareId'
+    | '/host_/help'
     | '/host_/settings'
     | '/oauth/authorize'
     | '/oauth/revoke'
@@ -314,6 +326,7 @@ export interface RootRouteChildren {
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthSignInRoute: typeof AuthSignInRoute
   GShareIdRoute: typeof GShareIdRouteWithChildren
+  HostHelpRoute: typeof HostHelpRoute
   HostSettingsRoute: typeof HostSettingsRoute
   OauthAuthorizeRoute: typeof OauthAuthorizeRoute
   OauthRevokeRoute: typeof OauthRevokeRoute
@@ -383,6 +396,13 @@ declare module '@tanstack/react-router' {
       path: '/g/$shareId'
       fullPath: '/g/$shareId'
       preLoaderRoute: typeof GShareIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/host_/help': {
+      id: '/host_/help'
+      path: '/host/help'
+      fullPath: '/host/help'
+      preLoaderRoute: typeof HostHelpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/host_/settings': {
@@ -521,6 +541,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthCallbackRoute: AuthCallbackRoute,
   AuthSignInRoute: AuthSignInRoute,
   GShareIdRoute: GShareIdRouteWithChildren,
+  HostHelpRoute: HostHelpRoute,
   HostSettingsRoute: HostSettingsRoute,
   OauthAuthorizeRoute: OauthAuthorizeRoute,
   OauthRevokeRoute: OauthRevokeRoute,

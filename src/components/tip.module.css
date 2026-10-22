@@ -1,0 +1,47 @@
+.tip {
+  padding: var(--space-3) var(--space-4);
+  font-size: var(--fs-small);
+  color: var(--accent-ink);
+  background: var(--accent-soft);
+  border-radius: 10px;
+}
+
+.tip summary {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 500;
+  cursor: pointer;
+  list-style: none;
+}
+
+.tip summary::-webkit-details-marker {
+  display: none;
+}
+
+.chevron {
+  margin-left: auto;
+  transition: transform 150ms ease;
+}
+
+.tip[open] .chevron {
+  transform: rotate(180deg);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chevron {
+    transition: none;
+  }
+}
+
+.tip[open] summary {
+  margin-bottom: var(--space-2);
+}
+
+.tip > :not(summary) {
+  margin: 0;
+}
+
+.tip ul {
+  padding-left: var(--space-5);
+}
