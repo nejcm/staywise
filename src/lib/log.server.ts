@@ -9,7 +9,7 @@ const eventNames = [
   'counter_write_failed',
   'error_report_failed',
 ] as const;
-const fieldNames = ['requestId', 'appEnv', 'method', 'path', 'status', 'outcome'] as const;
+const fieldNames = ['requestId', 'appEnv', 'method', 'path', 'status', 'outcome', 'errorType', 'errorCode'] as const;
 
 export type LogEvent = (typeof eventNames)[number];
 export type LogFields = Partial<Record<(typeof fieldNames)[number], string | number>>;

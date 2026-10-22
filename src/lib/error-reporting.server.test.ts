@@ -59,6 +59,19 @@ describe('scrubException', () => {
   });
 });
 
+describe('errorFields', () => {
+  it('keeps the class and a code, never a message-shaped value', async () => {
+    const { errorFields } = await import('./error-reporting.server');
+    expect(errorFields(Object.assign(new Error('boom'), { code: '42P01' }))).toEqual({
+      errorType: 'Error',
+      errorCode: '42P01',
+    });
+    expect(errorFields(Object.assign(new Error('x'), { status: 502 }))).toEqual({ errorType: 'Error', errorCode: 502 });
+    expect(errorFields(Object.assign(new Error('x'), { code: 'user a@b.c failed' }))).toEqual({ errorType: 'Error' });
+    expect(errorFields('nope')).toEqual({});
+  });
+});
+
 describe('reportServerError', () => {
   it('logs and sends only allowlisted fields with ids redacted from the path', async () => {
     const { reportServerError } = await import('./error-reporting.server');
@@ -70,8 +83,9 @@ describe('reportServerError', () => {
       extra: 'nope',
     };
     await reportServerError(error, fields);
-    expect(logEvent).toHaveBeenCalledWith('server_error', fields);
+    expect(logEvent).toHaveBeenCalledWith('server_error', { errorType: 'Error', ...fields });
     expect(captureExceptionImmediate).toHaveBeenCalledWith(error, undefined, {
+      errorType: 'Error',
       requestId: 'r1',
       status: 500,
       path: '/g/:shareId/guide',

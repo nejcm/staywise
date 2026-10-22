@@ -34,8 +34,24 @@ const client = serverEnv.posthog
     })
   : null;
 
+const SAFE_TOKEN = /^[\w.-]{1,64}$/;
+
+// Class name plus a driver or HTTP code (Postgres 42P01, ECONNREFUSED, Auth status) say what failed without the message, which can echo request data.
+export function errorFields(error: unknown): LogFields {
+  if (!(error instanceof Error)) return {};
+  const { code, status } = error as { code?: unknown; status?: unknown };
+  const detail = typeof code === 'string' || typeof code === 'number' ? code : status;
+  const fields: LogFields = {};
+  if (SAFE_TOKEN.test(error.name)) fields.errorType = error.name;
+  if ((typeof detail === 'string' || typeof detail === 'number') && SAFE_TOKEN.test(String(detail))) {
+    fields.errorCode = detail;
+  }
+  return fields;
+}
+
 // Stdout line plus an optional PostHog event; reporting must never fail or noticeably delay the request that errored.
 export async function reportServerError(error: unknown, fields: LogFields): Promise<void> {
+  fields = { ...errorFields(error), ...fields };
   logEvent('server_error', fields);
   // A returned 5xx carries no exception, so there is nothing useful to send and no reason to delay the response.
   if (!client || error === undefined) return;
