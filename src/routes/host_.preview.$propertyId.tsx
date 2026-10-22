@@ -1,7 +1,9 @@
 import { Link, createFileRoute, redirect } from '@tanstack/react-router';
+import { ChevronLeft } from 'lucide-react';
 import { useEffect, useRef } from 'react';
 import { z } from 'zod';
 import { buttonClass } from '../components/button';
+import { Icon, categoryIcon } from '../components/icons';
 import { Pill } from '../components/pill';
 import { AddressLine, AnswerHours, ArrivalCard, CallStrip } from '../features/guest/guest-essentials';
 import { GuestHero } from '../features/guest/guest-hero';
@@ -14,7 +16,10 @@ import previewStyles from '../features/host/preview.module.css';
 
 const devices = ['phone', 'tablet', 'desktop'] as const;
 const previewSearchSchema = z
-  .object({ lang: z.string().max(16).optional(), device: z.enum(devices).optional().catch(undefined) })
+  .object({
+    lang: z.string().max(16).optional(),
+    device: z.enum(devices).optional().catch(undefined),
+  })
   .catch({});
 
 export const Route = createFileRoute('/host_/preview/$propertyId')({
@@ -28,11 +33,17 @@ export const Route = createFileRoute('/host_/preview/$propertyId')({
     if (state.state !== 'workspace') {
       throw redirect({ to: '/host' });
     }
-    const result = await getGuestPreview({ data: { propertyId: params.propertyId, locale: deps.lang } });
+    const result = await getGuestPreview({
+      data: { propertyId: params.propertyId, locale: deps.lang },
+    });
     if ('error' in result) {
       throw redirect({ to: '/host' });
     }
-    return { guest: result.guest, guidePublished: result.guidePublished, essentials: result.essentials };
+    return {
+      guest: result.guest,
+      guidePublished: result.guidePublished,
+      essentials: result.essentials,
+    };
   },
   component: PreviewPage,
 });
@@ -56,10 +67,12 @@ function PreviewPage() {
         <Link
           to="/host/properties/$propertyId"
           params={{ propertyId }}
-          className={buttonClass()}
+          className={buttonClass('secondary', 'sm')}
+          aria-label="Back to editor"
           data-testid="preview-back"
         >
-          Back to editor
+          <Icon icon={ChevronLeft} />
+          Back
         </Link>
         <span className={previewStyles.chip}>Preview</span>
         <div className={previewStyles.status}>
@@ -139,7 +152,10 @@ function PreviewPage() {
                     className={`${styles.card} ${styles.prose}`}
                     data-testid="preview-section"
                   >
-                    <h2 className={styles.category}>{guestCategoryLabel(guest.locale, section.category)}</h2>
+                    <h2 className={styles.category}>
+                      <Icon icon={categoryIcon(section.category)} className={styles.categoryIcon} />
+                      {guestCategoryLabel(guest.locale, section.category)}
+                    </h2>
                     <h3
                       lang={section.provenance === 'fallback' ? guest.sourceLocale : undefined}
                       data-testid="preview-section-title"

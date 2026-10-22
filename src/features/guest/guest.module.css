@@ -77,6 +77,12 @@
   padding: 0 16px;
 }
 
+.preview .locales a {
+  min-height: 32px;
+  padding: 0 12px;
+  font-size: var(--fs-small);
+}
+
 .locales a[aria-current='true'] {
   color: var(--accent-ink);
   background: var(--accent-soft);
@@ -535,6 +541,12 @@
   line-height: 1.5;
   font-weight: 500;
   color: var(--accent);
+}
+
+.categoryIcon {
+  margin-inline-end: 0.4em;
+  font-size: 1.4em;
+  vertical-align: -0.3em;
 }
 
 .body {
