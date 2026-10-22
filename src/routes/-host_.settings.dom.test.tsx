@@ -1,12 +1,13 @@
 // @vitest-environment happy-dom
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { cleanup, render, screen, waitFor } from '@testing-library/react';
+import { cleanup, render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routeTree } from '../routeTree.gen';
 import { deleteAccount, getHostAuthState, mfaUnenroll, mfaVerify, restartEnrollment } from '../features/host/host-fns';
-import { getHostSettings, saveHostSettings } from '../features/host/settings-fns';
-import { builtInHostSettings, type HostSettings } from '../features/host/settings.server';
+import { getHostSettings, getSecurityActivity, saveHostSettings } from '../features/host/settings-fns';
+import { builtInHostSettings, type HostSettings, type SecurityEvent } from '../features/host/settings.server';
+import { createAgentToken, getAgentAccess, revokeAgentToken, revokeAllAgentTokens } from '../features/agent/agent-fns';
 
 vi.mock('../features/host/host-fns', () => ({
   deleteAccount: vi.fn(),
@@ -16,7 +17,17 @@ vi.mock('../features/host/host-fns', () => ({
   restartEnrollment: vi.fn(),
   signOut: vi.fn(),
 }));
-vi.mock('../features/host/settings-fns', () => ({ getHostSettings: vi.fn(), saveHostSettings: vi.fn() }));
+vi.mock('../features/host/settings-fns', () => ({
+  getHostSettings: vi.fn(),
+  getSecurityActivity: vi.fn(),
+  saveHostSettings: vi.fn(),
+}));
+vi.mock('../features/agent/agent-fns', () => ({
+  createAgentToken: vi.fn(),
+  getAgentAccess: vi.fn(),
+  revokeAgentToken: vi.fn(),
+  revokeAllAgentTokens: vi.fn(),
+}));
 
 const timeZones = ['Europe/Ljubljana', 'UTC'];
 
@@ -53,6 +64,8 @@ beforeEach(() => {
   vi.mocked(saveHostSettings).mockReset();
   vi.mocked(mfaUnenroll).mockReset();
   vi.mocked(deleteAccount).mockReset();
+  vi.mocked(getAgentAccess).mockReset().mockResolvedValue({ enabled: false });
+  vi.mocked(getSecurityActivity).mockReset().mockResolvedValue({ events: [] });
   loadSettings(null);
 });
 afterEach(() => {
@@ -187,5 +200,182 @@ describe('host settings account deletion', () => {
     await renderSettings();
     expect(screen.queryByTestId('account-delete-form')).toBeNull();
     expect(screen.getByTestId('account-delete-zone').textContent).toMatch(/not available/);
+  });
+});
+
+const propertyId = '00000000-0000-4000-8000-0000000000a1';
+const activeGrant = {
+  id: '00000000-0000-4000-8000-000000000001',
+  name: 'Claude Code laptop',
+  scopes: ['read' as const],
+  propertyName: null,
+  createdAt: '2026-10-01T09:00:00.000Z',
+  expiresAt: '2026-10-31T09:00:00.000Z',
+  lastUsedAt: '2026-10-20T08:00:00.000Z',
+  clientLabel: 'claude-code/2.0',
+  kind: 'pat' as const,
+  clientHost: null,
+};
+
+function enableAgentAccess(grants = [activeGrant]) {
+  vi.mocked(getAgentAccess).mockResolvedValue({
+    enabled: true,
+    endpoint: 'http://localhost:3000/mcp',
+    grants,
+    properties: [{ id: propertyId, name: 'Bled lakeside apartment' }],
+  });
+}
+
+describe('host settings agent access', () => {
+  it('is hidden while agent access is disabled', async () => {
+    await renderSettings();
+    expect(screen.queryByTestId('agent-access')).toBeNull();
+  });
+
+  it('lists active tokens with last use and client label', async () => {
+    enableAgentAccess();
+    await renderSettings();
+    const grant = screen.getByTestId('agent-grant');
+    expect(grant.textContent).toMatch(/Claude Code laptop/);
+    expect(grant.textContent).toMatch(/last used 2026-10-20 by claude-code\/2\.0/);
+    expect(grant.textContent).toMatch(/expires 2026-10-31/);
+  });
+
+  it('creates a restricted token and shows it once', async () => {
+    enableAgentAccess([]);
+    vi.mocked(createAgentToken).mockResolvedValue({ ok: true, token: `sw_pat_${'B'.repeat(43)}` });
+    await renderSettings();
+    await userEvent.type(screen.getByTestId('agent-token-name'), 'Cursor');
+    await userEvent.selectOptions(screen.getByTestId('agent-token-property'), propertyId);
+    await userEvent.selectOptions(screen.getByTestId('agent-token-days'), '7');
+    await userEvent.click(screen.getByTestId('agent-scope-inbox:write'));
+    await userEvent.click(screen.getByTestId('agent-token-create'));
+    expect(createAgentToken).toHaveBeenCalledWith({
+      data: { name: 'Cursor', scopes: ['read', 'inbox:write'], propertyId, days: 7 },
+    });
+    expect(((await screen.findByTestId('agent-token-value')) as HTMLInputElement).value).toBe(
+      `sw_pat_${'B'.repeat(43)}`,
+    );
+    expect(screen.getByTestId('agent-status').textContent).toMatch(/shown only once/);
+  });
+
+  it('copies the new token and announces it', async () => {
+    enableAgentAccess([]);
+    const token = `sw_pat_${'C'.repeat(43)}`;
+    vi.mocked(createAgentToken).mockResolvedValue({ ok: true, token });
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    await renderSettings();
+    await userEvent.type(screen.getByTestId('agent-token-name'), 'Cursor');
+    await userEvent.click(screen.getByTestId('agent-token-create'));
+    await userEvent.click(await screen.findByRole('button', { name: 'Copy token' }));
+    expect(writeText).toHaveBeenCalledWith(token);
+    await waitFor(() => expect(screen.getByTestId('agent-status').textContent).toBe('Token copied.'));
+    writeText.mockRejectedValue(new Error('denied'));
+    await userEvent.click(screen.getByTestId('agent-token-copy'));
+    await waitFor(() => expect(screen.getByTestId('agent-status').textContent).toMatch(/^Copy failed/));
+  });
+
+  it('requires a name and at least one permission', async () => {
+    enableAgentAccess([]);
+    await renderSettings();
+    await userEvent.click(screen.getByTestId('agent-scope-read'));
+    await userEvent.click(screen.getByTestId('agent-token-create'));
+    expect(await screen.findByText('Name the token.')).toBeTruthy();
+    expect(screen.getByText('Choose at least one permission.')).toBeTruthy();
+    expect(createAgentToken).not.toHaveBeenCalled();
+  });
+
+  it('revokes one token or all of them after confirmation', async () => {
+    enableAgentAccess();
+    vi.mocked(revokeAgentToken).mockReset().mockResolvedValue({ ok: true });
+    vi.mocked(revokeAllAgentTokens).mockReset().mockResolvedValue({ ok: true });
+    await renderSettings();
+    await userEvent.click(screen.getByRole('button', { name: 'Revoke Claude Code laptop' }));
+    expect(openDialog().querySelector('h2')?.textContent).toBe('Revoke “Claude Code laptop”?');
+    await userEvent.click(within(openDialog()).getByTestId('confirm-cancel'));
+    expect(revokeAgentToken).not.toHaveBeenCalled();
+    await userEvent.click(screen.getByTestId('agent-grant-revoke'));
+    await userEvent.click(within(openDialog()).getByTestId('confirm-accept'));
+    expect(revokeAgentToken).toHaveBeenCalledWith({ data: { grantId: activeGrant.id } });
+    await waitFor(() => expect(screen.getByTestId('agent-status').textContent).toBe('Token revoked.'));
+    await userEvent.click(screen.getByTestId('agent-grants-revoke-all'));
+    expect(openDialog().querySelector('h2')?.textContent).toBe('Revoke all agent access?');
+    await userEvent.click(within(openDialog()).getByTestId('confirm-accept'));
+    expect(revokeAllAgentTokens).toHaveBeenCalledWith({ data: {} });
+    await waitFor(() => expect(screen.getByTestId('agent-status').textContent).toBe('All tokens revoked.'));
+  });
+});
+
+function openDialog() {
+  const dialog = document.querySelector('dialog[open]');
+  if (!dialog) throw new Error('no open dialog');
+  return dialog as HTMLElement;
+}
+
+function securityEvent(event: Pick<SecurityEvent, 'id' | 'action' | 'at'> & Partial<SecurityEvent>): SecurityEvent {
+  return { grantName: null, device: null, countryCode: null, city: null, newDevice: false, ...event };
+}
+
+describe('host settings security activity', () => {
+  it('shows an empty state without events', async () => {
+    await renderSettings();
+    expect(screen.getByTestId('security-activity-empty').textContent).toBe('No security activity yet.');
+  });
+
+  it('renders the page with an error in the section when the read fails', async () => {
+    vi.mocked(getSecurityActivity).mockResolvedValue({ error: 'unexpected' });
+    await renderSettings();
+    expect(screen.getByTestId('security-activity-error').textContent).toBe("Couldn't load security activity.");
+    expect(screen.queryByTestId('security-activity-empty')).toBeNull();
+  });
+
+  it('lists events newest first with UTC times and grant names', async () => {
+    vi.mocked(getSecurityActivity).mockResolvedValue({
+      events: [
+        securityEvent({
+          id: '3',
+          action: 'agent_grant_revoked',
+          at: '2026-10-21T09:15:42.000Z',
+          grantName: 'Claude Code laptop',
+        }),
+        securityEvent({ id: '2', action: 'agent_grant_created', at: '2026-10-20T08:00:00.000Z' }),
+        securityEvent({ id: '1', action: 'sign_in', at: '2026-10-19T07:05:00.000Z' }),
+      ],
+    });
+    await renderSettings();
+    const section = screen.getByRole('region', { name: 'Security activity' });
+    const items = within(section).getAllByRole('listitem');
+    expect(items.map((item) => item.textContent)).toEqual([
+      'Agent access “Claude Code laptop” revoked2026-10-21 09:15',
+      'Agent access created2026-10-20 08:00',
+      'Signed in2026-10-19 07:05Email link',
+    ]);
+    expect(items[0]?.querySelector('time')?.getAttribute('dateTime')).toBe('2026-10-21T09:15:42.000Z');
+    expect(screen.queryByTestId('security-activity-empty')).toBeNull();
+  });
+
+  it('shows device, place, and method for sign-ins and flags a new device', async () => {
+    vi.mocked(getSecurityActivity).mockResolvedValue({
+      events: [
+        securityEvent({
+          id: '2',
+          action: 'mfa_verified',
+          at: '2026-10-21T09:16:00.000Z',
+          device: 'Safari on iOS',
+          countryCode: 'AT',
+          city: 'Vienna',
+          newDevice: true,
+        }),
+        securityEvent({ id: '1', action: 'sign_in', at: '2026-10-21T09:15:00.000Z', device: 'Firefox on Linux' }),
+      ],
+    });
+    await renderSettings();
+    const items = within(screen.getByRole('region', { name: 'Security activity' })).getAllByRole('listitem');
+    expect(items.map((item) => item.textContent)).toEqual([
+      'Two-step sign-in verifiedNew device2026-10-21 09:16Safari on iOS · Vienna, Austria · Authenticator code',
+      'Signed in2026-10-21 09:15Firefox on Linux · Email link',
+    ]);
+    expect(screen.getAllByTestId('security-new-device')).toHaveLength(1);
   });
 });

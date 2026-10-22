@@ -135,6 +135,16 @@ function PrivacyNotice() {
           <h2 id="host">Host alerts, logs, and translation</h2>
           <ul>
             <li>
+              Each host sign-in through an email link, and each sign-in completed with an authenticator code, adds an
+              audit row with a device label parsed from the browser (for example &quot;Firefox on Linux&quot;), the
+              country and city the hosting provider derives from the connection when the app runs on that provider and
+              it supplies them, and whether that device and country were new for the account in the last 90 days.
+              Setting up or removing the authenticator and confirming account deletion record no device or place. The
+              full browser identifier (User-Agent) and the IP address are not stored. The host sees these rows under
+              Security activity in Settings; they are deleted after 90 days, and deleting the account removes the device
+              and place from them at once.
+            </li>
+            <li>
               A new-message alert contains fixed text and the host&apos;s stored alert address; it does not include the
               guest message, category, property name, or reply email. Real SMTP delivery and provider retention are not
               exercised here.

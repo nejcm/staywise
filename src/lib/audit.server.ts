@@ -9,6 +9,7 @@ const auditActions = [
   'callback_failure',
   'mfa_enrolled',
   'mfa_unenrolled',
+  'mfa_verified',
   'publish',
   'unpublish',
   'link_created',
@@ -24,13 +25,22 @@ const auditActions = [
   'account_deleted',
   'stay_link_created',
   'stay_link_revoked',
+  'agent_tool_call',
+  'agent_grant_created',
+  'agent_grant_revoked',
+  'agent_grants_revoked_all',
 ] as const;
 export type AuditAction = (typeof auditActions)[number];
 
 // Same-transaction audit append for security-critical writes: a failure must abort the caller so
 // the state change and its audit record commit or roll back together.
-export async function insertAudit(tx: postgres.TransactionSql, actorId: string, action: AuditAction): Promise<void> {
-  await tx`insert into app.audit_events (actor_id, action) values (${actorId}, ${action})`;
+export async function insertAudit(
+  tx: postgres.TransactionSql,
+  actorId: string,
+  action: AuditAction,
+  grantId: string | null = null,
+): Promise<void> {
+  await tx`insert into app.audit_events (actor_id, action, grant_id) values (${actorId}, ${action}, ${grantId})`;
 }
 
 // Minimal audit row: actor, action, time — never message bodies, emails, codes, or tokens.

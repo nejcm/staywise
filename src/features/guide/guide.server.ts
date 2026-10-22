@@ -10,8 +10,10 @@ import {
   heroWriteInput,
   moveSectionInput,
   propertyIdInput,
+  revertSectionInput,
   savePropertyInput,
   saveSectionInput,
+  sectionTextInput,
   setGuidePublishedInput,
   type GuestTheme,
   type SectionCategory,
@@ -39,6 +41,8 @@ export type GuideTranslation = {
 // Object paths never leave the server.
 export type HeroImage = { alt: string; width: number; height: number; version: string };
 
+type AgentChange = { revisionId: string; grantName: string; changedAt: string; revertible: boolean };
+
 export type GuideEditorData = {
   hero: HeroImage | null;
   property: {
@@ -62,6 +66,7 @@ export type GuideEditorData = {
     sourceRevision: number;
     published: boolean;
     translations: GuideTranslation[];
+    agentChange: AgentChange | null;
   }[];
 };
 
@@ -294,6 +299,29 @@ export async function readGuideEditor(
     where s.property_id = ${propertyId}
     order by t.locale, t.created_at
   `;
+  // The marker shows only while the agent's text is still what guests read, so a revert exposes the edit before it.
+  const revisions = await tx<
+    { id: string; section_id: string; grant_name: string; created_at: Date; revertible: boolean }[]
+  >`
+    select distinct on (r.section_id) r.id, r.section_id, g.name as grant_name, r.created_at,
+      r.before_title is not null as revertible
+    from app.guide_section_revisions r
+    join app.guide_sections s on s.id = r.section_id
+    join app.agent_grants g on g.id = r.grant_id
+    where s.property_id = ${propertyId} and (s.title, s.body) = (r.after_title, r.after_body)
+    order by r.section_id, r.created_at desc, r.id desc
+  `;
+  const agentChanges = new Map(
+    revisions.map((row) => [
+      row.section_id,
+      {
+        revisionId: row.id,
+        grantName: row.grant_name,
+        changedAt: row.created_at.toISOString(),
+        revertible: row.revertible,
+      },
+    ]),
+  );
   const bySection = new Map<string, GuideTranslation[]>();
   for (const row of translations) {
     const list = bySection.get(row.section_id) ?? [];
@@ -332,6 +360,7 @@ export async function readGuideEditor(
       sourceRevision: section.source_revision,
       published: section.published,
       translations: bySection.get(section.id) ?? [],
+      agentChange: agentChanges.get(section.id) ?? null,
     })),
     timeZones,
   };
@@ -578,6 +607,64 @@ export async function updateSection(tx: postgres.TransactionSql, input: SectionW
     returning source_revision
   `;
   return rows[0]?.source_revision ?? null;
+}
+
+type SectionText = { title: string; body: string };
+
+// Agent writes change title and body only, so a revision row fully describes them (Q21).
+export async function updateSectionText(
+  tx: postgres.TransactionSql,
+  input: { propertyId: string; sectionId: string; title: string; body: string },
+): Promise<{ before: SectionText; sourceRevision: number } | null> {
+  const parsed = canonicalInput(sectionTextInput, input);
+  const [before] = await tx<SectionText[]>`
+    select title, body from app.guide_sections
+    where id = ${parsed.sectionId} and property_id = ${parsed.propertyId}
+    for update
+  `;
+  if (!before) return null;
+  const [row] = await tx<{ source_revision: number }[]>`
+    update app.guide_sections set title = ${parsed.title}, body = ${parsed.body},
+      source_revision = source_revision + case when (title, body) is distinct from (${parsed.title}, ${parsed.body}) then 1 else 0 end,
+      updated_at = now()
+    where id = ${parsed.sectionId} and property_id = ${parsed.propertyId}
+    returning source_revision
+  `;
+  return { before: { title: before.title, body: before.body }, sourceRevision: row!.source_revision };
+}
+
+export async function insertSectionRevision(
+  tx: postgres.TransactionSql,
+  input: { sectionId: string; grantId: string; before: SectionText | null; after: SectionText },
+): Promise<void> {
+  await tx`
+    insert into app.guide_section_revisions (section_id, grant_id, before_title, before_body, after_title, after_body)
+    values (${input.sectionId}, ${input.grantId}, ${input.before?.title ?? null}, ${input.before?.body ?? null},
+      ${input.after.title}, ${input.after.body})
+  `;
+}
+
+// Only the latest agent change, and only while its text is still live; a host edit since then wins.
+export async function revertSectionRevision(
+  tx: postgres.TransactionSql,
+  input: { propertyId: string; revisionId: string },
+): Promise<{ sourceRevision: number; title: string; body: string } | null> {
+  const parsed = canonicalInput(revertSectionInput, input);
+  const [row] = await tx<{ source_revision: number; title: string; body: string }[]>`
+    update app.guide_sections s set title = r.before_title, body = r.before_body,
+      source_revision = s.source_revision + 1, updated_at = now()
+    from app.guide_section_revisions r
+    where r.id = ${parsed.revisionId} and r.section_id = s.id and s.property_id = ${parsed.propertyId}
+      and r.before_title is not null and (s.title, s.body) = (r.after_title, r.after_body)
+      and (r.before_title, r.before_body) is distinct from (r.after_title, r.after_body)
+      and not exists (
+        select 1 from app.guide_section_revisions n
+        where n.section_id = r.section_id and (n.after_title, n.after_body) = (r.after_title, r.after_body)
+          and (n.created_at, n.id) > (r.created_at, r.id)
+      )
+    returning s.source_revision, s.title, s.body
+  `;
+  return row ? { sourceRevision: row.source_revision, title: row.title, body: row.body } : null;
 }
 
 export async function moveSection(

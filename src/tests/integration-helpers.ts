@@ -104,9 +104,14 @@ export type FnReply = { status: number; body: string; setCookies: string[] };
 export async function fnCall(
   file: string,
   name: string,
-  options: { cookie?: string; jar?: Jar; data?: unknown } = {},
+  options: { cookie?: string; jar?: Jar; data?: unknown; headers?: Record<string, string> } = {},
 ): Promise<FnReply> {
-  const headers: Record<string, string> = { 'x-tsr-serverfn': 'true', origin: APP, referer: `${APP}/` };
+  const headers: Record<string, string> = {
+    ...options.headers,
+    'x-tsr-serverfn': 'true',
+    origin: APP,
+    referer: `${APP}/`,
+  };
   const cookie = options.cookie ?? options.jar?.header();
   if (cookie) headers.cookie = cookie;
   if (options.data !== undefined) headers['content-type'] = 'application/json';

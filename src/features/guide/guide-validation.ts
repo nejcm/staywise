@@ -145,6 +145,13 @@ export const saveSectionInput = z
     ...sectionFieldsShape,
   })
   .refine((value) => value.visibility === 'host' || value.secretValue === '', secretOnlyOnPrivateNote);
+export const sectionTextInput = z.object({
+  propertyId: z.uuid(),
+  sectionId: z.uuid(),
+  title: sectionFieldsShape.title,
+  body: sectionFieldsShape.body,
+});
+export const revertSectionInput = z.object({ propertyId: z.uuid(), revisionId: z.uuid() });
 export const savePropertyInput = propertyFields
   .extend({ propertyId: z.uuid(), theme: guestThemeSchema.optional(), ...essentialsShape })
   .refine(answerHoursPaired, answerHoursPairedIssue);

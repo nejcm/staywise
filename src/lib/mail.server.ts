@@ -5,13 +5,15 @@ import { logEvent } from './log.server';
 // The single server-only mail path; the SMTP provider must stay the one reviewed for Auth.
 const transport = createTransport(serverEnv.smtpUrl);
 
-export type SecurityNotice = 'mfa_enrolled' | 'mfa_unenrolled';
+export type SecurityNotice = 'mfa_enrolled' | 'mfa_unenrolled' | 'agent_grant_created';
 
 const noticeText: Record<SecurityNotice, string> = {
   mfa_enrolled:
     'Multi-factor authentication was enabled on your Staywise host account. If this was not you, sign in and remove it immediately.',
   mfa_unenrolled:
     'Multi-factor authentication was removed from your Staywise host account. If this was not you, contact support immediately.',
+  agent_grant_created:
+    'A new agent access token was created on your Staywise host account. If this was not you, sign in, revoke it under Settings, and contact support.',
 };
 
 // Minimal alert for a new guest message: fixed text, no guest content, no reply address. A failed

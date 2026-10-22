@@ -13,7 +13,7 @@ import {
   type PropertyEssentials,
 } from '../guide/guide.server';
 import { isGuestLocale } from '../guest/guest-ui';
-import { propertyIdInput } from '../guide/guide-validation';
+import { hasControlCharacters, propertyIdInput } from '../guide/guide-validation';
 
 // Canonical guest-link layer: host issuance/rotation/disable and the link-scoped guest read.
 // Host callers run it inside withOwnerContext, guest callers inside withLinkContext, where RLS
@@ -228,6 +228,102 @@ export async function revokeStayLink(
   if (!disabled) return false;
   await tx`delete from app.guest_sessions where share_link_id = ${disabled.id}`;
   return true;
+}
+
+const linkReservationInput = z.object({
+  propertyId: z.uuid(),
+  reservationId: z.uuid(),
+  id: shareIdSchema,
+  hmac: digestSchema,
+});
+
+// Links an existing reservation that has no enabled link and has not ended; returns the expiry only.
+export async function linkReservation(
+  tx: postgres.TransactionSql,
+  input: { propertyId: string; reservationId: string; id: string; hmac: Buffer },
+): Promise<Date | null> {
+  const parsed = canonicalInput(linkReservationInput, input);
+  const [link] = await tx<{ expires_at: Date }[]>`
+    insert into app.share_links (id, secret_hmac, property_id, kind, reservation_id, expires_at)
+    select ${parsed.id}, ${parsed.hmac}, p.id, 'stay', r.id, ((r.stay_end + 1) + time '12:00') at time zone p.timezone
+    from app.reservations r join app.properties p on p.id = r.property_id
+    where r.id = ${parsed.reservationId} and r.property_id = ${parsed.propertyId}
+      and ((r.stay_end + 1) + time '12:00') at time zone p.timezone > now()
+    on conflict (reservation_id) where enabled do nothing
+    returning expires_at
+  `;
+  return link?.expires_at ?? null;
+}
+
+// A new secret for a stay whose link the host cannot copy any more, e.g. one an agent created (Q4).
+export async function reissueStayLink(
+  tx: postgres.TransactionSql,
+  input: { propertyId: string; reservationId: string; id: string; hmac: Buffer },
+): Promise<boolean> {
+  if (!(await revokeStayLink(tx, input))) return false;
+  if (!(await linkReservation(tx, input))) throw new Error('invalid_input');
+  return true;
+}
+
+const nightsBetween = (start: string, end: string) => (Date.parse(end) - Date.parse(start)) / 86_400_000;
+const importedReservation = z
+  .strictObject({
+    source: z
+      .string()
+      .regex(/^[a-z][a-z0-9_-]{0,31}$/, 'Use a short lowercase source such as airbnb')
+      .refine((source) => source !== 'manual', 'Stays added in Staywise cannot be imported over'),
+    externalId: z
+      .string()
+      .trim()
+      .min(1)
+      .max(200)
+      .refine((value) => !hasControlCharacters(value), 'Remove control characters'),
+    stayStart: isoDate,
+    stayEnd: isoDate,
+  })
+  .refine((value) => nightsBetween(value.stayStart, value.stayEnd) >= 0, 'Check-out must be after check-in')
+  .refine((value) => nightsBetween(value.stayStart, value.stayEnd) <= 366, 'A stay is at most a year');
+export const reservationBatchInput = z.object({
+  propertyId: z.uuid(),
+  reservations: z
+    .array(importedReservation)
+    .min(1)
+    .max(100)
+    .refine(
+      (rows) => new Set(rows.map((row) => `${row.source}\n${row.externalId}`)).size === rows.length,
+      'Each source and external id appears once per batch',
+    ),
+});
+
+export type UpsertedReservation = { id: string; source: string; externalId: string; created: boolean };
+
+// Idempotent import on (property_id, source, external_id) (Q6); a date change moves its stay link expiry too.
+export async function upsertReservations(
+  tx: postgres.TransactionSql,
+  input: z.input<typeof reservationBatchInput>,
+): Promise<UpsertedReservation[] | null> {
+  const parsed = canonicalInput(reservationBatchInput, input);
+  const owned = await tx`select id from app.properties where id = ${parsed.propertyId}`;
+  if (owned.length !== 1) return null;
+  const rows = await tx<{ id: string; source: string; external_id: string; created: boolean }[]>`
+    insert into app.reservations (property_id, source, external_id, stay_start, stay_end)
+    select ${parsed.propertyId}, r.source, r.external_id, r.stay_start, r.stay_end
+    from unnest(
+      ${parsed.reservations.map((row) => row.source)}::text[],
+      ${parsed.reservations.map((row) => row.externalId)}::text[],
+      ${parsed.reservations.map((row) => row.stayStart)}::date[],
+      ${parsed.reservations.map((row) => row.stayEnd)}::date[]
+    ) as r(source, external_id, stay_start, stay_end)
+    on conflict (property_id, source, external_id)
+      do update set stay_start = excluded.stay_start, stay_end = excluded.stay_end
+    returning id, source, external_id, xmax = 0 as created
+  `;
+  await tx`
+    update app.share_links l set expires_at = ((r.stay_end + 1) + time '12:00') at time zone p.timezone
+    from app.reservations r join app.properties p on p.id = r.property_id
+    where l.reservation_id = r.id and l.enabled and r.id = any(${rows.map((row) => row.id)}::uuid[])
+  `;
+  return rows.map((row) => ({ id: row.id, source: row.source, externalId: row.external_id, created: row.created }));
 }
 
 // Expired stays drop from the list; their reservation rows leave with the reservation retention.

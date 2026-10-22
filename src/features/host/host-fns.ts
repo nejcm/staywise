@@ -13,10 +13,12 @@ import {
 } from '../auth/auth.server';
 import { applyAuthCookies, isGuardedMutation, requestAuth, runGuarded, type FnError } from '../../lib/fn-guards.server';
 import { recordAudit } from '../../lib/audit.server';
+import { recordSignIn, signInContext } from '../../lib/sign-in-context.server';
 import { otpSendAllowed } from '../auth/auth-limits.server';
 import { sendSecurityNotice } from '../../lib/mail.server';
 import { withOwnerContext } from '../../lib/db.server';
 import { drainAllStorageDeletions } from '../../lib/storage.server';
+import { revokeAllGrants } from '../agent/agent-auth.server';
 import { readOwnProperties } from './host.server';
 import { logEvent } from '../../lib/log.server';
 
@@ -144,7 +146,9 @@ export const mfaVerify = createServerFn({ method: 'POST' })
       applyAuthCookies(auth);
       if (error) return { error: 'invalid_code' } satisfies FnError;
       // A step-up on an existing factor is not a new enrollment: no duplicate audit row or notice.
-      if (!alreadyVerified) {
+      if (alreadyVerified) {
+        await recordSignIn(session.userId, 'mfa_verified', signInContext(getRequest().headers));
+      } else {
         await recordAudit(session.userId, 'mfa_enrolled');
         if (session.email) await sendSecurityNotice(session.email, 'mfa_enrolled');
       }
@@ -163,6 +167,8 @@ export const mfaUnenroll = createServerFn({ method: 'POST' })
       const gate = await aal2Session(auth.client);
       applyAuthCookies(auth, gate.outcome === 'invalid');
       if (gate.outcome !== 'ok') return { error: 'auth_required' } satisfies FnError;
+      // Before the unenroll, so a failure after it can never leave agent grants alive without TOTP (Q24).
+      await withOwnerContext(gate.session.userId, (tx) => revokeAllGrants(tx, gate.session.userId));
       const { error } = await auth.client.auth.mfa.unenroll({ factorId: input.data.factorId });
       applyAuthCookies(auth);
       if (error) return { error: 'unexpected' } satisfies FnError;

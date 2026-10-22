@@ -11,11 +11,17 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as HostRouteImport } from './routes/host'
+import { Route as McpRouteImport } from './routes/mcp'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as DotwellKnownOauthAuthorizationServerRouteImport } from './routes/[.]well-known.oauth-authorization-server'
 import { Route as AuthCallbackRouteImport } from './routes/auth.callback'
 import { Route as AuthSignInRouteImport } from './routes/auth.sign-in'
 import { Route as GShareIdRouteImport } from './routes/g.$shareId'
 import { Route as HostSettingsRouteImport } from './routes/host_.settings'
+import { Route as OauthAuthorizeRouteImport } from './routes/oauth.authorize'
+import { Route as OauthRevokeRouteImport } from './routes/oauth.revoke'
+import { Route as OauthTokenRouteImport } from './routes/oauth.token'
+import { Route as DotwellKnownOauthProtectedResourceMcpRouteImport } from './routes/[.]well-known.oauth-protected-resource.mcp'
 import { Route as GShareIdIndexRouteImport } from './routes/g.$shareId.index'
 import { Route as GShareIdGuideRouteImport } from './routes/g.$shareId.guide'
 import { Route as GShareIdHelpRouteImport } from './routes/g.$shareId.help'
@@ -37,11 +43,22 @@ const HostRoute = HostRouteImport.update({
   path: '/host',
   getParentRoute: () => rootRouteImport,
 } as any)
+const McpRoute = McpRouteImport.update({
+  id: '/mcp',
+  path: '/mcp',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
   getParentRoute: () => rootRouteImport,
 } as any)
+const DotwellKnownOauthAuthorizationServerRoute =
+  DotwellKnownOauthAuthorizationServerRouteImport.update({
+    id: '/.well-known/oauth-authorization-server',
+    path: '/.well-known/oauth-authorization-server',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/auth/callback',
   path: '/auth/callback',
@@ -62,6 +79,27 @@ const HostSettingsRoute = HostSettingsRouteImport.update({
   path: '/host/settings',
   getParentRoute: () => rootRouteImport,
 } as any)
+const OauthAuthorizeRoute = OauthAuthorizeRouteImport.update({
+  id: '/oauth/authorize',
+  path: '/oauth/authorize',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OauthRevokeRoute = OauthRevokeRouteImport.update({
+  id: '/oauth/revoke',
+  path: '/oauth/revoke',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OauthTokenRoute = OauthTokenRouteImport.update({
+  id: '/oauth/token',
+  path: '/oauth/token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DotwellKnownOauthProtectedResourceMcpRoute =
+  DotwellKnownOauthProtectedResourceMcpRouteImport.update({
+    id: '/.well-known/oauth-protected-resource/mcp',
+    path: '/.well-known/oauth-protected-resource/mcp',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const GShareIdIndexRoute = GShareIdIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -118,11 +156,17 @@ const HostPropertiesPropertyIdHeroRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/host': typeof HostRoute
+  '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/g/$shareId': typeof GShareIdRouteWithChildren
   '/host/settings': typeof HostSettingsRoute
+  '/oauth/authorize': typeof OauthAuthorizeRoute
+  '/oauth/revoke': typeof OauthRevokeRoute
+  '/oauth/token': typeof OauthTokenRoute
+  '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/g/$shareId/guide': typeof GShareIdGuideRoute
   '/g/$shareId/help': typeof GShareIdHelpRoute
   '/g/$shareId/exchange': typeof GShareIdExchangeRoute
@@ -137,10 +181,16 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/host': typeof HostRoute
+  '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/host/settings': typeof HostSettingsRoute
+  '/oauth/authorize': typeof OauthAuthorizeRoute
+  '/oauth/revoke': typeof OauthRevokeRoute
+  '/oauth/token': typeof OauthTokenRoute
+  '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/g/$shareId/guide': typeof GShareIdGuideRoute
   '/g/$shareId/help': typeof GShareIdHelpRoute
   '/g/$shareId/exchange': typeof GShareIdExchangeRoute
@@ -156,11 +206,17 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/host': typeof HostRoute
+  '/mcp': typeof McpRoute
   '/privacy': typeof PrivacyRoute
+  '/.well-known/oauth-authorization-server': typeof DotwellKnownOauthAuthorizationServerRoute
   '/auth/callback': typeof AuthCallbackRoute
   '/auth/sign-in': typeof AuthSignInRoute
   '/g/$shareId': typeof GShareIdRouteWithChildren
   '/host_/settings': typeof HostSettingsRoute
+  '/oauth/authorize': typeof OauthAuthorizeRoute
+  '/oauth/revoke': typeof OauthRevokeRoute
+  '/oauth/token': typeof OauthTokenRoute
+  '/.well-known/oauth-protected-resource/mcp': typeof DotwellKnownOauthProtectedResourceMcpRoute
   '/g/$shareId/guide': typeof GShareIdGuideRoute
   '/g/$shareId/help': typeof GShareIdHelpRoute
   '/g/$shareId_/exchange': typeof GShareIdExchangeRoute
@@ -177,11 +233,17 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/host'
+    | '/mcp'
     | '/privacy'
+    | '/.well-known/oauth-authorization-server'
     | '/auth/callback'
     | '/auth/sign-in'
     | '/g/$shareId'
     | '/host/settings'
+    | '/oauth/authorize'
+    | '/oauth/revoke'
+    | '/oauth/token'
+    | '/.well-known/oauth-protected-resource/mcp'
     | '/g/$shareId/guide'
     | '/g/$shareId/help'
     | '/g/$shareId/exchange'
@@ -196,10 +258,16 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/host'
+    | '/mcp'
     | '/privacy'
+    | '/.well-known/oauth-authorization-server'
     | '/auth/callback'
     | '/auth/sign-in'
     | '/host/settings'
+    | '/oauth/authorize'
+    | '/oauth/revoke'
+    | '/oauth/token'
+    | '/.well-known/oauth-protected-resource/mcp'
     | '/g/$shareId/guide'
     | '/g/$shareId/help'
     | '/g/$shareId/exchange'
@@ -214,11 +282,17 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/host'
+    | '/mcp'
     | '/privacy'
+    | '/.well-known/oauth-authorization-server'
     | '/auth/callback'
     | '/auth/sign-in'
     | '/g/$shareId'
     | '/host_/settings'
+    | '/oauth/authorize'
+    | '/oauth/revoke'
+    | '/oauth/token'
+    | '/.well-known/oauth-protected-resource/mcp'
     | '/g/$shareId/guide'
     | '/g/$shareId/help'
     | '/g/$shareId_/exchange'
@@ -234,11 +308,17 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   HostRoute: typeof HostRoute
+  McpRoute: typeof McpRoute
   PrivacyRoute: typeof PrivacyRoute
+  DotwellKnownOauthAuthorizationServerRoute: typeof DotwellKnownOauthAuthorizationServerRoute
   AuthCallbackRoute: typeof AuthCallbackRoute
   AuthSignInRoute: typeof AuthSignInRoute
   GShareIdRoute: typeof GShareIdRouteWithChildren
   HostSettingsRoute: typeof HostSettingsRoute
+  OauthAuthorizeRoute: typeof OauthAuthorizeRoute
+  OauthRevokeRoute: typeof OauthRevokeRoute
+  OauthTokenRoute: typeof OauthTokenRoute
+  DotwellKnownOauthProtectedResourceMcpRoute: typeof DotwellKnownOauthProtectedResourceMcpRoute
   GShareIdExchangeRoute: typeof GShareIdExchangeRoute
   GShareIdHeroRoute: typeof GShareIdHeroRoute
   GShareIdMessageRoute: typeof GShareIdMessageRoute
@@ -263,11 +343,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof HostRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mcp': {
+      id: '/mcp'
+      path: '/mcp'
+      fullPath: '/mcp'
+      preLoaderRoute: typeof McpRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/privacy': {
       id: '/privacy'
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/oauth-authorization-server': {
+      id: '/.well-known/oauth-authorization-server'
+      path: '/.well-known/oauth-authorization-server'
+      fullPath: '/.well-known/oauth-authorization-server'
+      preLoaderRoute: typeof DotwellKnownOauthAuthorizationServerRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth/callback': {
@@ -296,6 +390,34 @@ declare module '@tanstack/react-router' {
       path: '/host/settings'
       fullPath: '/host/settings'
       preLoaderRoute: typeof HostSettingsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/oauth/authorize': {
+      id: '/oauth/authorize'
+      path: '/oauth/authorize'
+      fullPath: '/oauth/authorize'
+      preLoaderRoute: typeof OauthAuthorizeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/oauth/revoke': {
+      id: '/oauth/revoke'
+      path: '/oauth/revoke'
+      fullPath: '/oauth/revoke'
+      preLoaderRoute: typeof OauthRevokeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/oauth/token': {
+      id: '/oauth/token'
+      path: '/oauth/token'
+      fullPath: '/oauth/token'
+      preLoaderRoute: typeof OauthTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/.well-known/oauth-protected-resource/mcp': {
+      id: '/.well-known/oauth-protected-resource/mcp'
+      path: '/.well-known/oauth-protected-resource/mcp'
+      fullPath: '/.well-known/oauth-protected-resource/mcp'
+      preLoaderRoute: typeof DotwellKnownOauthProtectedResourceMcpRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/g/$shareId/': {
@@ -392,11 +514,19 @@ const GShareIdRouteWithChildren = GShareIdRoute._addFileChildren(
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   HostRoute: HostRoute,
+  McpRoute: McpRoute,
   PrivacyRoute: PrivacyRoute,
+  DotwellKnownOauthAuthorizationServerRoute:
+    DotwellKnownOauthAuthorizationServerRoute,
   AuthCallbackRoute: AuthCallbackRoute,
   AuthSignInRoute: AuthSignInRoute,
   GShareIdRoute: GShareIdRouteWithChildren,
   HostSettingsRoute: HostSettingsRoute,
+  OauthAuthorizeRoute: OauthAuthorizeRoute,
+  OauthRevokeRoute: OauthRevokeRoute,
+  OauthTokenRoute: OauthTokenRoute,
+  DotwellKnownOauthProtectedResourceMcpRoute:
+    DotwellKnownOauthProtectedResourceMcpRoute,
   GShareIdExchangeRoute: GShareIdExchangeRoute,
   GShareIdHeroRoute: GShareIdHeroRoute,
   GShareIdMessageRoute: GShareIdMessageRoute,

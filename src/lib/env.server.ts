@@ -39,7 +39,9 @@ export type ServerEnv = {
   appOrigin: string;
   shareHmacKey: string;
   guestAccessDisabled: boolean;
+  agentAccessDisabled: boolean;
   mfaRequired: boolean;
+  trustNetlifyGeo: boolean;
   // Absent means translation egress is not configured; a malformed value fails closed at boot.
   googleTranslateServiceAccount: GoogleTranslateCredentials | null;
 };
@@ -112,7 +114,10 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     // Key for share-secret digests and guest rate-limit fingerprints; never leaves the server.
     shareHmacKey: parseValue(env, 'SHARE_HMAC_KEY', appEnv, z.string().min(32)),
     guestAccessDisabled: parseGuestAccessDisabled(env.GUEST_ACCESS_DISABLED),
+    agentAccessDisabled: parseAgentAccessDisabled(env.AGENT_ACCESS_DISABLED, appEnv),
     mfaRequired: parseMfaRequired(env.MFA_REQUIRED),
+    // SITE_ID is a read-only Netlify runtime variable; elsewhere a client could forge `x-nf-geo`.
+    trustNetlifyGeo: appEnv !== 'local' && Boolean(env.SITE_ID) && !env.NETLIFY_DEV,
     googleTranslateServiceAccount: parseGoogleTranslateServiceAccount(env.GOOGLE_TRANSLATE_SERVICE_ACCOUNT),
   };
 }
@@ -124,6 +129,14 @@ function parseGuestAccessDisabled(raw: string | undefined): boolean {
   if (raw === 'true') return true;
   if (raw === 'false') return false;
   throw new Error('GUEST_ACCESS_DISABLED must be true or false');
+}
+
+// Agent access ships off outside local (Q17): only an explicit false turns it on for a deploy.
+function parseAgentAccessDisabled(raw: string | undefined, appEnv: AppEnv): boolean {
+  if (raw === undefined || raw === '') return appEnv !== 'local';
+  if (raw === 'true') return true;
+  if (raw === 'false') return false;
+  throw new Error('AGENT_ACCESS_DISABLED must be true or false');
 }
 
 // Server-only service-role key: magic-link IP forwarding and account deletion. Optional locally,

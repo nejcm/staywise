@@ -113,6 +113,17 @@ describe('parseServerEnv', () => {
     expect(() => parseServerEnv({ APP_ENV: 'local', MFA_REQUIRED: 'no' })).toThrow(/MFA_REQUIRED/);
   });
 
+  it('trusts the Netlify geo header only on a deployed Netlify runtime', () => {
+    const appDbUrl =
+      'postgresql://user:pass@db.example.test:5432/postgres?sslmode=verify-full&sslrootcert=/etc/staywise/db-root-ca.pem';
+    expect(parseServerEnv({ ...remoteEnv(appDbUrl), SITE_ID: 'synthetic-site' }).trustNetlifyGeo).toBe(true);
+    expect(parseServerEnv(remoteEnv(appDbUrl)).trustNetlifyGeo).toBe(false);
+    expect(
+      parseServerEnv({ ...remoteEnv(appDbUrl), SITE_ID: 'synthetic-site', NETLIFY_DEV: 'true' }).trustNetlifyGeo,
+    ).toBe(false);
+    expect(parseServerEnv({ APP_ENV: 'local', SITE_ID: 'synthetic-site' }).trustNetlifyGeo).toBe(false);
+  });
+
   it('accepts only an sb_secret_ Supabase secret key and leaves it unset by default', () => {
     expect(parseServerEnv({ APP_ENV: 'local' }).supabaseSecretKey).toBeNull();
     expect(parseServerEnv({ APP_ENV: 'local', SUPABASE_SECRET_KEY: 'sb_secret_synthetic' }).supabaseSecretKey).toBe(
@@ -135,5 +146,16 @@ describe('parseServerEnv', () => {
     expect(parseServerEnv({ APP_ENV: 'local', GUEST_ACCESS_DISABLED: 'false' }).guestAccessDisabled).toBe(false);
     expect(parseServerEnv({ APP_ENV: 'local', GUEST_ACCESS_DISABLED: 'true' }).guestAccessDisabled).toBe(true);
     expect(() => parseServerEnv({ APP_ENV: 'local', GUEST_ACCESS_DISABLED: 'yes' })).toThrow(/GUEST_ACCESS_DISABLED/);
+  });
+
+  it('keeps agent access off outside local unless explicitly enabled', () => {
+    const remote = remoteEnv(
+      'postgresql://app_runtime:x@db.example.test:5432/postgres?sslmode=verify-full&sslrootcert=/ca.pem',
+    );
+    expect(parseServerEnv({ APP_ENV: 'local' }).agentAccessDisabled).toBe(false);
+    expect(parseServerEnv(remote).agentAccessDisabled).toBe(true);
+    expect(parseServerEnv({ ...remote, AGENT_ACCESS_DISABLED: 'false' }).agentAccessDisabled).toBe(false);
+    expect(parseServerEnv({ APP_ENV: 'local', AGENT_ACCESS_DISABLED: 'true' }).agentAccessDisabled).toBe(true);
+    expect(() => parseServerEnv({ APP_ENV: 'local', AGENT_ACCESS_DISABLED: '1' })).toThrow(/AGENT_ACCESS_DISABLED/);
   });
 });

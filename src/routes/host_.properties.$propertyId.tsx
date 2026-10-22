@@ -1,5 +1,5 @@
 import { Link, createFileRoute, redirect, useBlocker, useNavigate, useRouter } from '@tanstack/react-router';
-import { ArrowDown, ArrowUp, ChevronLeft, Circle, ImageUp, Plus, Trash } from 'lucide-react';
+import { ArrowDown, ArrowUp, Bot, ChevronLeft, Circle, ImageUp, Plus, Trash } from 'lucide-react';
 import { useEffect, useRef, useState, type FormEvent } from 'react';
 import { QrSvg } from '../components/qr-svg';
 import { getHostAuthState } from '../features/host/host-fns';
@@ -8,6 +8,7 @@ import {
   deleteProperty,
   getPropertyEditor,
   moveSectionOrder,
+  revertAgentChange,
   removeHero,
   resyncAlertEmail,
   saveHeroAlt,
@@ -20,6 +21,7 @@ import {
   createStayGuestLink,
   disableGuestLink,
   getGuestLink,
+  reissueStayGuestLink,
   revokeStayGuestLink,
   rotateGuestLink,
 } from '../features/share/share-fns';
@@ -342,6 +344,11 @@ function SectionNavRow({
   const [failed, setFailed] = useState(false);
   const name = sectionName(section);
   const note = section.visibility === 'host' ? 'Private note' : section.published ? null : 'Draft · not published';
+  const agentNote = section.agentChange
+    ? section.agentChange.revertible
+      ? 'Changed by agent'
+      : 'Added by agent'
+    : null;
 
   async function move(direction: 'up' | 'down') {
     setBusy(true);
@@ -370,8 +377,14 @@ function SectionNavRow({
         data-testid="section-item"
       >
         {name}
-        {note ? (
-          <small className={section.visibility === 'guest' ? editorStyles.draftNote : undefined}>{note}</small>
+        {note || agentNote ? (
+          <small>
+            {note ? (
+              <span className={section.visibility === 'guest' ? editorStyles.draftNote : undefined}>{note}</span>
+            ) : null}
+            {note && agentNote ? ' · ' : null}
+            {agentNote ? <span data-testid="section-agent-note">{agentNote}</span> : null}
+          </small>
         ) : null}
       </button>
       <span className={editorStyles.navMoves}>
@@ -663,6 +676,27 @@ function StaysPanel({ propertyId, stays }: { propertyId: string; stays: Stay[] |
     });
   }
 
+  async function reissue(reservationId: string) {
+    if (
+      !(await confirm({
+        title: 'Get a new link for this stay?',
+        body: 'Any earlier link for this stay stops working. Use this for a link your agent set up, or one you no longer have.',
+        confirmLabel: 'New link',
+      }))
+    )
+      return;
+    await act(async () => {
+      const result = await reissueStayGuestLink({ data: { propertyId, reservationId } });
+      if ('error' in result) {
+        fail();
+        return false;
+      }
+      setIssued({ reservationId, url: `${window.location.origin}/g/${result.shareId}#${result.secret}` });
+      setMessage('Stay link ready. Share it now — for security it is never shown again.');
+      return true;
+    });
+  }
+
   async function revoke(reservationId: string) {
     if (
       !(await confirm({
@@ -711,16 +745,27 @@ function StaysPanel({ propertyId, stays }: { propertyId: string; stays: Stay[] |
                 <Pill tone={stay.linkOn ? 'positive' : 'neutral'}>{stay.linkOn ? 'Link on' : 'Revoked'}</Pill>
               </span>
               {stay.linkOn ? (
-                <Button
-                  type="button"
-                  size="sm"
-                  variant="danger"
-                  onClick={() => void revoke(stay.reservationId)}
-                  disabled={busy}
-                  data-testid="stay-revoke"
-                >
-                  Revoke
-                </Button>
+                <span className="actions">
+                  <Button
+                    type="button"
+                    size="sm"
+                    onClick={() => void reissue(stay.reservationId)}
+                    disabled={busy}
+                    data-testid="stay-reissue"
+                  >
+                    New link
+                  </Button>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="danger-outline"
+                    onClick={() => void revoke(stay.reservationId)}
+                    disabled={busy}
+                    data-testid="stay-revoke"
+                  >
+                    Revoke
+                  </Button>
+                </span>
               ) : null}
             </li>
           ))}
@@ -1121,6 +1166,35 @@ function SectionForm({
   const [message, setMessage] = useState('');
   const [messageFailed, setMessageFailed] = useState(false);
   const [busy, setBusy] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+
+  async function revert(revisionId: string) {
+    setBusy(true);
+    setMessage('');
+    setMessageFailed(false);
+    try {
+      const result = await revertAgentChange({ data: { propertyId, revisionId } });
+      if ('error' in result) {
+        setMessage('Could not revert: this section changed since. Edit it by hand.');
+        setMessageFailed(true);
+        return;
+      }
+      setLoadedRevision(result.sourceRevision);
+      // The fields are uncontrolled, so they take the restored text directly.
+      const fields = formRef.current?.elements;
+      if (fields) {
+        (fields.namedItem('title') as HTMLInputElement).value = result.title;
+        (fields.namedItem('body') as HTMLTextAreaElement).value = result.body;
+      }
+      setMessage('Reverted.');
+      await router.invalidate();
+    } catch {
+      setMessage('Something went wrong. Try again.');
+      setMessageFailed(true);
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function submit(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -1201,7 +1275,27 @@ function SectionForm({
         <Pill tone={status.tone}>{status.label}</Pill>
       </div>
       <div hidden={tab !== sourceLocale}>
-        <form onSubmit={submit} noValidate className="stack" data-testid="section-form">
+        {section.agentChange ? (
+          <div className={`${editorStyles.gap} ${editorStyles.agentNote}`} data-testid="agent-change">
+            <span>
+              <Icon icon={Bot} />
+              {section.agentChange.revertible ? 'Changed' : 'Added'} via {section.agentChange.grantName} on{' '}
+              {section.agentChange.changedAt.slice(0, 10)}
+            </span>
+            {section.agentChange.revertible ? (
+              <Button
+                type="button"
+                size="sm"
+                onClick={() => void revert(section.agentChange!.revisionId)}
+                disabled={busy}
+                data-testid="agent-revert"
+              >
+                Revert
+              </Button>
+            ) : null}
+          </div>
+        ) : null}
+        <form ref={formRef} onSubmit={submit} noValidate className="stack" data-testid="section-form">
           <div className={editorStyles.fieldRow}>
             <Field label="Category">
               <select name="category" defaultValue={section.category} data-testid="section-category">
