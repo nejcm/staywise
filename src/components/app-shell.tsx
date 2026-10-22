@@ -62,6 +62,7 @@ export function HostShell({ email, children }: { email?: string | null; children
               <span className={styles.email}>{email}</span>
             </p>
           ) : null}
+          <SignOutButton variant="ghost" />
         </div>
       </header>
       <main className={styles.main}>{children}</main>
