@@ -15,6 +15,6 @@ describe('app routes', () => {
     await router.load();
     const html = renderToString(<RouterProvider router={router} />);
 
-    expect(html).toContain('<h1>Staywise</h1>');
+    expect(html).toMatch(/<h1[^>]*>.*staywise/);
   });
 });

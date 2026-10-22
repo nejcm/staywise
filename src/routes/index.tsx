@@ -15,12 +15,11 @@ export const Route = createFileRoute('/')({
 function HomePage() {
   return (
     <div className={styles.page}>
-      <header className={styles.top}>
-        <Mark />
-      </header>
       <main className={styles.split}>
         <section className={styles.hero}>
-          <h1>Staywise</h1>
+          <h1 className={styles.heroMark}>
+            <Mark />
+          </h1>
           <p>
             Hosts create and publish a guest guide, share it by link or QR code, and answer guest messages. Guests open
             the shared link to read the guide in English, German, Slovenian, French, or Spanish.

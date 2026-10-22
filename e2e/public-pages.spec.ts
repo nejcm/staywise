@@ -2,7 +2,7 @@ import { AxeBuilder } from '@axe-core/playwright';
 import { expect, test } from '@playwright/test';
 
 const pages = [
-  { path: '/', heading: 'Staywise' },
+  { path: '/', heading: /staywise/i },
   { path: '/privacy', heading: /privacy/i },
   { path: '/auth/sign-in', heading: 'A calm guest guide for your rental' },
 ];
