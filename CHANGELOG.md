@@ -1,3 +1,9 @@
+## [1.2.0](https://github.com/nejcm/staywise/compare/v1.1.0...v1.2.0) (2026-10-22)
+
+### Features
+
+* keep server errors in PostHog and email host support requests ([#25](https://github.com/nejcm/staywise/issues/25)) ([bc4aec6](https://github.com/nejcm/staywise/commit/bc4aec6895e080c46810a138620b66d176cfe188))
+
 ## [1.1.0](https://github.com/nejcm/staywise/compare/v1.0.0...v1.1.0) (2026-10-22)
 
 ### Features
