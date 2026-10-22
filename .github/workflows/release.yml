@@ -1,0 +1,39 @@
+name: Release
+
+# Runs only after CI passes on master, so a release never tags an unverified commit.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [master]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    if: github.event.workflow_run.conclusion == 'success' && github.event.workflow_run.event == 'push'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write # push the release commit and tag
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          # The verified SHA, not master's tip; semantic-release skips if master has since moved.
+          ref: ${{ github.event.workflow_run.head_sha }}
+          fetch-depth: 0
+      - uses: oven-sh/setup-bun@v2
+        with:
+          bun-version-file: package.json
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .node-version
+      - run: bun install --frozen-lockfile --ignore-scripts
+      # GITHUB_TOKEN pushes trigger no workflows; `[skip ci]` in the commit also skips the Netlify build.
+      - run: bunx semantic-release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
