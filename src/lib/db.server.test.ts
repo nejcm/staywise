@@ -22,6 +22,7 @@ const localEnv: ServerEnv = {
   mfaRequired: true,
   trustNetlifyGeo: false,
   googleTranslateServiceAccount: null,
+  posthog: null,
 };
 
 describe('dbClientOptions', () => {

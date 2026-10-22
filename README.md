@@ -22,7 +22,7 @@ No app, no guest account, no booking-system integration.
 - **Host workspace.** In-app Host guide (`/host/help`) and inline tips, property list, guide editor with phone and tablet preview, link and QR sharing, cover photo ([ADR 0005](docs/adr/0005-property-hero-image.md)), inbox with one alert per message ([ADR 0001](docs/adr/0001-one-alert-per-message.md)).
 - **Sign-in and security.** Magic link with optional TOTP, device-labelled security activity, immediate account deletion ([ADR 0002](docs/adr/0002-host-account-deletion.md)).
 - **Agent access.** Hosts can connect their own AI agent over MCP with scoped tokens or OAuth ([ADR 0006](docs/adr/0006-agent-access.md)).
-- **Privacy by default.** No message bodies, reply addresses or link secrets in logs; translation egress off unless configured; 90-day retention for messages and audit rows.
+- **Privacy by default.** No message bodies, reply addresses or link secrets in logs; translation egress off unless configured; 90-day retention for messages, audit rows and host reports.
 
 External gates still open: deployment, real SMTP, provider backup/PITR, hosted Auth session policy, Netlify overwriting a client-sent `x-nf-geo`, physical-device checks, the legal privacy policy, and the five-host pilot.
 
@@ -78,6 +78,7 @@ It creates three hosts (`maria-host@example.test`, `tomaz-host@example.test`, `j
 | `AGENT_ACCESS_DISABLED` | no | Agent kill switch: `true` denies every token at `/mcp`, turns off the OAuth endpoints (`/oauth/*` and the `/.well-known` metadata) and hides the settings tokens section; defaults to `true` outside `local` |
 | `MFA_REQUIRED` | no | `true` forces every host to enroll TOTP; default lets hosts opt in from `/host/settings` |
 | `GOOGLE_TRANSLATE_SERVICE_ACCOUNT` | no | Enables guide translation egress; unset means nothing is sent |
+| `VITE_POSTHOG_PROJECT_TOKEN`, `VITE_POSTHOG_HOST` | no | Together enable server error reporting to PostHog (`phc_` project key, `https` host such as the EU or US ingest origin); unset means nothing is sent |
 
 ## Documentation
 

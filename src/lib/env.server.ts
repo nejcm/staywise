@@ -25,6 +25,8 @@ const localDefaults: Record<string, string> = {
   SHARE_HMAC_KEY: 'staywise-local-synthetic-share-hmac-key',
 };
 
+type PostHogConfig = { apiKey: string; host: string };
+
 export type GoogleTranslateCredentials = { clientEmail: string; privateKey: string; projectId: string };
 
 export type ServerEnv = {
@@ -44,6 +46,8 @@ export type ServerEnv = {
   trustNetlifyGeo: boolean;
   // Absent means translation egress is not configured; a malformed value fails closed at boot.
   googleTranslateServiceAccount: GoogleTranslateCredentials | null;
+  // Absent means server errors are not sent to PostHog.
+  posthog: PostHogConfig | null;
 };
 
 // Outside APP_ENV=local the connection must declare verify-full TLS against the project root CA;
@@ -119,6 +123,7 @@ export function parseServerEnv(env: Record<string, string | undefined>): ServerE
     // SITE_ID is a read-only Netlify runtime variable; elsewhere a client could forge `x-nf-geo`.
     trustNetlifyGeo: appEnv !== 'local' && Boolean(env.SITE_ID) && !env.NETLIFY_DEV,
     googleTranslateServiceAccount: parseGoogleTranslateServiceAccount(env.GOOGLE_TRANSLATE_SERVICE_ACCOUNT),
+    posthog: parsePostHog(env.VITE_POSTHOG_PROJECT_TOKEN, env.VITE_POSTHOG_HOST),
   };
 }
 
@@ -177,6 +182,16 @@ function parseGoogleTranslateServiceAccount(raw: string | undefined): GoogleTran
     privateKey: account.data.private_key,
     projectId: account.data.project_id,
   };
+}
+
+// Error reporting egress needs both an explicit key and an explicit https host; a half-set pair fails the boot.
+function parsePostHog(apiKey: string | undefined, host: string | undefined): PostHogConfig | null {
+  if (!apiKey && !host) return null;
+  const parsedHost = z.url({ protocol: /^https$/ }).safeParse(host);
+  if (!apiKey?.startsWith('phc_') || !parsedHost.success) {
+    throw new Error('VITE_POSTHOG_PROJECT_TOKEN (phc_) and an https VITE_POSTHOG_HOST must be set together');
+  }
+  return { apiKey, host: new URL(parsedHost.data).origin };
 }
 
 export const serverEnv: ServerEnv = parseServerEnv(process.env);

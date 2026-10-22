@@ -1,7 +1,7 @@
 import { randomBytes } from 'node:crypto';
 import { createCsrfMiddleware, createMiddleware, createStart } from '@tanstack/react-start';
 import { appEnv } from './lib/env.server';
-import { logEvent } from './lib/log.server';
+import { reportServerError } from './lib/error-reporting.server';
 import { buildSecurityHeaders } from './lib/security-headers.server';
 
 const csrfMiddleware = createCsrfMiddleware({ filter: (ctx) => ctx.handlerType === 'serverFn' });
@@ -44,7 +44,14 @@ const baselineMiddleware = createMiddleware().server(async ({ next, request }) =
     }
     const response = new Response(null, { status: 500 });
     applyBaselineHeaders(response, requestId, noStore, nonce);
-    logEvent('server_error', { requestId, appEnv, method: request.method, path, status: 500, outcome: 'thrown' });
+    await reportServerError(error, {
+      requestId,
+      appEnv,
+      method: request.method,
+      path,
+      status: 500,
+      outcome: 'thrown',
+    });
     return response;
   }
 
@@ -52,7 +59,7 @@ const baselineMiddleware = createMiddleware().server(async ({ next, request }) =
   const html = result.response.headers.get('content-type')?.toLowerCase().startsWith('text/html') ?? false;
   applyBaselineHeaders(result.response, requestId, noStore || html, nonce);
   if (result.response.status >= 500) {
-    logEvent('server_error', {
+    await reportServerError(undefined, {
       requestId,
       appEnv,
       method: request.method,

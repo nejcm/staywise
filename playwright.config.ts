@@ -10,7 +10,7 @@ export default defineConfig({
   use: { baseURL: `http://localhost:${port}`, trace: 'on-first-retry' },
   projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
   webServer: {
-    command: `bun run build && APP_ENV=local APP_ORIGIN=http://localhost:${port} bunx vite preview --port ${port}`,
+    command: `bun run build && VITE_POSTHOG_PROJECT_TOKEN= VITE_POSTHOG_HOST= APP_ENV=local APP_ORIGIN=http://localhost:${port} bunx vite preview --port ${port}`,
     url: `http://localhost:${port}/privacy`,
     reuseExistingServer: !process.env.CI,
     timeout: 120_000,

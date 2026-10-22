@@ -2,7 +2,7 @@ import { getRequest, setResponseHeaders } from '@tanstack/react-start/server';
 import { appEnv, serverEnv } from './env.server';
 import { aal2Session, createRequestAuth, type RequestAuth, type VerifiedSession } from '../features/auth/auth.server';
 import { authCookieHeaders, clearSessionCookies } from '../features/auth/auth-cookies.server';
-import { logEvent } from './log.server';
+import { reportServerError } from './error-reporting.server';
 
 export type FnError = { error: 'auth_required' | 'invalid_input' | 'invalid_code' | 'unexpected' };
 
@@ -11,7 +11,7 @@ export type FnError = { error: 'auth_required' | 'invalid_input' | 'invalid_code
 export async function runGuarded<T>(work: () => Promise<T>): Promise<T | FnError> {
   try {
     return await work();
-  } catch {
+  } catch (error) {
     const meta: Record<string, string | number> = { appEnv, status: 500, outcome: 'thrown' };
     try {
       const request = getRequest();
@@ -20,7 +20,7 @@ export async function runGuarded<T>(work: () => Promise<T>): Promise<T | FnError
     } catch {
       // No request context (in-process call): log only the safe fields.
     }
-    logEvent('server_error', meta);
+    await reportServerError(error, meta);
     return { error: 'unexpected' };
   }
 }
