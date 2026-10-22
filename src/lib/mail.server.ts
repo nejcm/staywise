@@ -1,5 +1,6 @@
 import { createTransport } from 'nodemailer';
 import { serverEnv, appEnv } from './env.server';
+import { renderBrandedMail } from './mail-layout';
 import { logEvent } from './log.server';
 
 // The single server-only mail path; the SMTP provider must stay the one reviewed for Auth.
@@ -24,7 +25,13 @@ export async function sendGuestMessageAlert(to: string): Promise<void> {
       from: serverEnv.smtpFrom,
       to,
       subject: 'You have a new guest message',
-      text: 'You have a new guest message in your Staywise inbox. Sign in to read it.',
+      ...renderBrandedMail({
+        preheader: 'Sign in to read it in your inbox.',
+        heading: 'You have a new guest message',
+        body: 'A guest sent a message through your Staywise guide. Sign in to read it.',
+        action: { label: 'Open inbox', url: `${serverEnv.appOrigin}/host` },
+        footnote: 'For privacy, guest messages are never included in email.',
+      }),
     });
   } catch {
     logEvent('mail_send_failed', { appEnv, status: 500 });
@@ -38,7 +45,13 @@ export async function sendSecurityNotice(to: string, notice: SecurityNotice): Pr
       from: serverEnv.smtpFrom,
       to,
       subject: 'Staywise security change',
-      text: noticeText[notice],
+      ...renderBrandedMail({
+        preheader: 'A security setting changed on your host account.',
+        heading: 'Security change on your account',
+        body: noticeText[notice],
+        action: { label: 'Review your account', url: `${serverEnv.appOrigin}/host/settings` },
+        footnote: 'You are receiving this because your host account security settings changed.',
+      }),
     });
   } catch {
     logEvent('mail_send_failed', { appEnv, status: 500 });

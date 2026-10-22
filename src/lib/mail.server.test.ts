@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest';
 const sendMail = vi.hoisted(() => vi.fn());
 vi.mock('nodemailer', () => ({ createTransport: () => ({ sendMail }) }));
 
+import { renderBrandedMail } from './mail-layout';
 import { sendGuestMessageAlert } from './mail.server';
 
 describe('guest message alert mail', () => {
@@ -14,12 +15,31 @@ describe('guest message alert mail', () => {
     sendMail.mockResolvedValue({});
     await sendGuestMessageAlert('host@example.test');
     expect(sendMail).toHaveBeenCalledTimes(1);
-    expect(sendMail.mock.calls[0]?.[0]).toEqual({
+    const mail = sendMail.mock.calls[0]?.[0];
+    expect(mail).toMatchObject({
       from: 'staywise@example.test',
       to: 'host@example.test',
       subject: 'You have a new guest message',
-      text: 'You have a new guest message in your Staywise inbox. Sign in to read it.',
     });
+    expect(mail.text).toContain('Sign in to read it.');
+    expect(mail.html).toContain('staywise');
+    expect(mail.html).toContain('/host"');
+  });
+
+  it('escapes markup in rendered mail', () => {
+    const { html } = renderBrandedMail({
+      preheader: '',
+      heading: '<b>x</b>',
+      body: '',
+      footnote: '',
+    });
+    expect(html).not.toContain('<b>x</b>');
+  });
+
+  it('keeps the guest message alert free of guest content', async () => {
+    sendMail.mockResolvedValue({});
+    await sendGuestMessageAlert('host@example.test');
+    expect(JSON.stringify(sendMail.mock.calls[0]?.[0])).not.toMatch(/reply|property/i);
   });
 
   it('swallows a transport failure so the stored inbox item stands', async () => {
