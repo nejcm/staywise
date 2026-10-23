@@ -60,7 +60,7 @@ It creates three hosts (`maria-host@example.test`, `tomaz-host@example.test`, `j
 
 ## Releases
 
-[semantic-release](https://semantic-release.gitbook.io) runs in `.github/workflows/release.yml` after CI passes on `master`. Conventional commits decide the bump (`fix`/`perf` → patch, `feat` → minor, `!` or `BREAKING CHANGE:` → major); it updates `package.json` and `CHANGELOG.md`, commits them as `chore(release): X.Y.Z [skip ci]`, and tags `vX.Y.Z`. Config: `.releaserc.json`. Preview locally on an up-to-date `master` with `bunx semantic-release --dry-run --no-ci`.
+[semantic-release](https://semantic-release.gitbook.io) runs in `.github/workflows/release.yml` after CI passes on `master`. Conventional commits decide the bump (`fix`/`perf` → patch, `feat` → minor, `!` or `BREAKING CHANGE:` → major); it updates `package.json` and `CHANGELOG.md`, commits them as `chore(release): vX.Y.Z [skip ci]`, and tags `vX.Y.Z`. Config: `.releaserc.json`. Preview locally on an up-to-date `master` with `bunx semantic-release --dry-run --no-ci`.
 
 ## Configuration
 
