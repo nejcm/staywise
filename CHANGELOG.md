@@ -1,3 +1,13 @@
+## [1.3.1](https://github.com/nejcm/staywise/compare/v1.3.0...v1.3.1) (2026-10-23)
+
+### Bug Fixes
+
+* **host:** refresh the property list after create, copy and delete ([897cabc](https://github.com/nejcm/staywise/commit/897cabcb2fe78562bf787dfbaad157c59d53d6e0))
+
+### Performance Improvements
+
+* **host:** trim Auth and DB round trips on host pages ([aa784a2](https://github.com/nejcm/staywise/commit/aa784a2c9de6c89bc50564923b2636c40007d594))
+
 ## [1.3.0](https://github.com/nejcm/staywise/compare/v1.2.0...v1.3.0) (2026-10-23)
 
 ### Features
