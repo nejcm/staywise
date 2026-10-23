@@ -14,6 +14,8 @@ export function getRouter() {
   return createRouter({
     routeTree,
     scrollRestoration: true,
+    defaultPreload: 'intent',
+    defaultStaleTime: 30_000,
     ssr: { nonce: requestNonce() },
   });
 }

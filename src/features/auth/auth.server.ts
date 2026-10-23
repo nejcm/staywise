@@ -1,5 +1,5 @@
 import { createServerClient, parseCookieHeader } from '@supabase/ssr';
-import { createClient, type SupabaseClient } from '@supabase/supabase-js';
+import { createClient, type Factor, type SupabaseClient } from '@supabase/supabase-js';
 import { serverEnv } from '../../lib/env.server';
 import { authCookieHeaders, clearCodeVerifierCookies, type AuthCookie } from './auth-cookies.server';
 import { recordAudit } from '../../lib/audit.server';
@@ -48,11 +48,10 @@ export type HostGate = { state: HostAuthState; session: VerifiedSession | null }
 // A verified authenticator always gates the workspace at AAL2; without one, enrollment is forced
 // only by MFA_REQUIRED (optional enrollment lives on the settings page).
 export async function hostAuthGate(client: SupabaseClient): Promise<HostGate> {
-  const session = await verifiedSession(client);
-  if (!session) return { state: { state: 'signed_out' }, session: null };
-  const { data: factors, error: factorsError } = await client.auth.mfa.listFactors();
-  if (factorsError || !factors) return { state: { state: 'signed_out' }, session: null };
-  const totp = factors.all.filter((factor) => factor.factor_type === 'totp');
+  const identity = await verifiedIdentity(client);
+  if (!identity) return { state: { state: 'signed_out' }, session: null };
+  const { session, factors } = identity;
+  const totp = factors.filter((factor) => factor.factor_type === 'totp');
   const verified = totp.filter((factor) => factor.status === 'verified');
   if (verified.length) {
     const { data: aal } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
@@ -71,24 +70,36 @@ export async function getHostAuthState(client: SupabaseClient): Promise<HostAuth
 export type VerifiedSession = { userId: string; email: string | null };
 
 // Server-side identity check for every request: getUser() asks the Auth server, which rejects
-// revoked sessions (unlike locally verified JWTs), and refreshes expired tokens first.
-export async function verifiedSession(client: SupabaseClient): Promise<VerifiedSession | null> {
+// revoked sessions (unlike locally verified JWTs), and refreshes expired tokens first. Its factors
+// come from the same response, so callers need no separate listFactors round trip.
+async function verifiedIdentity(
+  client: SupabaseClient,
+): Promise<{ session: VerifiedSession; factors: Factor[] } | null> {
   const { data, error } = await client.auth.getUser();
   if (error || !data.user) return null;
-  return { userId: data.user.id, email: data.user.email ?? null };
+  return {
+    session: { userId: data.user.id, email: data.user.email ?? null },
+    factors: data.user.factors ?? [],
+  };
 }
+
+export async function verifiedSession(client: SupabaseClient): Promise<VerifiedSession | null> {
+  return (await verifiedIdentity(client))?.session ?? null;
+}
+
+const hasVerifiedTotp = (factors: Factor[]) =>
+  factors.some((factor) => factor.factor_type === 'totp' && factor.status === 'verified');
 
 export type Aal2Session = { outcome: 'ok'; session: VerifiedSession } | { outcome: 'aal1' } | { outcome: 'invalid' };
 
 // Distinguishes a revoked session (safe to clear) from a valid AAL1 session that only needs the
 // second factor: clearing an AAL1 session would sign the host out of their own step-up.
 export async function aal2Session(client: SupabaseClient): Promise<Aal2Session> {
-  const session = await verifiedSession(client);
-  if (!session) return { outcome: 'invalid' };
-  // listFactors asks the Auth server; the cookie's cached user.factors (and so aal.nextLevel) is client-editable.
-  const { data: factors, error: factorsError } = await client.auth.mfa.listFactors();
-  if (factorsError || !factors) return { outcome: 'aal1' };
-  const needsAal2 = serverEnv.mfaRequired || factors.totp.some((factor) => factor.status === 'verified');
+  const identity = await verifiedIdentity(client);
+  if (!identity) return { outcome: 'invalid' };
+  const { session, factors } = identity;
+  // Factors come from the Auth server's getUser response; the cookie's cached user.factors (and so aal.nextLevel) is client-editable.
+  const needsAal2 = serverEnv.mfaRequired || hasVerifiedTotp(factors);
   if (!needsAal2) return { outcome: 'ok', session };
   const { data: aal } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
   return aal?.currentLevel === 'aal2' ? { outcome: 'ok', session } : { outcome: 'aal1' };
@@ -98,11 +109,10 @@ export async function aal2Session(client: SupabaseClient): Promise<Aal2Session> 
 // how a first factor is set up), but once one is verified a new or replacement factor needs AAL2, so a magic-link
 // session alone cannot add an authenticator of its own.
 export async function enrollmentSession(client: SupabaseClient): Promise<Aal2Session> {
-  const session = await verifiedSession(client);
-  if (!session) return { outcome: 'invalid' };
-  const { data: factors, error: factorsError } = await client.auth.mfa.listFactors();
-  if (factorsError || !factors) return { outcome: 'aal1' };
-  if (!factors.totp.some((factor) => factor.status === 'verified')) return { outcome: 'ok', session };
+  const identity = await verifiedIdentity(client);
+  if (!identity) return { outcome: 'invalid' };
+  const { session, factors } = identity;
+  if (!hasVerifiedTotp(factors)) return { outcome: 'ok', session };
   const { data: aal } = await client.auth.mfa.getAuthenticatorAssuranceLevel();
   return aal?.currentLevel === 'aal2' ? { outcome: 'ok', session } : { outcome: 'aal1' };
 }

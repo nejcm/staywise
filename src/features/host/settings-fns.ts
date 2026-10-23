@@ -58,20 +58,21 @@ export const getSettingsPage = createServerFn({ method: 'GET' }).handler(async (
   runGuarded(async () => {
     const host = await workspaceHost();
     if ('redirect' in host) return host;
-    const [page, events] = await Promise.all([
-      withOwnerContext(host.userId, async (tx) => ({
-        settings: await readHostSettings(tx),
-        agent: serverEnv.agentAccessDisabled ? ({ enabled: false } as const) : await readAgentAccess(tx),
-      })),
-      reportedOrNull(withOwnerContext(host.userId, readSecurityActivity)),
-    ]);
+    // One transaction, queries pipelined; the savepoint keeps a failing security-activity read from aborting the rest.
+    const [settings, agent, events] = await withOwnerContext(host.userId, (tx) =>
+      Promise.all([
+        readHostSettings(tx),
+        serverEnv.agentAccessDisabled ? ({ enabled: false } as const) : readAgentAccess(tx),
+        reportedOrNull(tx.savepoint(readSecurityActivity)),
+      ]),
+    );
     return {
-      agent: page.agent,
+      agent,
       securityEvents: events,
       totpFactorIds: host.totpFactorIds,
       email: host.email,
-      settings: page.settings ?? builtInHostSettings,
-      saved: page.settings !== null,
+      settings: settings ?? builtInHostSettings,
+      saved: settings !== null,
       timeZones,
       accountDeletion: serverEnv.supabaseSecretKey !== null,
     };

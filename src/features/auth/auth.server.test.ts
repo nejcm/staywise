@@ -54,7 +54,7 @@ function stubClient(options: StubOptions) {
       getUser: async () =>
         options.userError
           ? { data: { user: null }, error: options.userError }
-          : { data: { user: options.user ?? null }, error: null },
+          : { data: { user: options.user ? { ...options.user, factors: options.factors ?? [] } : null }, error: null },
       mfa: {
         listFactors: async () =>
           options.factorsError
@@ -100,11 +100,6 @@ describe('verifiedSession', () => {
 });
 
 describe('getHostAuthState', () => {
-  it('treats provider factor-list errors as signed out, never as enrollment', async () => {
-    const { client } = stubClient({ user, factorsError: new Error('403 revoked') });
-    expect(await getHostAuthState(client)).toEqual({ state: 'signed_out' });
-  });
-
   it('treats a rejected session as signed out', async () => {
     const { client } = stubClient({ userError: new Error('403 revoked'), factors: [unverifiedFactor] });
     expect(await getHostAuthState(client)).toEqual({ state: 'signed_out' });
@@ -133,7 +128,7 @@ describe('hostAuthGate', () => {
       state: { state: 'workspace', totpFactorIds: [verifiedFactor.id] },
       session: { userId: user.id, email: user.email },
     });
-    const { client: revoked } = stubClient({ user, factorsError: new Error('403 revoked') });
+    const { client: revoked } = stubClient({ userError: new Error('403 revoked') });
     expect(await hostAuthGate(revoked)).toEqual({ state: { state: 'signed_out' }, session: null });
   });
 });
@@ -192,11 +187,6 @@ describe('enrollmentSession', () => {
       outcome: 'ok',
       session: { userId: user.id, email: user.email },
     });
-  });
-
-  it('fails closed when factors cannot be listed', async () => {
-    const { client } = stubClient({ user, factorsError: new Error('503'), currentLevel: 'aal2' });
-    expect(await enrollmentSession(client)).toEqual({ outcome: 'aal1' });
   });
 });
 
