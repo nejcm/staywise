@@ -16,6 +16,7 @@ export function getRouter() {
     scrollRestoration: true,
     defaultPreload: 'intent',
     defaultStaleTime: 30_000,
+    defaultStaleReloadMode: 'blocking',
     ssr: { nonce: requestNonce() },
   });
 }
