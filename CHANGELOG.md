@@ -1,3 +1,10 @@
+## [1.3.3](https://github.com/nejcm/staywise/compare/v1.3.2...v1.3.3) (2026-10-23)
+
+### Bug Fixes
+
+* **host:** clear the router cache after account deletion ([4698e23](https://github.com/nejcm/staywise/commit/4698e23070b45772e0f076cbd2e08ef39263d514))
+* **host:** clear the router cache after the sign-in navigation ([d2de417](https://github.com/nejcm/staywise/commit/d2de417dbb0cfaa57a805f2a60237c30876a56b3))
+
 ## [1.3.2](https://github.com/nejcm/staywise/compare/v1.3.1...v1.3.2) (2026-10-23)
 
 ### Bug Fixes
