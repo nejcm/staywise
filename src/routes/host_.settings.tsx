@@ -601,6 +601,7 @@ function DeleteAccount({
   available: boolean;
 }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const [typed, setTyped] = useState('');
   const [code, setCode] = useState('');
   const [busy, setBusy] = useState(false);
@@ -621,6 +622,7 @@ function DeleteAccount({
         setMessage(deleteFailures[result.error ?? ''] ?? 'Something went wrong. Try again.');
         return;
       }
+      router.clearCache();
       await navigate({ to: '/auth/sign-in', search: { status: 'deleted' } });
     } catch {
       setMessage('Something went wrong. Try again.');

@@ -262,11 +262,19 @@ describe('PropertyDangerZone', () => {
   it('deletes after confirmation and leaves the editor', async () => {
     vi.mocked(deleteProperty).mockResolvedValue({ ok: true } as never);
     const router = await renderEditor();
+    const paths: string[] = [];
+    const invalidate = router.invalidate;
+    const spy = vi.spyOn(router, 'invalidate').mockImplementation((...args) => {
+      paths.push(router.state.location.pathname);
+      return invalidate(...args);
+    });
     await userEvent.click(screen.getByTestId('property-delete'));
     expect(deleteProperty).not.toHaveBeenCalled();
     await acceptConfirm();
     expect(deleteProperty).toHaveBeenCalledWith({ data: { propertyId } });
     await waitFor(() => expect(router.state.location.pathname).toBe('/host'));
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(paths).toEqual([`/host/properties/${propertyId}`]);
   });
 
   it('shows the generic error for an error result', async () => {

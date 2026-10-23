@@ -1,11 +1,11 @@
 // @vitest-environment happy-dom
 import { RouterProvider, createMemoryHistory, createRouter } from '@tanstack/react-router';
-import { cleanup, render, screen } from '@testing-library/react';
+import { cleanup, render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { routeTree } from '../routeTree.gen';
 import { getHostAuthState, getHostPage, listOwnProperties } from '../features/host/host-fns';
-import { createProperty } from '../features/guide/guide-fns';
+import { copyProperty, createProperty, getEditorPage } from '../features/guide/guide-fns';
 
 vi.mock('../features/host/host-fns', () => ({
   getHostAuthState: vi.fn(),
@@ -16,13 +16,20 @@ vi.mock('../features/host/host-fns', () => ({
 vi.mock('../features/guide/guide-fns', () => ({
   copyProperty: vi.fn(),
   createProperty: vi.fn(),
+  getEditorPage: vi.fn(),
   requestSetupSupport: vi.fn(),
 }));
 
-async function renderHost() {
+async function renderHostRouter() {
   const router = createRouter({ routeTree, history: createMemoryHistory({ initialEntries: ['/host'] }) });
   await router.load();
   render(<RouterProvider router={router} />);
+  await screen.findByTestId('host-create-form');
+  return router;
+}
+
+async function renderHost() {
+  await renderHostRouter();
   return screen.findByTestId('host-create-form');
 }
 
@@ -44,8 +51,13 @@ beforeEach(() => {
     .mockResolvedValue({ state: 'workspace', totpFactorIds: ['f1'] });
   vi.mocked(listOwnProperties).mockReset().mockResolvedValue({ error: 'unexpected' });
   vi.mocked(createProperty).mockReset();
+  vi.mocked(copyProperty).mockReset();
+  vi.mocked(getEditorPage).mockReset().mockResolvedValue({ redirect: '/host' });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 describe('host create property', () => {
   it('sends only the name, so the server applies the host settings', async () => {
@@ -125,5 +137,35 @@ describe('host guest activity', () => {
   it('does not nudge for a new link', async () => {
     await renderWith([property({ opens30d: 0, linkCreatedAt: new Date().toISOString() })]);
     expect(screen.queryByText(/No guest opened/)).toBeNull();
+  });
+});
+
+describe('host property mutations', () => {
+  it.each(['create', 'copy'] as const)('invalidates on /host before navigating after %s', async (mutation) => {
+    vi.mocked(listOwnProperties).mockResolvedValue({ properties: [property()], waiting: [] } as never);
+    vi.mocked(createProperty).mockResolvedValue({ propertyId: 'synthetic-id' });
+    vi.mocked(copyProperty).mockResolvedValue({ propertyId: 'synthetic-id' });
+    const router = await renderHostRouter();
+    const paths: string[] = [];
+    const invalidate = router.invalidate;
+    const spy = vi.spyOn(router, 'invalidate').mockImplementation((...args) => {
+      paths.push(router.state.location.pathname);
+      return invalidate(...args);
+    });
+
+    if (mutation === 'create') {
+      await userEvent.type(screen.getByTestId('host-create-name'), 'Synthetic villa');
+      await userEvent.click(screen.getByTestId('host-create-submit'));
+    } else {
+      await userEvent.click(screen.getByTestId('host-property-copy'));
+    }
+
+    expect(mutation === 'create' ? createProperty : copyProperty).toHaveBeenCalledWith({
+      data: mutation === 'create' ? { displayName: 'Synthetic villa' } : { sourcePropertyId: 'p1' },
+    });
+    await waitFor(() => expect(getEditorPage).toHaveBeenCalledWith({ data: { propertyId: 'synthetic-id' } }));
+    await waitFor(() => expect(router.state.isLoading).toBe(false));
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(paths).toEqual(['/host']);
   });
 });

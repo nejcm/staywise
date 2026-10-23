@@ -42,6 +42,7 @@ type StubOptions = {
   userError?: unknown;
   factors?: StubFactor[];
   factorsError?: unknown;
+  omitFactors?: boolean;
   currentLevel?: 'aal1' | 'aal2';
   unenrollErrorFor?: string;
   verifyError?: unknown;
@@ -54,12 +55,20 @@ function stubClient(options: StubOptions) {
       getUser: async () =>
         options.userError
           ? { data: { user: null }, error: options.userError }
-          : { data: { user: options.user ? { ...options.user, factors: options.factors ?? [] } : null }, error: null },
+          : {
+              data: {
+                user: options.user
+                  ? { ...options.user, ...(options.omitFactors ? {} : { factors: options.factors ?? [] }) }
+                  : null,
+              },
+              error: null,
+            },
       mfa: {
-        listFactors: async () =>
+        listFactors: vi.fn(async () =>
           options.factorsError
             ? { data: null, error: options.factorsError }
             : { data: { all: options.factors ?? [], totp: options.factors ?? [] }, error: null },
+        ),
         getAuthenticatorAssuranceLevel: async () => ({
           data: {
             currentLevel: options.currentLevel ?? 'aal1',
@@ -121,7 +130,31 @@ describe('getHostAuthState', () => {
   });
 });
 
+describe('identity factor reads', () => {
+  it.each([hostAuthGate, aal2Session, enrollmentSession])(
+    '%s uses getUser factors without listing them',
+    async (gate) => {
+      const { client } = stubClient({ user, factors: [verifiedFactor], currentLevel: 'aal2' });
+      await gate(client);
+      expect(client.auth.mfa.listFactors).not.toHaveBeenCalled();
+    },
+  );
+});
+
 describe('hostAuthGate', () => {
+  afterEach(() => {
+    mfa.required = true;
+  });
+
+  it.each([true, false])('treats omitted factors as no factors (MFA required: %s)', async (required) => {
+    mfa.required = required;
+    const { client } = stubClient({ user, omitFactors: true });
+    expect(await hostAuthGate(client)).toEqual({
+      state: required ? { state: 'enroll', factorId: null } : { state: 'workspace', totpFactorIds: [] },
+      session: { userId: user.id, email: user.email },
+    });
+  });
+
   it('returns the verified identity with the state and none when signed out', async () => {
     const { client } = stubClient({ user, factors: [verifiedFactor], currentLevel: 'aal2' });
     expect(await hostAuthGate(client)).toEqual({

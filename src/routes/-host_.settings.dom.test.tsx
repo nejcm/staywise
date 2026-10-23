@@ -196,6 +196,12 @@ describe('host settings account deletion', () => {
   it('enables deletion only for the typed account email and sends the fresh code', async () => {
     vi.mocked(deleteAccount).mockResolvedValue({ ok: true });
     await renderSettings();
+    const paths: string[] = [];
+    const clearCache = router.clearCache;
+    const spy = vi.spyOn(router, 'clearCache').mockImplementation((...args) => {
+      paths.push(router.state.location.pathname);
+      return clearCache(...args);
+    });
     const button = screen.getByTestId('account-delete') as HTMLButtonElement;
     await userEvent.type(screen.getByTestId('account-delete-email'), 'other@example.test');
     expect(button.disabled).toBe(true);
@@ -207,6 +213,8 @@ describe('host settings account deletion', () => {
     expect(deleteAccount).toHaveBeenCalledWith({ data: { email: 'Host@Example.test', code: '123456' } });
     await waitFor(() => expect(router.state.location.pathname).toBe('/auth/sign-in'));
     expect((await screen.findByTestId('signin-message')).textContent).toBe('Your account was deleted.');
+    expect(spy).toHaveBeenCalledTimes(1);
+    expect(paths).toEqual(['/host/settings']);
   });
 
   it('asks for no code without an authenticator and explains a rejected code', async () => {
