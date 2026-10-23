@@ -73,6 +73,7 @@ function HostPage() {
         setCreateMessageFailed(true);
         return;
       }
+      await router.invalidate();
       await navigate({
         to: '/host/properties/$propertyId',
         params: { propertyId: result.propertyId },
@@ -96,6 +97,7 @@ function HostPage() {
         setCopyMessageFailed(true);
         return;
       }
+      await router.invalidate();
       await navigate({
         to: '/host/properties/$propertyId',
         params: { propertyId: result.propertyId },

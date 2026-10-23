@@ -1081,6 +1081,7 @@ function AlertPanel({ property }: { property: EditorProperty }) {
 
 function PropertyDangerZone({ propertyId }: { propertyId: string }) {
   const navigate = useNavigate();
+  const router = useRouter();
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState('');
   const [messageFailed, setMessageFailed] = useState(false);
@@ -1103,6 +1104,7 @@ function PropertyDangerZone({ propertyId }: { propertyId: string }) {
         setMessageFailed(true);
         return;
       }
+      await router.invalidate();
       await navigate({ to: '/host' });
     } catch {
       setMessage('Something went wrong. Try again.');

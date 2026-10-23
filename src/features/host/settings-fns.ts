@@ -58,7 +58,7 @@ export const getSettingsPage = createServerFn({ method: 'GET' }).handler(async (
   runGuarded(async () => {
     const host = await workspaceHost();
     if ('redirect' in host) return host;
-    // One transaction, queries pipelined; the savepoint keeps a failing security-activity read from aborting the rest.
+    // One transaction, queries pipelined; the savepoint keeps a failing security-activity read from aborting the rest; keep it the last query queued.
     const [settings, agent, events] = await withOwnerContext(host.userId, (tx) =>
       Promise.all([
         readHostSettings(tx),
