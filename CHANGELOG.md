@@ -1,3 +1,21 @@
+## [1.3.0](https://github.com/nejcm/staywise/compare/v1.2.0...v1.3.0) (2026-10-23)
+
+### Features
+
+* **auth:** invite email, hosted Auth config and URL docs ([ddf70ae](https://github.com/nejcm/staywise/commit/ddf70ae2f0338bf5cc017201fc205a7e35eec074))
+* **host:** open the add-property form in a dialog ([#27](https://github.com/nejcm/staywise/issues/27)) ([9973b5c](https://github.com/nejcm/staywise/commit/9973b5cba59f7e41a6fad073bb33aabdb4e1b276))
+* **logging:** log error class and code on server errors ([6f7579c](https://github.com/nejcm/staywise/commit/6f7579c04cf20beff48a90196dd5301820d85faa))
+* **ui:** add sign out button to host sidebar ([d69325c](https://github.com/nejcm/staywise/commit/d69325ca5c65f4ba23480e3962e8326ab0d69940))
+
+### Bug Fixes
+
+* **ci:** give the e2e job 20 minutes for slow apt installs ([d336e89](https://github.com/nejcm/staywise/commit/d336e89673b4a166125513b85ba463a7c2970922))
+* **deploy:** omit APP_ORIGIN from Netlify secrets scan ([e0f46a0](https://github.com/nejcm/staywise/commit/e0f46a0a775bb5bc8bb211d1a302a80be06fa9bf))
+
+### Performance Improvements
+
+* **host:** cut host page loads to one server call ([#26](https://github.com/nejcm/staywise/issues/26)) ([203d156](https://github.com/nejcm/staywise/commit/203d1565523d39d206d85fe531829af081317217))
+
 ## [1.2.0](https://github.com/nejcm/staywise/compare/v1.1.0...v1.2.0) (2026-10-22)
 
 ### Features
