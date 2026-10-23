@@ -167,5 +167,6 @@ describe('host property mutations', () => {
     await waitFor(() => expect(router.state.isLoading).toBe(false));
     expect(spy).toHaveBeenCalledTimes(1);
     expect(paths).toEqual(['/host']);
+    expect(spy.mock.invocationCallOrder[0]).toBeLessThan(vi.mocked(getEditorPage).mock.invocationCallOrder[0]!);
   });
 });

@@ -214,7 +214,7 @@ describe('host settings account deletion', () => {
     await waitFor(() => expect(router.state.location.pathname).toBe('/auth/sign-in'));
     expect((await screen.findByTestId('signin-message')).textContent).toBe('Your account was deleted.');
     expect(spy).toHaveBeenCalledTimes(1);
-    expect(paths).toEqual(['/host/settings']);
+    expect(paths).toEqual(['/auth/sign-in']);
   });
 
   it('asks for no code without an authenticator and explains a rejected code', async () => {

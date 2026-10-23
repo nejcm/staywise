@@ -622,8 +622,8 @@ function DeleteAccount({
         setMessage(deleteFailures[result.error ?? ''] ?? 'Something went wrong. Try again.');
         return;
       }
-      router.clearCache();
       await navigate({ to: '/auth/sign-in', search: { status: 'deleted' } });
+      router.clearCache();
     } catch {
       setMessage('Something went wrong. Try again.');
     } finally {

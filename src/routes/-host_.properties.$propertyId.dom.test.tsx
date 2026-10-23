@@ -34,7 +34,7 @@ import {
 import type { GuideEditorData } from '../features/guide/guide.server';
 import { expectNamedControlsAndHiddenIcons } from '../tests/a11y';
 
-vi.mock('../features/host/host-fns', () => ({ getHostAuthState: vi.fn() }));
+vi.mock('../features/host/host-fns', () => ({ getHostAuthState: vi.fn(), getHostPage: vi.fn() }));
 vi.mock('../features/guide/guide-fns', () => ({
   createSection: vi.fn(),
   deleteProperty: vi.fn(),
